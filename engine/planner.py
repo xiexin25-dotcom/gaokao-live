@@ -388,6 +388,12 @@ def build_plan(profile: dict) -> dict:
         # 风险惩罚：spread>15 时给 sort_key 一个惩罚（0=正常，1=有风险）
         spread_risk = 1 if (major_spread > 15 and g['n_cold'] > 0) else 0
 
+        # 记录组内命中用户 exclude_kw 的专业名称（不含内置冷门，仅用户主动排除的）
+        excl_in_group = [
+            m['name'] for m in g['majors']
+            if any(k in m['name'] for k in exclude_kw)
+        ] if exclude_kw else []
+
         rows.append({
             **{k: v for k, v in g.items() if k != 'majors'},
             'majors': g['majors'], 'intent': intent, 'top6': top6,
@@ -399,6 +405,7 @@ def build_plan(profile: dict) -> dict:
             'major_spread':    round(major_spread, 1),
             'spread_risk':     spread_risk,
             'n_cold_over_ref': n_cold_over_ref,
+            'excl_in_group':   excl_in_group,   # 用户排除专业中出现在本组的列表
         })
 
     all_results = {r['gcode']: r for r in rows}
@@ -564,6 +571,15 @@ def build_plan(profile: dict) -> dict:
         # 只有在分数达线且目标专业满额时才可能调剂，此时组内专业少反而调剂范围更窄，
         # 因此"专业不足"本身并不构成额外风险，不再发出告警。
         pass
+
+        # 排除专业告警：组内含用户明确排除的专业，无论调剂是否触发均需告知
+        excl = v.get('excl_in_group', [])
+        if excl:
+            v['warn_excl_major'] = True
+            v['warn_msg_excl'] = f"组内含排除专业：{'、'.join(excl[:4])}{'等' if len(excl)>4 else ''}"
+        else:
+            v['warn_excl_major'] = False
+            v['warn_msg_excl'] = ''
 
         # BUG-05：⑤⑥位冷门锚点检查（调剂到冷门比调剂到未填报更可控，但仍需提示）
         cold_anchors = [m['name'] for m in top6_v[4:6] if m.get('kind') == 'cold']
