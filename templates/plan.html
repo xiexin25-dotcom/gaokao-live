@@ -110,9 +110,10 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .vc-maj-toggle:hover{background:rgba(255,255,255,.03)}
 .vc-maj-summary{font-size:10px;color:rgba(255,255,255,.4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vc-maj-arrow{font-size:10px;color:rgba(255,255,255,.25);flex-shrink:0;transition:transform .2s}
-.vc-maj-toggle.open .vc-maj-arrow{transform:rotate(180deg)}
-.vc-majors{border-top:1px solid rgba(255,255,255,.04);padding:8px 12px;display:none;flex-direction:column;gap:3px}
-.vc-majors.open{display:flex}
+.vc-maj-toggle .vc-maj-arrow{transform:rotate(180deg)}
+.vc-maj-toggle.closed .vc-maj-arrow{transform:rotate(0deg)}
+.vc-majors{border-top:1px solid rgba(255,255,255,.04);padding:8px 12px;display:flex;flex-direction:column;gap:3px}
+.vc-majors.closed{display:none}
 .mj-row{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;background:rgba(255,255,255,.02)}
 /* 上下移动按钮 */
 .vc-btn-move{background:rgba(255,255,255,.07);color:rgba(255,255,255,.5);font-size:11px;line-height:1}
@@ -1142,7 +1143,6 @@ function buildVolListHTML(vols, profile){
 
     let warnBadge='';
     if(v.warn_tuidan)           warnBadge=`<div class="warn-badge warn-tuidan">🚨 退档<br>高风险</div>`;
-    else if(v.warn_excl_major)  warnBadge=`<div class="warn-badge warn-excl">🚫 含排除<br>专业</div>`;
     else if(v.warn_cold_anchor) warnBadge=`<div class="warn-badge warn-cold">⚠️ 锚点冷门</div>`;
 
     const warnMsgs=[
@@ -1167,8 +1167,6 @@ function buildVolListHTML(vols, profile){
       <div class="vc-hdr">
         <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0">
           <div class="vc-num" style="color:${c}">${i+1}</div>
-          <button class="vc-btn vc-btn-move" onclick="moveVol('${gcode}',-1)" ${isFirst?'disabled':''} title="上移">▲</button>
-          <button class="vc-btn vc-btn-move" onclick="moveVol('${gcode}', 1)" ${isLast ?'disabled':''} title="下移">▼</button>
         </div>
         <div class="vc-body">
           <div class="vc-school">${v.school}</div>
@@ -1187,7 +1185,9 @@ function buildVolListHTML(vols, profile){
         </div>
         <div class="vc-edit-ctrl">
           ${warnBadge}
-          <div style="display:flex;gap:4px">
+          <div style="display:flex;gap:4px;align-items:center">
+            <button class="vc-btn vc-btn-move" onclick="moveVol('${gcode}',-1)" ${isFirst?'disabled':''} title="上移">▲</button>
+            <button class="vc-btn vc-btn-move" onclick="moveVol('${gcode}', 1)" ${isLast ?'disabled':''} title="下移">▼</button>
             <button class="vc-btn vc-btn-edit" onclick="openVolEdit('${gcode}')">编辑</button>
             <button class="vc-btn vc-btn-del"  onclick="deleteVol('${gcode}')">删除</button>
           </div>
@@ -1419,10 +1419,10 @@ function saveVolEdit(){
 
 // ── 专业列表折叠/展开 ──────────────────────────────────
 function toggleMajors(toggleEl){
-  toggleEl.classList.toggle('open');
+  toggleEl.classList.toggle('closed');
   const majorsEl = toggleEl.nextElementSibling;
   if(majorsEl && majorsEl.classList.contains('vc-majors')){
-    majorsEl.classList.toggle('open');
+    majorsEl.classList.toggle('closed');
   }
 }
 
@@ -1646,7 +1646,7 @@ document.getElementById('btnGen').addEventListener('click',()=>{
         <button class="mp-close" onclick="closeMajorPicker()">×</button>
       </div>
       <div class="mp-search">
-        <input type="text" id="mpSearch" placeholder="搜索专业名称、就业方向、关键词..." oninput="renderMpCards()">
+        <input type="text" id="mpSearch" placeholder="搜索专业名称、就业方向、关键词..." oninput="debouncedRenderMpCards()">
       </div>
     </div>
     <div class="mp-cats" id="mpCats"></div>
@@ -2240,59 +2240,82 @@ function setMpFilter(type, val){
   renderMpCards();
 }
 
+// ── 专业选择器：防抖 + 分页渲染 ──────────────────────────────
+let _mpFilteredList = [];   // 当前过滤结果缓存
+let _mpPageSize = 50;       // 每页显示数
+let _mpRenderedCount = 0;   // 已渲染数量
+
+const debouncedRenderMpCards = (()=>{
+  let t; return ()=>{ clearTimeout(t); t=setTimeout(renderMpCards, 200); };
+})();
+
+function _buildMpCardHTML(m){
+  const isSel = mpSelections.has(m.专业+'_'+m.选科);
+  const hc = MP_HOT_COLOR[m.热度级别]||'#6E7EAB';
+  const kc = MP_KE_COLOR[m.选科]||'#6E7EAB';
+  const hasReport = (window.MP_REPORTS||new Set()).has(m.专业);
+  const reportStrip = hasReport ? `
+    <div class="report-strip" data-report="${m.专业.replace(/"/g,'&quot;')}" data-ke="${m.选科}">
+      <div class="rs-left"><span class="rs-icon">📋</span><span class="rs-text">深度报告</span><span class="rs-sub">学习 · 就业 · 薪资</span></div>
+      <span class="rs-arrow">›</span>
+    </div>` : '';
+  return `<div class="mp-card${isSel?' selected':''}${hasReport?' has-report':''}" data-key="${m.专业}_${m.选科}" data-major="${m.专业.replace(/"/g,'&quot;')}" data-ke="${m.选科}">
+    <div class="mp-card-top">
+      <div><div class="mp-card-cat">${m.门类} · ${m.类别}</div><div class="mp-card-name">${m.专业}</div></div>
+      <div class="mp-hot-icon" title="${m.热度级别}">${MP_HOT_ICON[m.热度级别]}</div>
+    </div>
+    <div class="mp-tags">
+      <span class="mp-tag" style="background:${kc}22;color:${kc}">${m.选科}选科</span>
+      <span class="mp-tag" style="background:${hc}22;color:${hc}">${m.热度级别}</span>
+    </div>
+    ${reportStrip}
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <div style="flex:1;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 8px;text-align:center">
+        <div style="font-size:16px;font-weight:900;color:#4A9EFF">${m.均分}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:1px">吉林录取分</div>
+      </div>
+      <div style="flex:1;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 8px;text-align:center">
+        <div style="font-size:16px;font-weight:900;color:#34C759">${m.院校数}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:1px">招生院校数</div>
+      </div>
+    </div>
+    <div class="mp-sel-mark">✓ 已选择</div>
+  </div>`;
+}
+
 function renderMpCards(){
   const q = (document.getElementById('mpSearch').value||'').trim().toLowerCase();
-  const list = MP_MAJORS.filter(m=>{
+  _mpFilteredList = MP_MAJORS.filter(m=>{
     if(mpCatFilter!=='全部' && m.门类!==mpCatFilter) return false;
     if(mpHotFilter!=='全部' && m.热度级别!==mpHotFilter) return false;
     if(mpKeFilter!=='全部' && m.选科!==mpKeFilter) return false;
-    if(q) return m.专业.includes(q)||m.类别.includes(q)||m.门类.includes(q);
+    if(q) return m.专业.toLowerCase().includes(q)||m.类别.includes(q)||m.门类.includes(q);
     return true;
   });
   const body = document.getElementById('mpBody');
-  if(!list.length){ body.innerHTML='<div class="mp-empty">暂无匹配专业，请调整筛选条件</div>'; return; }
-  body.innerHTML = list.map(m=>{
-    const isSel = mpSelections.has(m.专业+'_'+m.选科);
-    const hc = MP_HOT_COLOR[m.热度级别]||'#6E7EAB';
-    const kc = MP_KE_COLOR[m.选科]||'#6E7EAB';
-    // 深度报告：检查是否有对应文件（已在页面初始化时加载到 window.MP_REPORTS）
-    const hasReport = (window.MP_REPORTS||new Set()).has(m.专业);
-    const reportStrip = hasReport ? `
-      <div class="report-strip" onclick="event.stopPropagation();openReportFloat('${m.专业.replace(/'/g,"\\'")}','${m.选科}')">
-        <div class="rs-left">
-          <span class="rs-icon">📋</span>
-          <span class="rs-text">深度报告</span>
-          <span class="rs-sub">学习 · 就业 · 薪资</span>
-        </div>
-        <span class="rs-arrow">›</span>
-      </div>` : '';
-    return `<div class="mp-card${isSel?' selected':''}${hasReport?' has-report':''}" onclick="toggleMpCard('${m.专业}_${m.选科}',this)">
-      <div class="mp-card-top">
-        <div>
-          <div class="mp-card-cat">${m.门类} · ${m.类别}</div>
-          <div class="mp-card-name">${m.专业}</div>
-        </div>
-        <div class="mp-hot-icon" title="${m.热度级别}">${MP_HOT_ICON[m.热度级别]}</div>
-      </div>
-      <div class="mp-tags">
-        <span class="mp-tag" style="background:${kc}22;color:${kc}">${m.选科}选科</span>
-        <span class="mp-tag" style="background:${hc}22;color:${hc}">${m.热度级别}</span>
-      </div>
-      ${reportStrip}
-      <div style="display:flex;gap:10px;margin-top:6px">
-        <div style="flex:1;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 8px;text-align:center">
-          <div style="font-size:16px;font-weight:900;color:#4A9EFF">${m.均分}</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:1px">吉林录取分</div>
-        </div>
-        <div style="flex:1;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 8px;text-align:center">
-          <div style="font-size:16px;font-weight:900;color:#34C759">${m.院校数}</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:1px">招生院校数</div>
-        </div>
-      </div>
-      <div class="mp-sel-mark">✓ 已选择</div>
-    </div>`;
-  }).join('');
+  if(!_mpFilteredList.length){
+    body.innerHTML='<div class="mp-empty">暂无匹配专业，请调整筛选条件</div>';
+    _mpRenderedCount=0; return;
+  }
+  // 首批渲染
+  const batch = _mpFilteredList.slice(0, _mpPageSize);
+  body.innerHTML = batch.map(_buildMpCardHTML).join('') +
+    (_mpFilteredList.length > _mpPageSize
+      ? `<div id="mpLoadMore" style="text-align:center;padding:14px 0"><button onclick="mpLoadMore()" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);border:none;border-radius:8px;padding:8px 22px;cursor:pointer;font-size:12px">加载更多（${_mpFilteredList.length - _mpPageSize} 个）</button></div>`
+      : '');
+  _mpRenderedCount = batch.length;
   document.getElementById('mpSelCount').textContent = mpSelections.size;
+}
+
+function mpLoadMore(){
+  const next = _mpFilteredList.slice(_mpRenderedCount, _mpRenderedCount + _mpPageSize);
+  const btn = document.getElementById('mpLoadMore');
+  const frag = next.map(_buildMpCardHTML).join('');
+  _mpRenderedCount += next.length;
+  const remaining = _mpFilteredList.length - _mpRenderedCount;
+  if(btn) btn.outerHTML = frag + (remaining > 0
+    ? `<div id="mpLoadMore" style="text-align:center;padding:14px 0"><button onclick="mpLoadMore()" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);border:none;border-radius:8px;padding:8px 22px;cursor:pointer;font-size:12px">加载更多（${remaining} 个）</button></div>`
+    : frag);
 }
 
 function toggleMpCard(key, el){
@@ -2531,11 +2554,14 @@ function vtEl() { return document.getElementById('volTooltip'); }
 
 function bindVolCardHover(){
   document.querySelectorAll('#volList .vol-card').forEach(card=>{
-    card.addEventListener('mouseenter', e=>{
+    // 仅在专业列表区（.vc-majors）触发悬浮窗
+    const majorsEl = card.querySelector('.vc-majors');
+    if(!majorsEl) return;
+    majorsEl.addEventListener('mouseenter', e=>{
       clearTimeout(vtTimer);
       vtTimer = setTimeout(()=> showVolTooltip(e, card), 180);
     });
-    card.addEventListener('mouseleave', ()=>{
+    majorsEl.addEventListener('mouseleave', ()=>{
       clearTimeout(vtTimer);
       setTimeout(()=>{
         if(!vtEl().matches(':hover')){
@@ -2544,7 +2570,7 @@ function bindVolCardHover(){
         }
       }, 80);
     });
-    card.addEventListener('mousemove', e=>{ if(vtVisible) positionVolTooltip(e); });
+    majorsEl.addEventListener('mousemove', e=>{ if(vtVisible) positionVolTooltip(e); });
   });
   const tip = vtEl();
   if(tip) tip.addEventListener('mouseleave', ()=>{
@@ -2834,24 +2860,31 @@ document.addEventListener('click', e=>{
   if(modal && e.target === modal) closeMptModal();
 });
 
-// ── 重写 renderMpCards，绑定 hover 事件 ───────────────
-const _origRenderMpCards = renderMpCards;
-renderMpCards = function(){
-  _origRenderMpCards();
-  // 给每张卡片绑定 hover 事件
-  document.querySelectorAll('#mpBody .mp-card').forEach(card=>{
-    const nameEl = card.querySelector('.mp-card-name');
-    const catEl  = card.querySelector('.mp-card-cat');
-    if(!nameEl) return;
-    const majorName = nameEl.textContent.trim();
-    // 从 cat 文字里提取选科（格式: "门类 · 类别"，选科在 mp-tags 里）
-    const tagEl = card.querySelector('.mp-tag');
-    const ke = tagEl ? tagEl.textContent.replace('选科','').trim() : selKeLei;
-    card.addEventListener('mouseenter', e=>mpCardMouseEnter(e, majorName, ke));
-    card.addEventListener('mouseleave', mpCardMouseLeave);
-    card.addEventListener('mousemove',  mpCardMouseMove);
+// ── 专业选择器：事件委托（替代每张卡片绑定）──────────────────
+(()=>{
+  const body = document.getElementById('mpBody');
+  // 点击委托：卡片选择 + 深度报告
+  body.addEventListener('click', e=>{
+    // 深度报告条带
+    const strip = e.target.closest('.report-strip');
+    if(strip){ e.stopPropagation(); openReportFloat(strip.dataset.report, strip.dataset.ke); return; }
+    // 卡片选择
+    const card = e.target.closest('.mp-card');
+    if(card) toggleMpCard(card.dataset.key, card);
   });
-};
+  // hover 委托
+  body.addEventListener('mouseenter', e=>{
+    const card = e.target.closest('.mp-card');
+    if(card) mpCardMouseEnter(e, card.dataset.major, card.dataset.ke||selKeLei);
+  }, true);
+  body.addEventListener('mouseleave', e=>{
+    const card = e.target.closest('.mp-card');
+    if(card) mpCardMouseLeave(e);
+  }, true);
+  body.addEventListener('mousemove', e=>{
+    if(e.target.closest('.mp-card')) mpCardMouseMove(e);
+  });
+})();
 </script>
 
 <!-- 专业 hover 浮窗 -->
