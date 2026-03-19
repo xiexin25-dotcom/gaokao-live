@@ -1,24 +1,45 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
 *.pyd
 *.egg-info/
+
+# 数据文件（Excel 可能含个人信息或版权）
+data/*.xlsx
+data/*.xls
+data/*.pkl
+data/*.pickle
+
+# 输出文件（生成的志愿表不提交）
+outputs/
+output/
+reports/
+*.xlsx
+*.xls
+
+# 日志
+*.log
+
+# 密钥 / 本地配置
+.env
+config_local.py
+
+# PyInstaller 打包产物
+installer/
 dist/
 build/
 *.spec
 
-# Logs
-*.log
+# IDE
+.vscode/
+.idea/
 
-# Output directories
-output/
-outputs/
-
-# PyInstaller
-*.exe
-*.pkg
-
-# OS
-.DS_Store
+# Windows
 Thumbs.db
+
+# 临时
+*.tmp
+*.bak
+reports.zip
+verify_table.py
+gen_table.py

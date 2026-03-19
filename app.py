@@ -722,7 +722,7 @@ def api_status():
     })
 
 
-REPORTS_DIR = r'C:\Users\谢欣\major_report_system\reports'
+REPORTS_DIR = os.path.join(BASE, 'reports')
 
 @app.route('/api/tiqian')
 def api_tiqian():

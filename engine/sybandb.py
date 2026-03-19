@@ -4,10 +4,14 @@
   SYBAN_MAP[(院校名称, 实验班名称)] = frozenset[分流专业名]
 用于 planner.py 的 classify() 函数识别"实验班包含目标专业"的情形。
 """
-import os, re, pickle
+import os, re, pickle, sys
 from collections import defaultdict
 
-_BASE = os.path.dirname(os.path.dirname(__file__))
+# PyInstaller 打包路径兼容（与 planner.py 保持一致）
+if getattr(sys, 'frozen', False):
+    _BASE = os.path.dirname(sys.executable)
+else:
+    _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _XLSX_PATH   = os.path.join(_BASE, 'data', 'shiyanban.xlsx')
 _CACHE_PATH  = os.path.join(_BASE, 'data', 'syban_cache.pkl')
 _CACHE_VER   = 2          # 改版本号可强制重建缓存

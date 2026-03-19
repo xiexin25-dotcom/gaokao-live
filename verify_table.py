@@ -1,8 +1,11 @@
 """验证生成的志愿表内容"""
-import sys; sys.stdout.reconfigure(encoding='utf-8')
+import sys, os; sys.stdout.reconfigure(encoding='utf-8')
 from openpyxl import load_workbook
 
-wb = load_workbook(r'C:\Users\谢欣\Downloads\大拿_605分_吉林高考志愿表_v2.xlsx')
+_HERE    = os.path.dirname(os.path.abspath(__file__))
+_default = os.path.join(_HERE, 'outputs', '大拿_605分_吉林高考志愿表.xlsx')
+_path    = sys.argv[1] if len(sys.argv) > 1 else _default
+wb = load_workbook(_path)
 ws = wb['志愿总表']
 
 print('序号  梯度    院校名称              城市    层次    专业①目标')
