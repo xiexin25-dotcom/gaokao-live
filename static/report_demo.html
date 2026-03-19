@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>专业报告入口 · Demo</title>
+<style>
+/* ─── 基础 ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:#080F1A;color:#fff;min-height:100vh;padding:24px 16px 60px}
+
+/* ─── 标题说明 ─── */
+.demo-header{max-width:700px;margin:0 auto 24px;padding:14px 18px;background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.25);border-radius:12px}
+.demo-header h2{font-size:15px;font-weight:800;color:#4A9EFF;margin-bottom:4px}
+.demo-header p{font-size:12px;color:rgba(255,255,255,.45);line-height:1.7}
+.demo-label{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:6px;margin-bottom:4px}
+.lbl-new{background:rgba(52,199,89,.15);color:#34C759}
+.lbl-exist{background:rgba(255,255,255,.08);color:rgba(255,255,255,.4)}
+
+/* ─── 专业选择器卡片网格（复刻原版） ─── */
+.mp-grid{max-width:700px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+
+/* ─── 专业卡片（原版样式，has-report 轻金边框） ─── */
+.mp-card{background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.07);border-radius:12px;padding:12px;cursor:pointer;transition:.12s;user-select:none;position:relative}
+.mp-card:hover{background:rgba(74,158,255,.05);border-color:rgba(74,158,255,.4)}
+.mp-card.has-report{border-color:rgba(255,159,10,.30);box-shadow:0 0 0 1px rgba(255,159,10,.10) inset}
+.mp-card.has-report:hover{border-color:rgba(255,159,10,.65);background:rgba(255,159,10,.03)}
+/* 原版 top 行不变：专业名 左 / 热度图标 右 */
+.mp-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px}
+.mp-card-cat{font-size:9px;color:#6E7EAB;margin-bottom:2px}
+.mp-card-name{font-size:13px;font-weight:900;color:#fff;line-height:1.2}
+.mp-hot-icon{font-size:16px;flex-shrink:0}   /* ← 热度图标原位 */
+.mp-tags{display:flex;flex-wrap:wrap;gap:4px}
+.mp-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px}
+.mp-stats{display:flex;gap:10px;margin-top:6px}
+.mp-stat{flex:1;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 8px;text-align:center}
+.mp-stat-val{font-size:16px;font-weight:900}
+.mp-stat-lbl{font-size:9px;color:rgba(255,255,255,.35);margin-top:1px}
+
+/* ─── 深度报告条带（tags 与 stats 之间，始终占位） ─── */
+@keyframes shimmer{
+  0%  {background-position:200% center}
+  100%{background-position:-200% center}
+}
+.report-strip{
+  display:flex;align-items:center;justify-content:space-between;
+  margin:7px 0 0;padding:6px 10px;border-radius:8px;
+  border:1px solid rgba(255,159,10,.50);
+  background:linear-gradient(90deg,
+    rgba(255,159,10,.12) 0%,
+    rgba(255,207,80,.22) 40%,
+    rgba(255,159,10,.12) 80%
+  );
+  background-size:200% auto;
+  animation:shimmer 3s linear infinite;
+  cursor:pointer;transition:border-color .15s,box-shadow .15s;
+}
+.mp-card.has-report:hover .report-strip,
+.mp-card.has-report.bar-open .report-strip{
+  border-color:#FF9F0A;
+  box-shadow:0 0 10px rgba(255,159,10,.25);
+}
+.report-strip-left{display:flex;align-items:center;gap:6px}
+.report-strip-icon{font-size:13px;line-height:1}
+.report-strip-text{
+  font-size:11px;font-weight:900;color:#FFBB44;
+  letter-spacing:.5px;text-shadow:0 0 8px rgba(255,180,50,.5);
+}
+.report-strip-text em{
+  font-style:normal;font-size:9px;font-weight:700;
+  color:rgba(255,180,80,.65);margin-left:4px;
+}
+.report-strip-arrow{font-size:11px;color:rgba(255,159,10,.6);transition:.15s}
+.mp-card.has-report:hover .report-strip-arrow{color:#FF9F0A;transform:translateX(2px)}
+
+
+/* ─── 悬浮窗 (Floating Panel) ─── */
+#floatPanel{
+  display:none;position:fixed;z-index:1000;
+  width:min(560px,96vw);
+  height:min(75vh,680px);
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  background:#0D1E35;border:1px solid rgba(255,159,10,.4);
+  border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.8);
+  flex-direction:column;overflow:hidden;
+}
+#floatPanel.show{display:flex;animation:popIn .22s ease}
+@keyframes popIn{from{opacity:0;transform:translate(-50%,-50%) scale(.93)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+.fp-header{
+  display:flex;align-items:center;padding:14px 18px;
+  border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0;
+  background:linear-gradient(90deg,rgba(255,159,10,.08),transparent);
+}
+.fp-icon{font-size:20px;margin-right:10px}
+.fp-info{flex:1;min-width:0}
+.fp-title{font-size:14px;font-weight:900;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fp-sub{font-size:10px;color:rgba(255,159,10,.8);margin-top:1px}
+.fp-actions{display:flex;gap:6px;flex-shrink:0}
+.fp-btn{padding:5px 10px;border-radius:7px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:.12s}
+.fp-btn-page{background:rgba(255,159,10,.15);color:#FF9F0A;border:1px solid rgba(255,159,10,.4)}
+.fp-btn-page:hover{background:rgba(255,159,10,.28)}
+.fp-btn-close{background:rgba(255,255,255,.06);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1);font-size:14px;padding:5px 9px}
+.fp-btn-close:hover{background:rgba(255,69,58,.2);color:#FF453A;border-color:rgba(255,69,58,.4)}
+
+.fp-body{flex:1;overflow:hidden;position:relative}
+.fp-body iframe{width:100%;height:100%;border:none;background:#f7f9fc}
+.fp-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:#0D1E35;color:rgba(255,255,255,.35);font-size:12px}
+.fp-loading .spinner{width:28px;height:28px;border:3px solid rgba(255,159,10,.15);border-top-color:#FF9F0A;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.fp-footer{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 16px;border-top:1px solid rgba(255,255,255,.06);
+  flex-shrink:0;
+}
+.fp-hint{font-size:10px;color:rgba(255,255,255,.2)}
+.fp-drag-hint{font-size:10px;color:rgba(255,255,255,.15);font-style:italic}
+
+/* ─── 遮罩 ─── */
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;backdrop-filter:blur(3px)}
+#overlay.show{display:block}
+
+/* ─── 详情页容器（全屏） ─── */
+#detailPage{
+  display:none;position:fixed;inset:0;z-index:1100;
+  flex-direction:column;background:#f7f9fc;
+}
+#detailPage.show{display:flex;animation:slideUp .25s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.dp-bar{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 16px;background:rgba(13,33,55,.97);
+  border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0;
+}
+.dp-back{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;border:none;cursor:pointer;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);font-size:12px;font-weight:700;transition:.12s}
+.dp-back:hover{background:rgba(255,255,255,.14);color:#fff}
+.dp-bar-title{font-size:13px;font-weight:900;color:#fff;flex:1}
+.dp-bar-sub{font-size:10px;color:rgba(255,159,10,.8)}
+.dp-body{flex:1;overflow:hidden}
+.dp-body iframe{width:100%;height:100%;border:none}
+
+/* ─── 格式说明 ─── */
+.format-note{max-width:700px;margin:20px auto 0;padding:12px 16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px}
+.format-note h3{font-size:11px;font-weight:800;color:rgba(255,255,255,.5);margin-bottom:8px;letter-spacing:2px}
+.format-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.format-icon{font-size:14px;width:20px;text-align:center}
+.format-txt{font-size:11px;color:rgba(255,255,255,.45);line-height:1.5}
+.format-txt strong{color:rgba(255,255,255,.7)}
+</style>
+</head>
+<body>
+
+<!-- ── Demo 说明 ── -->
+<div class="demo-header">
+  <h2>🎨 专业报告入口 · 界面 Demo</h2>
+  <p>
+    <span class="demo-label lbl-new">NEW</span>有报告的专业显示金色「深度报告」条带，点击直接打开悬浮窗<br>
+    <span class="demo-label lbl-exist">原版</span>无报告的专业保持原样，不受影响<br>
+    <strong>👇 点击「电气工程及其自动化」卡片的深度报告条带，查看效果</strong>
+  </p>
+</div>
+
+<!-- ── 专业卡片网格 ── -->
+<div class="mp-grid">
+
+  <!-- 卡片 A：有报告（电气工程及其自动化） -->
+  <div class="mp-card has-report" id="card-electric">
+    <!-- top 行：专业名 左 / 热度图标 右（完全原版） -->
+    <div class="mp-card-top">
+      <div>
+        <div class="mp-card-cat">工学 · 电气类</div>
+        <div class="mp-card-name">电气工程及其自动化</div>
+      </div>
+      <div class="mp-hot-icon">✨</div>
+    </div>
+    <!-- 标签行（原版） -->
+    <div class="mp-tags">
+      <span class="mp-tag" style="background:rgba(74,158,255,.15);color:#4A9EFF">物理选科</span>
+      <span class="mp-tag" style="background:rgba(255,204,0,.15);color:#FFCC00">较热</span>
+    </div>
+    <!-- ★ 深度报告条带（醒目，始终可见，点击直接开悬浮窗） -->
+    <div class="report-strip" onclick="openFloat('电气工程及其自动化','电气工程及其自动化_物理')">
+      <div class="report-strip-left">
+        <span class="report-strip-icon">📋</span>
+        <span class="report-strip-text">深度报告<em>学习 · 就业 · 薪资</em></span>
+      </div>
+      <span class="report-strip-arrow">›</span>
+    </div>
+    <div class="mp-stats">
+      <div class="mp-stat">
+        <div class="mp-stat-val" style="color:#4A9EFF">524</div>
+        <div class="mp-stat-lbl">吉林录取分</div>
+      </div>
+      <div class="mp-stat">
+        <div class="mp-stat-val" style="color:#34C759">68</div>
+        <div class="mp-stat-lbl">招生院校数</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 卡片 B：无报告（动物科学，原版样式不变） -->
+  <div class="mp-card">
+    <div class="mp-card-top">
+      <div>
+        <div class="mp-card-cat">农学 · 动物生产类</div>
+        <div class="mp-card-name">动物科学</div>
+      </div>
+      <div class="mp-hot-icon">✨</div>
+    </div>
+    <div class="mp-tags">
+      <span class="mp-tag" style="background:rgba(74,158,255,.15);color:#4A9EFF">物理选科</span>
+      <span class="mp-tag" style="background:rgba(255,204,0,.15);color:#FFCC00">较热</span>
+    </div>
+    <div class="mp-stats">
+      <div class="mp-stat">
+        <div class="mp-stat-val" style="color:#4A9EFF">473</div>
+        <div class="mp-stat-lbl">吉林录取分</div>
+      </div>
+      <div class="mp-stat">
+        <div class="mp-stat-val" style="color:#34C759">27</div>
+        <div class="mp-stat-lbl">招生院校数</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 卡片 C：无报告（计算机科学与技术） -->
+  <div class="mp-card">
+    <div class="mp-card-top">
+      <div>
+        <div class="mp-card-cat">工学 · 计算机类</div>
+        <div class="mp-card-name">计算机科学与技术</div>
+      </div>
+      <div class="mp-hot-icon">🔥</div>
+    </div>
+    <div class="mp-tags">
+      <span class="mp-tag" style="background:rgba(74,158,255,.15);color:#4A9EFF">物理选科</span>
+      <span class="mp-tag" style="background:rgba(255,69,58,.15);color:#FF453A">高热</span>
+    </div>
+    <div class="mp-stats">
+      <div class="mp-stat">
+        <div class="mp-stat-val" style="color:#4A9EFF">562</div>
+        <div class="mp-stat-lbl">吉林录取分</div>
+      </div>
+      <div class="mp-stat">
+        <div class="mp-stat-val" style="color:#34C759">112</div>
+        <div class="mp-stat-lbl">招生院校数</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 卡片 D：示意第二个"有报告"（可扩展） -->
+  <div class="mp-card has-report" style="opacity:.6">
+    <div class="mp-card-top">
+      <div>
+        <div class="mp-card-cat">工学 · 机械类</div>
+        <div class="mp-card-name">机械工程（示例）</div>
+      </div>
+      <div class="mp-hot-icon">✨</div>
+    </div>
+    <div class="mp-tags">
+      <span class="mp-tag" style="background:rgba(74,158,255,.15);color:#4A9EFF">物理选科</span>
+      <span class="mp-tag" style="background:rgba(255,204,0,.15);color:#FFCC00">较热</span>
+    </div>
+    <div class="report-strip">
+      <div class="report-strip-left">
+        <span class="report-strip-icon">📋</span>
+        <span class="report-strip-text">深度报告<em>学习 · 就业 · 薪资</em></span>
+      </div>
+      <span class="report-strip-arrow">›</span>
+    </div>
+    <div class="mp-stats">
+      <div class="mp-stat"><div class="mp-stat-val" style="color:#4A9EFF">510</div><div class="mp-stat-lbl">吉林录取分</div></div>
+      <div class="mp-stat"><div class="mp-stat-val" style="color:#34C759">85</div><div class="mp-stat-lbl">招生院校数</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 格式说明 ── -->
+<div class="format-note">
+  <h3>📌 格式建议</h3>
+  <div class="format-row">
+    <div class="format-icon">✅</div>
+    <div class="format-txt"><strong>HTML（现有）</strong> — 悬浮窗用 iframe 直接嵌入，零转换成本；详情页同样 iframe 全屏渲染，体验最佳</div>
+  </div>
+  <div class="format-row">
+    <div class="format-icon">📄</div>
+    <div class="format-txt"><strong>PDF（推荐生产）</strong> — 可打印、客户留存，通过 <code>skill:pdf</code> 由现有 HTML 批量转换；悬浮窗用 object/embed 嵌入</div>
+  </div>
+  <div class="format-row">
+    <div class="format-icon">💡</div>
+    <div class="format-txt">文件命名规则：<code>reports/专业名_选科.html</code>（如 <code>电气工程及其自动化_物理.html</code>），前端自动匹配，无需手动配置</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 悬浮窗 -->
+<div id="overlay" onclick="closeFloat()"></div>
+<div id="floatPanel">
+  <div class="fp-header">
+    <div class="fp-icon">📄</div>
+    <div class="fp-info">
+      <div class="fp-title" id="fpTitle">—</div>
+      <div class="fp-sub">学习就业深度报告</div>
+    </div>
+    <div class="fp-actions">
+      <button class="fp-btn fp-btn-page" id="fpPageBtn" onclick="switchToPage()">📄 详细报告页</button>
+      <button class="fp-btn fp-btn-close" onclick="closeFloat()">✕</button>
+    </div>
+  </div>
+  <div class="fp-body">
+    <div class="fp-loading" id="fpLoading">
+      <div class="spinner"></div>
+      <span>加载报告中…</span>
+    </div>
+    <iframe id="fpFrame" src="" onload="document.getElementById('fpLoading').style.display='none'"></iframe>
+  </div>
+  <div class="fp-footer">
+    <span class="fp-hint">📎 报告来源：reports/ 目录</span>
+    <span class="fp-drag-hint">可拖动边角调整大小</span>
+  </div>
+</div>
+
+<!-- 详情页（全屏） -->
+<div id="detailPage">
+  <div class="dp-bar">
+    <button class="dp-back" onclick="closePage()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M11 2L5 8l6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      返回专业选择器
+    </button>
+    <div style="flex:1">
+      <div class="dp-bar-title" id="dpTitle">—</div>
+      <div class="dp-bar-sub">学习就业深度报告</div>
+    </div>
+  </div>
+  <div class="dp-body">
+    <iframe id="dpFrame" src=""></iframe>
+  </div>
+</div>
+
+<script>
+let _currentFile = '';
+let _currentName = '';
+
+// 报告文件路径映射（实际项目由后端 /api/reports 返回已有文件列表）
+const REPORT_MAP = {
+  '电气工程及其自动化_物理': '/reports/电气工程及其自动化_物理.html',
+  // 后续按 专业名_选科 命名继续添加
+};
+
+function reportUrl(fileKey){
+  return REPORT_MAP[fileKey] || `/reports/${fileKey}.html`;
+}
+
+/* ── 悬浮窗 ── */
+function openFloat(name, fileKey){
+  _currentFile = fileKey;
+  _currentName = name;
+  document.getElementById('fpTitle').textContent = name;
+  document.getElementById('fpLoading').style.display = 'flex';
+  const frame = document.getElementById('fpFrame');
+  frame.src = reportUrl(fileKey);
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('floatPanel').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeFloat(){
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('floatPanel').classList.remove('show');
+  document.getElementById('fpFrame').src = '';
+  document.body.style.overflow = '';
+}
+
+/* 悬浮窗 → 全屏切换 */
+function switchToPage(){
+  closeFloat();
+  setTimeout(()=> openPage(_currentName, _currentFile), 180);
+}
+
+/* ── 详情页 ── */
+function openPage(name, fileKey){
+  _currentFile = fileKey;
+  _currentName = name;
+  document.getElementById('dpTitle').textContent = name;
+  document.getElementById('dpFrame').src = reportUrl(fileKey);
+  document.getElementById('detailPage').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePage(){
+  document.getElementById('detailPage').classList.remove('show');
+  document.getElementById('dpFrame').src = '';
+  document.body.style.overflow = '';
+}
+
+/* Esc 关闭 */
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape'){
+    if(document.getElementById('detailPage').classList.contains('show')) closePage();
+    else closeFloat();
+  }
+});
+</script>
+</body>
+</html>

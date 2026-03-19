@@ -1,0 +1,1188 @@
+"""
+吉林省高考志愿规划引擎 v3
+核心：根据考生信息从数据源生成40志愿方案（10冲+20稳+10保）
+"""
+import os, sys, pickle, random
+import pandas as pd
+from engine.sybandb import load_syban_map, is_syban_target, matching_majors as syban_matching
+
+# PyInstaller 打包路径兼容
+if getattr(sys, 'frozen', False):
+    _DATA_BASE = os.path.dirname(sys.executable)
+else:
+    _DATA_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_PATH  = os.path.join(_DATA_BASE, 'data', '2026_jilin_gaokao_data.xlsx')
+CACHE_PATH = os.path.join(_DATA_BASE, 'data', 'df_cache.pkl')
+
+LV_LABEL = {1:'985', 2:'211+', 3:'211', 4:'国重点', 5:'省重点', 6:'其他'}
+CR_LABEL  = {1:'一线', 2:'新一线', 3:'二线', 4:'其他'}
+
+def school_level(tag):
+    tag = str(tag) if tag else ''
+    if '985' in tag: return 1
+    if '211' in tag and '双一流' in tag: return 2
+    if '211' in tag or '双一流' in tag: return 3
+    if '国重点' in tag: return 4
+    if '省重点' in tag: return 5
+    return 6
+
+def city_rank(tag):
+    tag = str(tag) if tag else ''
+    if '一线' in tag and '新一线' not in tag: return 1
+    if '新一线' in tag: return 2
+    if '二线' in tag or '省会' in tag: return 3
+    return 4
+
+def ruanke_lv(r):
+    return {'A+':1,'A':2,'B+':3,'B':4}.get(str(r), 5)
+
+KW_LIB = {
+    'CS_AI':   ['计算机','人工智能','软件','信息安全','网络工程','网络空间','智能科学','数据科学','大数据','物联网','微电子','集成电路'],
+    'ELEC':    ['电子信息','通信','电气','自动化','电子科学','光电','机器人','雷达'],
+    'MATH':    ['数学','统计学','数学类','统计学类','精算','信息与计算科学'],
+    'FINANCE': ['金融','经济','财政','保险','投资','国际贸易','财务管理'],
+    'MECH':    ['机械','制造','工业工程','车辆','航空','动力工程','新能源'],
+    'ARCH':    ['建筑学','城乡规划','风景园林','室内设计'],
+    'MED':     ['临床医学','口腔医学','药学','中西医','中药','医学影像','公共卫生'],
+    'LAW':     ['法学','法律','知识产权','国际法','司法'],
+    'TEACH':   ['教育学','小学教育','学前教育','特殊教育','教育技术'],
+    'MGMT':    ['工商管理','行政管理','公共管理','物流管理','人力资源'],
+    'LANG':    ['英语','日语','翻译','汉语言','新闻','传播','广告','播音'],
+    'ART':     ['美术','设计','音乐','舞蹈','表演','影视','数字媒体艺术'],
+    'AGRI':    ['农学','植物','园艺','动物','林学','水产','食品科学'],
+    'CHEM':    ['化工','化学','应用化学','高分子','材料科学','冶金'],
+    'GEO':     ['地质','地理','测绘','采矿','土地资源','海洋'],
+    'CIVIL':   ['土木','交通运输','道路桥梁','水利','港口航道'],
+}
+
+EXCLUDE_PRESETS = {
+    'nursing':  ['护理','助产'],
+    'biochem':  ['生物工程','生化','化工','应用化学','高分子','发酵工程','生物制药'],
+    'medicine': ['临床医学','口腔医学','药学','中西医','中药','医学影像','麻醉','基础医学','护理'],
+    'agri':     ['农学','植物科学','园艺','动物科学','林学','水产','食品科学','农业'],
+    'civil':    ['土木工程','建筑工程','测绘','采矿','地质','水利','港口','船舶','道路桥梁','给排水'],
+    'law':      ['法学','法律','诉讼','司法','法医'],
+    'art':      ['美术','设计艺术','音乐','舞蹈','表演'],
+    'finance':  ['金融','经济学','财政','保险','投资学','国际贸易','会计'],
+    'chem_mat': ['化工','化学工程','应用化学','高分子','材料科学','冶金','采矿'],
+    'lang':     ['英语','日语','德语','法语','翻译','外国语'],
+}
+
+_df_cache = None
+
+def load_raw_df():
+    global _df_cache
+    if _df_cache is not None:
+        return _df_cache
+    if os.path.exists(CACHE_PATH):
+        with open(CACHE_PATH, 'rb') as f:
+            _df_cache = pickle.load(f)
+        return _df_cache
+    import openpyxl
+    wb = openpyxl.load_workbook(DATA_PATH, read_only=True, data_only=True)
+    ws = wb['吉林']
+    headers = [cell.value for cell in ws[3]]
+    seen = {}; new_headers = []
+    for i, h in enumerate(headers):
+        if h is None: h = f'col_{i}'
+        if h in seen: seen[h] += 1; new_headers.append(f'{h}_{seen[h]}')
+        else: seen[h] = 0; new_headers.append(h)
+    data = [row for row in ws.iter_rows(min_row=4, values_only=True) if row[1] is not None]
+    df = pd.DataFrame(data, columns=new_headers)
+    with open(CACHE_PATH, 'wb') as f:
+        pickle.dump(df, f)
+    _df_cache = df
+    wb.close()
+    return df
+
+def build_plan(profile: dict) -> dict:
+    score      = int(profile['score'])
+    ke_lei     = profile.get('ke_lei', '物理')
+    if ke_lei not in ('物理', '历史'):
+        raise ValueError(f"科类必须为'物理'或'历史'，收到: {ke_lei!r}")
+    target_kw  = profile.get('target_kw', [])
+    exclude_kw = profile.get('exclude_kw', [])
+    exclude_ne      = profile.get('exclude_northeast', False)
+    pref_provinces  = profile.get('pref_provinces', [])    # 白名单（包含）
+    exc_provinces   = profile.get('exclude_provinces', []) # 黑名单（排除）
+    inc_types       = profile.get('include_types', [])     # 院校类型白名单
+    exc_types       = profile.get('exclude_types', [])     # 院校类型黑名单
+    fee_max         = profile.get('fee_max', None)          # 学费上限（元），None=不限
+    min_cr          = int(profile.get('min_city_rank', 4))
+    school_pref     = profile.get('school_pref', 'school')
+    slope           = float(profile.get('slope', 150.0))
+    # P6：细化选科要求（3+1+2新高考，物理方向可进一步指定化学/生物/地理等）
+    # 格式：['化学', '生物'] 表示要求"必须含化学且必须含生物"的专业组才保留
+    # 空列表=不限（默认），包含'不限'=仅保留选科要求为"不限"的专业组
+    select_subjects  = profile.get('select_subjects', [])   # 用户已选的再选科
+    student_rank = max(1, int(7806 + (585 - score) * slope))
+
+    df = load_raw_df()
+    d  = df[(df['年份'] == 2025) &
+            (df['科类'] == ke_lei) &
+            (df['批次'] == '本科批') &
+            (df['公私性质'] == '公办')].copy()
+
+    # ── P6 选科要求细化过滤 ─────────────────────────────────────────────
+    # 数据列"选科要求"示例值："物理,化学" / "物理,生物" / "不限" / None
+    # 过滤规则：若用户指定了 select_subjects，则只保留：
+    #   ① 选科要求为空/NaN/不限（对任意选科开放）
+    #   ② 选科要求中包含用户所有指定科目（交集校验）
+    if select_subjects and '选科要求' in d.columns:
+        def _subj_ok(req_val):
+            if not req_val or (isinstance(req_val, float) and pd.isna(req_val)):
+                return True   # 无要求，开放
+            req_str = str(req_val).strip()
+            if req_str in ('不限', '无', ''):
+                return True   # 明确标注不限
+            # 将要求拆分为科目集合（支持逗号、顿号、空格分隔）
+            import re as _re
+            req_set = set(_re.split(r'[，,、\s]+', req_str))
+            req_set.discard('')
+            # 用户选科必须覆盖全部要求科目
+            user_set = set(select_subjects)
+            # 物理/历史已由 ke_lei 确定，无需再检查
+            # 只校验再选科（化学/生物/地理/政治/历史/物理 中的额外要求）
+            extra_req = req_set - {'物理', '历史'}
+            return extra_req.issubset(user_set)
+        mask = d['选科要求'].apply(_subj_ok)
+        # 按专业组聚合：只要组内有一行不满足选科，整个专业组排除
+        # 实际操作：先按专业行过滤，过滤后组内可选专业减少
+        d = d[mask]
+    # ────────────────────────────────────────────────────────────────────
+
+    d['s25']    = pd.to_numeric(d['最低分'],       errors='coerce')
+    d['s24']    = pd.to_numeric(d['最低分_1'],     errors='coerce')
+    d['s23']    = pd.to_numeric(d['最低分_2'],     errors='coerce')
+    d['gmin25'] = pd.to_numeric(d['专业组最低分'],  errors='coerce')
+    d['fee']    = pd.to_numeric(d['学费'],          errors='coerce').fillna(0)
+    d['school_lv'] = d['院校标签'].apply(school_level)
+    d['ruanke_lv'] = d['软科评级'].apply(ruanke_lv)
+    d['city_rank']  = d['城市水平标签'].apply(city_rank)
+
+    # 内置就业差/冷门专业关键词（独立于用户 exclude_kw，始终生效）
+    BUILTIN_COLD = ['合成生物','环境科学','环境工程','大气科学','地球物理',
+                    '天文','水产','草业','考古','古生物','地质']
+
+    # 关键词同时匹配专业名称和院校名称
+    # 例如"师范"匹配不到专业名，但能匹配"北京师范大学"等院校名
+    # 第三路：实验班覆盖目标专业（如"工科试验班"涵盖"电气工程"）
+    _syban_map = load_syban_map()
+
+    def classify(row):
+        major  = str(row['专业名称'])
+        school = str(row['院校名称'])
+        if any(k in major  for k in exclude_kw):   return 'cold'
+        if any(k in major  for k in BUILTIN_COLD): return 'cold'
+        if any(k in major  for k in target_kw):    return 'target'
+        if any(k in school for k in target_kw):    return 'target'  # 院校名兜底
+        # 实验班：检查该(院校,专业名)是否是覆盖目标专业的实验班
+        if target_kw and _syban_map and (school, major) in _syban_map:
+            if is_syban_target(school, major, target_kw):
+                return 'target'
+        return 'other'
+    d['kind'] = d.apply(classify, axis=1)
+
+    if pref_provinces:
+        d = d[d['所在省'].isin(pref_provinces)]
+    else:
+        # 黑名单排除（可与 exclude_ne 叠加）
+        excl = list(exc_provinces)
+        if exclude_ne:
+            excl += ['吉林','辽宁','黑龙江']
+        if excl:
+            d = d[~d['所在省'].isin(excl)]
+
+    # ── 院校类型过滤（匹配 类型 字段，支持多值如"综合 师范"）──
+    if inc_types:
+        mask = d['类型'].apply(lambda t: any(tp in str(t) for tp in inc_types))
+        d = d[mask]
+    if exc_types:
+        mask = d['类型'].apply(lambda t: any(tp in str(t) for tp in exc_types))
+        d = d[~mask]
+
+    if min_cr < 4:
+        d = d[d['city_rank'] <= min_cr]
+
+    # 学费过滤：专业组内所有专业的学费均 ≤ fee_max（NaN视为0，不过滤）
+    if fee_max:
+        # 先算出每个专业组代码的最高学费
+        grp_fee_max = (d.groupby('院校专业组代码')['fee']
+                        .max().fillna(0).rename('grp_fee_max'))
+        d = d.join(grp_fee_max, on='院校专业组代码')
+        d = d[(d['grp_fee_max'] == 0) | (d['grp_fee_max'] <= fee_max)]
+        d = d.drop(columns=['grp_fee_max'], errors='ignore')
+
+    # 逐行聚合专业组
+    groups = {}
+    for _, row in d.iterrows():
+        gc = row['院校专业组代码']
+        if gc not in groups:
+            groups[gc] = {
+                'gcode': gc, 'school': row['院校名称'],
+                'city': row['城市'], 'city_lv': row['城市水平标签'],
+                'gmin25': row['gmin25'], 'school_lv': row['school_lv'],
+                'ruanke_lv': row['ruanke_lv'], 'city_rank': row['city_rank'],
+                'tag': row['院校标签'], 'province': row['所在省'],
+                'majors': [], 'n_target': 0, 'n_cold': 0,
+                'gmin24': None, 'gmin23': None,   # 由专业级推算
+            }
+        g = groups[gc]
+        _major_name = str(row['专业名称'])
+        _school     = str(row['院校名称'])
+        # 若该条目是实验班：记录命中目标的分流专业（高亮用）+ 全量分流专业（展示用）
+        _is_syban = _syban_map and (_school, _major_name) in _syban_map
+        _syban_hits = syban_matching(_school, _major_name, target_kw) if (_is_syban and target_kw) else []
+        _syban_all  = sorted(_syban_map[(_school, _major_name)]) if _is_syban else []
+        g['majors'].append({
+            'name': _major_name, 's25': row['s25'],
+            's24': row['s24'],   's23': row['s23'],
+            'fee': row['fee'],   'kind': row['kind'],
+            'syban_majors': _syban_hits,  # 命中目标专业（高亮）
+            'syban_all':    _syban_all,   # 全量分流专业
+        })
+        # 推算组级多年最低分（取组内所有专业的年度最低值）
+        s24v = row['s24'] if pd.notna(row['s24']) else None
+        s23v = row['s23'] if pd.notna(row['s23']) else None
+        if s24v is not None:
+            g['gmin24'] = min(g['gmin24'], s24v) if g['gmin24'] is not None else s24v
+        if s23v is not None:
+            g['gmin23'] = min(g['gmin23'], s23v) if g['gmin23'] is not None else s23v
+        if row['kind'] == 'target': g['n_target'] += 1
+        if row['kind'] == 'cold':   g['n_cold']   += 1
+
+    def s2r(s):
+        if s is None or (isinstance(s, float) and pd.isna(s)): return 999999
+        return max(1, int((score - float(s)) * slope + student_rank))
+
+    rows = []
+    for gc, g in groups.items():
+        gmin = g['gmin25']
+        if gmin is None or (isinstance(gmin, float) and pd.isna(gmin)): continue
+        # 有 target_kw 时要求组内至少含一个目标专业；无 target_kw 时不过滤（全部专业均视为可选）
+        if target_kw and g['n_target'] == 0: continue
+
+        # 用组内 target 专业最低分作为范围基准（避免混合专业组把 gmin25 拉偏）
+        # 冲稳上限：+25分；保底下限：-150分（允许大差值保底，教育/艺术类专业常见）
+        # 当 target_kw=[] 时，所有非 cold 专业均视为 target
+        all_valid = [m for m in g['majors'] if m['s25'] and not pd.isna(m['s25']) and m['kind'] != 'cold']
+        target_s25_vals = [m['s25'] for m in g['majors']
+                           if m['kind'] == 'target' and m['s25'] and not pd.isna(m['s25'])]
+        ref_vals = target_s25_vals if target_s25_vals else [m['s25'] for m in all_valid]
+        ref = min(ref_vals) if ref_vals else float(gmin)
+        if ref < score - 150 or ref > score + 30: continue
+
+        # 当用户指定 target_kw 时，若组内所有冷门专业的分数均低于目标专业最低分，
+        # 则考生凭目标专业分数录取后不会被调剂到冷门，此时记录 n_cold_over_ref=0 允许入围。
+        n_cold_over_ref = sum(
+            1 for m in g['majors']
+            if m.get('kind') == 'cold'
+            and m.get('s25') is not None and not (isinstance(m['s25'], float) and pd.isna(m['s25']))
+            and m['s25'] > ref
+        )
+
+        # intent：有 target_kw 时取 target 专业，否则取所有非 cold 专业
+        if target_kw:
+            intent = sorted(
+                [m for m in g['majors'] if m['kind'] == 'target' and m['s25'] and not pd.isna(m['s25'])],
+                key=lambda m: -m['s25']
+            )
+        else:
+            intent = sorted(all_valid, key=lambda m: -m['s25'])
+        if not intent: continue
+
+        # 铁律一：差>30分的专业基本无法录取，不放入top6
+        MAX_DIFF = 30
+        intent_filtered = [m for m in intent if m['s25'] <= score + MAX_DIFF]
+        if not intent_filtered:
+            intent_filtered = intent[:1]   # 至少保留一个（最低分的target专业）
+
+        # 补充 other 类专业（分数 ≤ 考生分，未出现在 intent 中）
+        intent_names = {m['name'] for m in intent_filtered}
+        others = sorted(
+            [m for m in g['majors'] if m['kind'] == 'other'
+             and m['name'] not in intent_names
+             and m['s25'] and not pd.isna(m['s25']) and m['s25'] <= score],
+            key=lambda m: -m['s25']
+        )
+
+        # BUG-01修复：合并后全局降序，保证铁律二（组内 s25 不升序）
+        candidates = intent_filtered + others
+        # BUG-04修复：按专业名去重，保留 s25 更高的那条，记录去重数量
+        name_to_major: dict = {}
+        for m in candidates:
+            nm = m['name']
+            if nm not in name_to_major:
+                name_to_major[nm] = m
+            elif (m.get('s25') or 0) > (name_to_major[nm].get('s25') or 0):
+                name_to_major[nm] = m   # 同名取高分版本
+        dedup_count = len(candidates) - len(name_to_major)
+        unique_cands = list(name_to_major.values())
+
+        # 全局按 s25 降序，相同分数时 target 专业优先
+        unique_cands.sort(key=lambda m: (-m['s25'], 0 if m['kind'] == 'target' else 1))
+
+        # 目标专业置顶逻辑：
+        #   情形A：用户指定 target_kw 且目标专业已达录取线（s25 ≤ score）
+        #     → 始终提至①位，移除所有 s25 > top_intent['s25'] 的非目标专业，维持铁律二降序。
+        #     这是必要的：若把高分 other 专业置①，考生会被分配到该专业而非目标专业。
+        #   情形B：无 target_kw 或目标专业超出考生分
+        #     → 仅在与首位差 ≤ 3分 且不破坏降序时才提升（原有逻辑）
+        top_intent = intent_filtered[0] if intent_filtered else None
+        if top_intent and len(unique_cands) >= 1 and unique_cands[0]['name'] != top_intent['name']:
+            if (target_kw
+                    and top_intent['s25'] is not None
+                    and top_intent['s25'] <= score):
+                # 情形A：强制置①，过滤掉分数高于目标专业的非目标候选
+                rest = [m for m in unique_cands
+                        if m['name'] != top_intent['name']
+                        and (m['s25'] is None or m['s25'] <= top_intent['s25'])]
+                unique_cands = [top_intent] + rest
+            elif (top_intent['s25'] is not None
+                    and unique_cands[0]['s25'] is not None
+                    and top_intent['s25'] >= unique_cands[0]['s25'] - 3):
+                # 情形B：3分内微调，仍需保证降序
+                rest = [m for m in unique_cands if m['name'] != top_intent['name']]
+                second_s25 = rest[0]['s25'] if rest else 0
+                if top_intent['s25'] >= (second_s25 or 0):
+                    unique_cands = [top_intent] + rest
+
+        # 补满到6个：从组内所有未选专业（含 cold）中按优先级填满
+        if len(unique_cands) < 6:
+            selected_names = {m['name'] for m in unique_cands}
+            fill_pool = [m for m in g['majors']
+                         if m['name'] not in selected_names
+                         and m.get('s25') and not pd.isna(m['s25'])]
+            # 非cold优先，同优先级内 s25 降序
+            fill_pool.sort(key=lambda m: (1 if m.get('kind') == 'cold' else 0, -m['s25']))
+            needed = 6 - len(unique_cands)
+            unique_cands = unique_cands + fill_pool[:needed]
+            # 重新全局排序维护铁律二
+            unique_cands.sort(key=lambda m: (-m['s25'], 0 if m['kind'] == 'target' else 1))
+
+        top6 = unique_cands[:6]
+
+        # 断言铁律二（调试用：违反时抛出 ValueError）
+        for _i in range(len(top6) - 1):
+            if top6[_i]['s25'] is not None and top6[_i+1]['s25'] is not None:
+                if top6[_i]['s25'] < top6[_i+1]['s25']:
+                    raise ValueError(
+                        f"铁律二违反：{g['school']} "
+                        f"top6[{_i}]={top6[_i]['name']}({top6[_i]['s25']}) "
+                        f"< top6[{_i+1}]={top6[_i+1]['name']}({top6[_i+1]['s25']})"
+                    )
+
+        sc6  = top6[-1]['s25'] if top6 else None
+        safe = bool(sc6 is not None and score >= sc6)
+
+        for m in intent:
+            m['rank25'] = s2r(m['s25'])
+            m['diff']   = round(m['s25'] - score, 1) if m['s25'] else None
+        for m in top6:
+            m['rank25'] = s2r(m['s25'])
+            m['diff']   = round(m['s25'] - score, 1) if m['s25'] else None
+
+        # 规则3：组内专业分差>15 且含非target专业 → 记录风险分
+        all_s25 = [m['s25'] for m in g['majors'] if m['s25'] and not pd.isna(m['s25'])]
+        major_spread = (max(all_s25) - min(all_s25)) if len(all_s25) >= 2 else 0
+        # 风险惩罚：spread>15 时给 sort_key 一个惩罚（0=正常，1=有风险）
+        spread_risk = 1 if (major_spread > 15 and g['n_cold'] > 0) else 0
+
+        rows.append({
+            **{k: v for k, v in g.items() if k != 'majors'},
+            'majors': g['majors'], 'intent': intent, 'top6': top6,
+            'sc6': sc6, 'safe': safe,
+            'dedup_count': dedup_count,
+            'gmin_rank': s2r(gmin),
+            'lv_label': LV_LABEL.get(int(g['school_lv']), '?'),
+            'cr_label': CR_LABEL.get(int(g['city_rank']), '?'),
+            'major_spread':    round(major_spread, 1),
+            'spread_risk':     spread_risk,
+            'n_cold_over_ref': n_cold_over_ref,
+        })
+
+    all_results = {r['gcode']: r for r in rows}
+
+    MC_NOISE = 0.15
+    min_gmin_rank = student_rank / (1 + MC_NOISE)   # 仅用于 MC 仿真参考，不再用于候选池过滤
+
+    if school_pref == 'city':
+        def sort_key(r): return (r.get('spread_risk',0), r['city_rank'], r['school_lv'], r['ruanke_lv'], -float(r['gmin25'] or 0))
+    else:
+        def sort_key(r): return (r.get('spread_risk',0), r['school_lv'], r['city_rank'], r['ruanke_lv'], -float(r['gmin25'] or 0))
+
+    # Bug①修复：加入提档可达性校验（gmin_rank×1.15 ≥ student_rank）
+    # Bug③修复：冲志愿独立排序——先按gmin接近分数线（超分越少越前），同等超分再按院校层次
+    def rush_sort_key(r):
+        gmin_diff = float(r['gmin25']) - score          # 超分越少越好（越接近越前）
+        return (gmin_diff, r['school_lv'], r['city_rank'], r['ruanke_lv'])
+
+    # 冲志愿候选：按超分区间 (score, score+60]，不做 gmin_rank 过滤
+    # 【吉林平行志愿录取规则】
+    # - 服从调剂=True（强制）→ 永不退档。退档仅发生在不服从调剂时，系统强制服从。
+    # - sc6 ≤ 考生分的作用：防被调剂到未填报专业。
+    #   若score < sc6，①-⑥全部达不到 → 调剂触发 → 学校可分配组内任意专业（含未填报的冷门）。
+    #   因此要求 sc6 ≤ 考生分，确保至少录入⑥（考生主动选择的保底专业），而非未知专业。
+    # 冲志愿：gmin25 > score，因此组内所有专业 s25 >= gmin25 > score，
+    # sc6 必然 > score，不能加 sc6<=score 条件（否则永远0冲）。
+    # 冲区的"调剂风险"通过 warn_few_majors/warn_critical 提示即可。
+    def _cold_ok(r):
+        """n_cold==0，或 target_kw 已指定且组内所有冷门专业分数均低于目标专业（不会被调剂到冷门）"""
+        return r['n_cold'] == 0 or (target_kw and r.get('n_cold_over_ref', 0) == 0)
+
+    rush_cands = sorted([r for r in rows
+        if float(r['gmin25']) > score
+        and float(r['gmin25']) <= score + 60
+        and _cold_ok(r)
+    ], key=rush_sort_key)
+
+    # 冲区不足8个时自动扩展候选范围到 score+80
+    if len(rush_cands) < 8:
+        used_gcodes_rush = {r['gcode'] for r in rush_cands}
+        extra_rush = sorted([r for r in rows
+            if float(r['gmin25']) > score + 60
+            and float(r['gmin25']) <= score + 80
+            and _cold_ok(r)
+            and r['gcode'] not in used_gcodes_rush
+        ], key=rush_sort_key)
+        rush_cands = rush_cands + extra_rush
+
+    safe_cands = sorted([r for r in rows
+        if r['sc6'] and score - 45 <= r['sc6'] <= score - 2   # [score-45, score-2]：稳区有效区间
+        and float(r['gmin25']) <= score and _cold_ok(r)
+    ], key=sort_key)
+
+    BAO_SC6_FLOOR = score - 50   # 保区 sc6 下限：差距超 50 分几乎不会被选中，视为冗余槽位
+    bao_cands = sorted([r for r in rows
+        if r['sc6'] and 10 <= score - r['sc6'] <= 50    # 差距 10~50 分：真正的保区
+        and r['gmin25'] and float(r['gmin25']) <= score - 5
+        and _cold_ok(r)
+    ], key=sort_key)
+
+    used_schools = set(); used_codes = set()
+
+    def pick(cands, n):
+        """基础取样，全局去重（同校只取一次）"""
+        res = []
+        for r in cands:
+            if len(res) >= n: break
+            if r['gcode'] in used_codes or r['school'] in used_schools: continue
+            res.append(r)
+            used_schools.add(r['school']); used_codes.add(r['gcode'])
+        return res
+
+    def pick_tiered(cands, n, tier_size=8, max_per_tier=3):
+        """按 sc6 分层取样，保证梯度均匀覆盖，同时按质量优先"""
+        if not cands: return []
+        sc6_vals = [r.get('sc6') or 0 for r in cands if r.get('sc6')]
+        if not sc6_vals: return pick(cands, n)
+        sc6_max = max(sc6_vals)
+        tier_counts = {}
+        res = []
+        for r in cands:
+            if len(res) >= n: break
+            if r['gcode'] in used_codes or r['school'] in used_schools: continue
+            sc6 = r.get('sc6') or 0
+            tier = int((sc6_max - sc6) / tier_size)
+            if tier_counts.get(tier, 0) >= max_per_tier: continue
+            res.append(r)
+            used_codes.add(r['gcode']); used_schools.add(r['school'])
+            tier_counts[tier] = tier_counts.get(tier, 0) + 1
+        # 若分层后仍不足，放开tier限制补充
+        if len(res) < n:
+            for r in cands:
+                if len(res) >= n: break
+                if r['gcode'] in used_codes or r['school'] in used_schools: continue
+                res.append(r)
+                used_codes.add(r['gcode']); used_schools.add(r['school'])
+        return res
+
+    # ── 吉林省本科批平行志愿上限：40个院校专业组 ──
+    # 冲10 + 稳20 + 保10 = 40，与官方上限对齐；稳区加宽覆盖度，减少漏报风险
+    RUSH_N  = 10
+    STABLE_N = 20
+    SAFE_N  = 10
+
+    # 冲志愿：按超分接近优先排序，不做梯度分层
+    rush_sel = pick(rush_cands, RUSH_N)
+
+    # 稳志愿：按sc6分层取样（每8分一档，每档最多4个），保证梯度覆盖20格
+    safe_sel = pick_tiered(safe_cands, STABLE_N, tier_size=8, max_per_tier=4)
+    if len(safe_sel) < 14:
+        extra = sorted([r for r in rows
+            if r['sc6'] and score - 45 <= r['sc6'] <= score - 2   # 稳区补充也限制下限，防止超低sc6学校溢出
+            and r['gmin25'] and float(r['gmin25']) <= score
+            and r['n_cold'] == 0
+            and r['gcode'] not in used_codes], key=sort_key)
+        safe_sel += pick(extra, STABLE_N - len(safe_sel))
+
+    # 保志愿：同样分层取样
+    bao_sel = pick_tiered(bao_cands, SAFE_N, tier_size=8, max_per_tier=3)
+    if len(bao_sel) < 6:
+        extra = sorted([r for r in rows
+            if r['sc6'] and 5 <= score - r['sc6'] <= 55   # 与 bao_cands 放宽5分
+            and r['gmin25'] and float(r['gmin25']) <= score - 5
+            and r['n_cold'] == 0
+            and r['gcode'] not in used_codes], key=sort_key)
+        bao_sel += pick(extra, SAFE_N - len(bao_sel))
+
+    # 规则2：稳/保区内按 sc6 高→低排列（最好的院校先被系统投档匹配）
+    safe_sel_sorted = sorted(safe_sel[:STABLE_N], key=lambda r: -(r.get('sc6') or 0))
+    bao_sel_sorted  = sorted(bao_sel[:SAFE_N],  key=lambda r: -(r.get('sc6') or 0))
+
+    # 稳/保分区独立排序：稳区先 → 保区后，各区内 sc6 降序
+    # 不做全局 sc6 重排，避免稳/保混排（BUG-02旧逻辑已移除）
+    all_safe_bao = ([(r, '稳') for r in safe_sel_sorted] +
+                    [(r, '保') for r in bao_sel_sorted])
+    reorder_info = {}
+
+    # 规则3：冲区排序 —— 质量优先，同质量内 sc6 高→低
+    # 平行志愿按①→⑩投档，好年景多所院校同时达标时录取①号志愿；
+    # 故应把层次最高（school_lv 最小）的学校排①，好年景优先进最好层次的院校。
+    # 同层次内再按 sc6 高→低（更难录的排前），使志愿梯度合理。
+    # 旧逻辑按 gmin_diff 升序（最近最易排①），好年景反而进质量低的学校。
+    rush_sel_sorted = sorted(rush_sel[:RUSH_N],
+                             key=lambda r: (r.get('school_lv', 6), -(r.get('sc6') or 0)))
+
+    # 每个池子携带正确的 tp，不依赖位置推断
+    tagged = [(r, '冲') for r in rush_sel_sorted] + all_safe_bao
+    plan_vols = [{**r, 'tp': tp, 'vol_idx': i+1} for i,(r,tp) in enumerate(tagged)]
+
+    # 【吉林平行志愿录取核心规则】
+    # 1. 服从调剂=True（强制）→ 永不退档。退档仅发生在不服从调剂时。
+    # 2. 录取逻辑：考生分 ≥ 提档线 → 提档 → 按①→⑥顺序匹配专业 → 首个达线即录取。
+    # 3. 若考生分不达①-⑥任何一个 → 调剂触发 → 服从=True则录入组内其他任意专业（含未填报的）。
+    # 4. ⑤⑥的作用：保底锚点。确保考生分 ≥ sc6，则至少录入⑥（主动选择），不触发调剂到未知专业。
+    # 5. 因此 sc6 ≤ 考生分 是选组条件，非防退档，而是防调剂到未填报专业。
+    for v in plan_vols:
+        top6_v = v.get('top6', [])
+        v['diaoji'] = True          # 服从调剂，强制 True，保证永不退档
+        n_maj = len(top6_v)
+
+        # 专业数量不足（稳/保须告警；冲至少需2个以防调剂到未填专业）
+        if v['tp'] in ('稳', '保'):
+            if n_maj == 1:
+                v['warn_critical']   = True
+                v['warn_few_majors'] = True
+                v['warn_msg'] = f"仅1个专业！若分数线涨将触发调剂，可能被分配到未填报专业，强烈建议补充"
+            elif n_maj < 3:
+                v['warn_few_majors'] = True
+                v['warn_msg'] = f"当前仅{n_maj}个专业，建议填满6个以控制调剂方向"
+        elif v['tp'] == '冲' and n_maj < 2:
+            v['warn_critical'] = True
+            v['warn_msg'] = "冲志愿仅1个专业：好年份被提档后易触发调剂，建议增加⑤⑥保底专业"
+
+        # BUG-05：⑤⑥位冷门锚点检查（调剂到冷门比调剂到未填报更可控，但仍需提示）
+        cold_anchors = [m['name'] for m in top6_v[4:6] if m.get('kind') == 'cold']
+        if cold_anchors:
+            v['warn_cold_anchor'] = True
+            v['warn_msg_cold'] = (
+                f"⑤或⑥保底专业含就业差方向：{'、'.join(cold_anchors)}，"
+                f"触发调剂时将录入该专业，请确认是否可接受"
+            )
+
+    return {
+        'plan_vols': plan_vols, 'all_results': all_results,
+        'stats': {
+            'total_cands': len(rows), 'rush_cands': len(rush_cands),
+            'safe_cands': len(safe_cands), 'bao_cands': len(bao_cands),
+            'plan_count': len(plan_vols), 'student_rank': student_rank,
+            **reorder_info,
+        },
+        'profile': profile,
+        # 候选池暴露给优化器使用
+        '_rush_cands': rush_cands,
+        '_safe_cands': safe_cands,
+        '_bao_cands':  bao_cands,
+        '_rush_sort_key': rush_sort_key,
+        '_sort_key':      sort_key,
+    }
+
+
+def build_tiqian(profile: dict) -> dict:
+    """
+    提前批志愿查询（吉林省）
+    ─────────────────────────────────────────────────────────────────
+    提前批与本科批完全独立，不占本科批 40 个名额。
+    吉林省提前批包含：A段（公费师范、军队、公安等）、B段（部分特殊高校）。
+    本函数返回考生分数区间内可报考的提前批专业组，供参考，不自动写入志愿表。
+    ─────────────────────────────────────────────────────────────────
+    """
+    score      = int(profile['score'])
+    ke_lei     = profile.get('ke_lei', '物理')
+    batch      = profile.get('batch', 'A')        # 'A' / 'B' / 'all'
+    score_lo   = profile.get('score_lo', score - 80)
+    score_hi   = profile.get('score_hi', score + 20)
+
+    df = load_raw_df()
+
+    # 批次过滤
+    if batch == 'A':
+        batches = ['提前批A段']
+    elif batch == 'B':
+        batches = ['提前批B段']
+    else:
+        batches = ['提前批A段', '提前批B段']
+
+    sub = df[
+        (df['年份'] == 2025) &
+        (df['科类'] == ke_lei) &
+        (df['批次'].isin(batches))
+    ].copy()
+
+    sub['s25'] = pd.to_numeric(sub['最低分'], errors='coerce')
+    sub['s24'] = pd.to_numeric(sub['最低分_1'], errors='coerce')
+
+    # 分数范围过滤（以院校专业组最低分为基准）
+    grp_min = sub.groupby('院校专业组代码')['s25'].min().rename('gmin')
+    sub = sub.join(grp_min, on='院校专业组代码')
+    sub = sub[(sub['gmin'] >= score_lo) & (sub['gmin'] <= score_hi)]
+
+    # 按专业组聚合
+    result = []
+    seen = set()
+    for _, row in sub.sort_values('gmin', ascending=False).iterrows():
+        gc = row['院校专业组代码']
+        if gc in seen:
+            continue
+        seen.add(gc)
+        # 获取该组全部专业
+        majors_sub = sub[sub['院校专业组代码'] == gc]
+        majors = sorted(
+            [{'name': str(r['专业名称']),
+              's25': int(r['s25']) if pd.notna(r['s25']) else None,
+              's24': int(r['s24']) if pd.notna(r['s24']) else None}
+             for _, r in majors_sub.iterrows() if pd.notna(r['s25'])],
+            key=lambda m: -(m['s25'] or 0)
+        )
+        gmin = row['gmin']
+        diff = round(float(gmin) - score) if pd.notna(gmin) else None
+        result.append({
+            'gcode':    gc,
+            'school':   str(row['院校名称']),
+            'batch':    str(row['批次']),
+            'city':     str(row['城市']),
+            'province': str(row['所在省']),
+            'gmin25':   int(gmin) if pd.notna(gmin) else None,
+            'diff':     diff,
+            'lv':       str(row.get('院校标签', '')),
+            'majors':   majors,
+            'note': (
+                '⚠️ 提前批：录取或退档后均不影响本科批志愿执行，可放心填报。'
+                '注意体检/政审/视力等附加要求。'
+            ),
+        })
+
+    return {
+        'tiqian_vols': result,
+        'count': len(result),
+        'batch': batch,
+        'ke_lei': ke_lei,
+        'score': score,
+        'score_range': [score_lo, score_hi],
+    }
+
+
+def mc_simulate(plan_vols, N=10000, seed=42, bias_lo=0, bias_hi=0, noise_pct=8,
+                student_rank=7806, student_score=None):
+    """
+    平行志愿蒙特卡洛仿真 —— 双层噪声模型（v3）
+
+    平行志愿录取规则：
+    1. 志愿组按顺序（①→㊵）尝试；第一个录取后，后续志愿全部作废。
+    2. 组内专业按①→⑥顺序匹配：考生分 >= 专业当年分数线 → 录取到该专业，停止。
+    3. 若考生分仅达cold保底专业（⑤⑥）→ 服从调剂，录入该专业（diaoji=True）。
+    4. 若考生分低于组内所有专业 → 该组不录取，继续下一组。
+
+    双层噪声模型（score-based）：
+    - 年度因子 f ~ U(lo_f, hi_f)：全局系统性涨跌，同一轮所有院校同向生效。
+    - 院校因子 g ~ U(1-σ, 1+σ)，σ=3%：院校/专业组独立波动，每所院校独立抽样。
+    - 实际分数线 = s25 × f × g；两层因子各自独立，互不遮蔽。
+    - 提档线取 top6 中分数最低的专业（含cold保底），而非最低非cold专业，
+      确保保底专业参与提档，避免低估录取概率。
+    - 降级模式：student_score=None 时回落旧 rank-based 模型（兼容性保留）。
+    """
+    # 冲区志愿数（与 build_plan.RUSH_N 保持一致，用于 rush_rate 统计）
+    RUSH_N      = 10
+    # 院校级独立波动幅度：±3%（建模招生计划变动、专业调整等校内因子）
+    SCHOOL_SIGMA = 0.03
+
+    # 年度因子范围（f>1=悲观/涨线，f<1=乐观/降线）
+    lo_f = 1.0 + bias_lo / 100 - noise_pct / 100
+    hi_f = 1.0 + bias_hi / 100 + noise_pct / 100
+
+    # 旧 rank-based 参数（降级备用）
+    lo_r = 1 - bias_hi / 100 - noise_pct / 100
+    hi_r = 1 - bias_lo / 100 + noise_pct / 100
+
+    rng          = random.Random(seed)
+    n            = len(plan_vols)
+    admit_counts = [0] * n
+    major_hits   = [dict() for _ in range(n)]
+
+    use_score = (student_score is not None)
+
+    for _ in range(N):
+        # ── 全局年度因子（系统性涨跌，所有院校同向）
+        f = rng.uniform(lo_f, hi_f) if use_score else rng.uniform(lo_r, hi_r)
+
+        for vi, v in enumerate(plan_vols):
+            top6     = v.get('top6', v.get('intent', []))[:6]
+            admitted = False
+
+            if use_score:
+                # ── 分数比较模型（双层噪声）────────────────────────
+                # 全部有历史分数的专业（含cold保底，用于提档线）
+                all_scored = [m for m in top6
+                              if m.get('s25') and m['s25'] == m['s25']]  # 排除 NaN/0
+                if not all_scored:
+                    continue
+
+                # 院校级独立因子（每所院校每轮独立抽样，打破100%相关）
+                g     = rng.uniform(1.0 - SCHOOL_SIGMA, 1.0 + SCHOOL_SIGMA)
+                f_eff = f * g   # 该院校该年有效分数线倍数
+
+                # 提档线 = 组内最低专业分（含cold）× 综合因子
+                sc6_thresh = all_scored[-1]['s25'] * f_eff
+                if student_score < sc6_thresh:
+                    continue   # 未达提档线，该组不录
+
+                # 非cold专业优先匹配（①→⑥降序）
+                valid   = [m for m in all_scored if m.get('kind') != 'cold']
+                matched = False
+                for m in valid:
+                    if student_score >= m['s25'] * f_eff:
+                        name = m.get('name', '')
+                        admit_counts[vi] += 1
+                        major_hits[vi][name] = major_hits[vi].get(name, 0) + 1
+                        admitted = matched = True
+                        break
+
+                # 通过提档线但未匹配任何非cold专业 → 服从调剂到cold保底专业
+                if not matched:
+                    name = all_scored[-1].get('name', 'cold')
+                    admit_counts[vi] += 1
+                    major_hits[vi][name] = major_hits[vi].get(name, 0) + 1
+                    admitted = True
+
+            else:
+                # ── 降级：rank-based 模型（兼容旧接口）───────────
+                gr = v.get('gmin_rank') or 999999
+                if gr * f < student_rank:
+                    continue
+                for m in top6:
+                    if m.get('kind') == 'cold':
+                        continue
+                    mr = m.get('rank25')
+                    if not mr:
+                        continue
+                    if mr * f >= student_rank:
+                        admit_counts[vi] += 1
+                        name = m.get('name', '')
+                        major_hits[vi][name] = major_hits[vi].get(name, 0) + 1
+                        admitted = True
+                        break
+
+            if admitted:
+                break   # 平行志愿规则：已录取，后续志愿全部作废
+
+    rates = [c / N for c in admit_counts]
+    LVQ   = {1: 100, 2: 80, 3: 65, 4: 55, 5: 45, 6: 30}
+    CRQ   = {1: 20,  2: 15, 3: 10, 4: 5}
+    exp_q = sum(rates[i] * (LVQ.get(v['school_lv'], 30) + CRQ.get(v['city_rank'], 5))
+                for i, v in enumerate(plan_vols))
+    top_majors = []
+    for mhd in major_hits:
+        if mhd:
+            top = max(mhd, key=mhd.get)
+            top_majors.append({'name': top, 'count': mhd[top], 'rate': round(mhd[top] / N, 4)})
+        else:
+            top_majors.append(None)
+    return {
+        'rates':        [round(r, 4) for r in rates],
+        'admit_counts': admit_counts,
+        'major_hits':   major_hits,
+        'top_majors':   top_majors,
+        'exp_q':        round(exp_q, 2),
+        'total_rate':   round(sum(rates), 4),
+        'rush_rate':    round(sum(rates[:RUSH_N]), 4),   # 冲区前 RUSH_N 个志愿
+        'N':            N,
+    }
+
+
+
+def optimize_plan(build_result: dict, max_rounds: int = 10,
+                  mc_n: int = 8000, noise_pct: float = 15.0,
+                  seed: int = 42,
+                  locked_codes: set = None,
+                  excluded_schools: set = None) -> dict:
+    """
+    多轮MC迭代优化 —— 对话框"不重复模式"的完整实现 v3。
+
+    三类操作（按顺序每轮执行）：
+    ① 冲区 - 替换：gmin_rank 不可达的死志愿 → 换可达且更贴近分数的
+    ② 稳/保区 - 升级：在 sc6 ±5 分窗口内，若有质量更高（lv 更好）的院校 → 换
+    ③ 稳/保区 - 去堆叠：若多个志愿 sc6 差 ≤ 3 分（扎堆），把排名靠后的换到
+                         更低的 sc6 档位，拉开梯度覆盖范围
+
+    "不重复"：每次替换记录到 blacklist，同一位置不再尝试同一学校。
+    """
+    import copy
+
+    plan_vols     = [dict(v) for v in build_result['plan_vols']]
+    rush_pool     = list(build_result.get('_rush_cands', []))
+    safe_pool     = list(build_result.get('_safe_cands', []))
+    bao_pool      = list(build_result.get('_bao_cands',  []))
+    rush_sort_key = build_result.get('_rush_sort_key')
+    sort_key      = build_result.get('_sort_key')
+    student_rank  = build_result['stats']['student_rank']
+    profile       = build_result['profile']
+    score         = int(profile['score'])
+    noise         = noise_pct / 100.0
+
+    LVQ = {1: 100, 2: 80, 3: 65, 4: 55, 5: 45, 6: 30}  # 层次质量分
+
+    used_codes   = {v['gcode']  for v in plan_vols}
+    used_schools = {v['school'] for v in plan_vols}
+    # 用户约束：锁定的专业组代码 & 排除的院校名称
+    _locked   = set(locked_codes)   if locked_codes   else set()
+    _excluded = set(excluded_schools) if excluded_schools else set()
+    # 从候选池中移除被排除院校
+    rush_pool = [r for r in rush_pool if r['school'] not in _excluded]
+    safe_pool = [r for r in safe_pool if r['school'] not in _excluded]
+    bao_pool  = [r for r in bao_pool  if r['school'] not in _excluded]
+    # 每个位置的黑名单（已试过、不再重复）
+    blacklist = [set() for _ in plan_vols]
+    for i, v in enumerate(plan_vols):
+        blacklist[i].add(v['gcode'])
+    # 被排除院校如果已在当前方案里 → 强制加入blacklist，第1轮必然被替换
+    for i, v in enumerate(plan_vols):
+        if v['school'] in _excluded and v['gcode'] not in _locked:
+            blacklist[i].add(v['gcode'])   # 让优化器第1轮就替换它
+
+    history = []
+
+    def run_mc(vols):
+        return mc_simulate(vols, N=mc_n, seed=seed,
+                           noise_pct=noise_pct, student_rank=student_rank,
+                           student_score=score)
+
+    # ── 预处理：强制替换被排除院校（在进入优化循环前无条件执行）──────
+    if _excluded:
+        used_codes   = {v['gcode']  for v in plan_vols}
+        used_schools = {v['school'] for v in plan_vols}
+        for v in plan_vols:
+            if v['school'] in _excluded and v['gcode'] not in _locked:
+                used_codes.discard(v['gcode'])
+                used_schools.discard(v['school'])
+        pre_vols = [dict(v) for v in plan_vols]
+        for i, v in enumerate(pre_vols):
+            if v['school'] not in _excluded: continue
+            if v['gcode'] in _locked: continue
+            tp   = v['tp']
+            pool = rush_pool if tp=='冲' else (safe_pool if tp=='稳' else bao_pool)
+            s_key= rush_sort_key if tp=='冲' else sort_key
+            for cand in sorted(pool, key=s_key):
+                if cand['gcode']  in used_codes:    continue
+                if cand['school'] in used_schools:  continue
+                if cand['school'] in _excluded:     continue
+                pre_vols[i] = {**cand, 'tp': tp, 'vol_idx': v['vol_idx']}
+                used_codes.discard(v['gcode']);    used_codes.add(cand['gcode'])
+                used_schools.discard(v['school']); used_schools.add(cand['school'])
+                blacklist[i].add(cand['gcode'])
+                break
+        plan_vols = pre_vols   # 用预处理后的方案作为优化起点
+
+    mc = run_mc(plan_vols)
+    history.append({
+        'round': 0, 'label': '初始方案',
+        'plan_vols': copy.deepcopy(plan_vols),
+        'mc': mc, 'changes': [],
+    })
+
+    prev_eq = mc['exp_q']
+    stall   = 0
+
+    for rnd in range(1, max_rounds + 1):
+        new_vols = [dict(v) for v in plan_vols]
+        changes  = []
+        # 每轮开始重置 used_codes/used_schools 为当前最优方案的状态（防止跨轮污染）
+        used_codes   = {v['gcode']  for v in plan_vols}
+        used_schools = {v['school'] for v in plan_vols}
+
+        # ── ① 冲区：替换不可达死志愿 ─────────────────────────────
+        for i, v in enumerate(new_vols):
+            if v['tp'] != '冲': continue
+            if v['gcode'] in _locked: continue              # 🔒 用户锁定，跳过
+            gr = v.get('gmin_rank') or 0
+            if gr * (1 + noise) >= student_rank: continue   # 本身可达，跳过
+
+            for cand in sorted(rush_pool, key=rush_sort_key):
+                if cand['gcode']  in used_codes:    continue
+                if cand['school'] in used_schools:  continue
+                if cand['gcode']  in blacklist[i]:  continue
+                if cand.get('gmin_rank', 0) * (1 + noise) < student_rank: continue
+                old_school = v['school']
+                new_vols[i] = {**cand, 'tp': '冲', 'vol_idx': v['vol_idx']}
+                used_codes.discard(v['gcode']);    used_codes.add(cand['gcode'])
+                used_schools.discard(v['school']); used_schools.add(cand['school'])
+                blacklist[i].add(cand['gcode'])
+                changes.append({'vol_idx': i+1, 'tp': '冲',
+                                'old_school': old_school, 'old_gmin': v['gmin25'],
+                                'new_school': cand['school'], 'new_gmin': cand['gmin25']})
+                break
+
+        # ── ② 稳/保区：质量升级（sc6 ±5 窗口内换更高层次院校）──────
+        for i, v in enumerate(new_vols):
+            if v['tp'] not in ('稳', '保'): continue
+            if v['gcode'] in _locked: continue              # 🔒 用户锁定，跳过
+            cur_sc6 = v.get('sc6') or 0
+            cur_lv  = v.get('school_lv', 6)
+            pool    = safe_pool if v['tp'] == '稳' else bao_pool
+
+            for cand in sorted(pool, key=sort_key):  # 已按质量从高到低排
+                if cand['gcode']  in used_codes:    continue
+                if cand['school'] in used_schools:  continue
+                if cand['gcode']  in blacklist[i]:  continue
+                cand_sc6 = cand.get('sc6') or 0
+                if cand_sc6 > score: continue
+                if v['tp'] == '保' and score - cand_sc6 < 10: continue
+                # 质量必须更高，且 sc6 在 ±5 分窗口内（避免梯度破坏）
+                if cand.get('school_lv', 6) >= cur_lv: continue
+                if abs(cand_sc6 - cur_sc6) > 5: continue
+
+                old_school = v['school']
+                new_vols[i] = {**cand, 'tp': v['tp'], 'vol_idx': v['vol_idx']}
+                used_codes.discard(v['gcode']);    used_codes.add(cand['gcode'])
+                used_schools.discard(v['school']); used_schools.add(cand['school'])
+                blacklist[i].add(cand['gcode'])
+                changes.append({'vol_idx': i+1, 'tp': v['tp'],
+                                'old_school': old_school, 'old_gmin': v['gmin25'],
+                                'new_school': cand['school'], 'new_gmin': cand['gmin25']})
+                break
+
+        # ── ③ 稳/保区：去堆叠（sc6 差 ≤ 3 的相邻志愿，推低后者扩大覆盖）
+        for tp_group in ('稳', '保'):
+            idxs = [i for i,v in enumerate(new_vols) if v['tp'] == tp_group]
+            if len(idxs) < 2: continue
+            pool = safe_pool if tp_group == '稳' else bao_pool
+            for k in range(len(idxs) - 1):
+                ia, ib = idxs[k], idxs[k+1]
+                va, vb = new_vols[ia], new_vols[ib]
+                if va['gcode'] in _locked or vb['gcode'] in _locked: continue  # 🔒 锁定
+                sc6a = va.get('sc6') or 0
+                sc6b = vb.get('sc6') or 0
+                if abs(sc6a - sc6b) > 3: continue   # 已有足够间隔
+
+                # 把 ib 换成一个 sc6 更低（约 -8~-15 分）的院校
+                target_sc6 = sc6b - 10
+                if target_sc6 < score - 50: break
+
+                for cand in sorted(pool, key=sort_key):
+                    if cand['gcode']  in used_codes:    continue
+                    if cand['school'] in used_schools:  continue
+                    if cand['gcode']  in blacklist[ib]: continue
+                    cand_sc6 = cand.get('sc6') or 0
+                    if cand_sc6 > score: continue
+                    if tp_group == '保' and score - cand_sc6 < 10: continue
+                    if abs(cand_sc6 - target_sc6) > 5: continue   # 要落在目标区间
+
+                    old_school = vb['school']
+                    new_vols[ib] = {**cand, 'tp': tp_group, 'vol_idx': vb['vol_idx']}
+                    used_codes.discard(vb['gcode']);    used_codes.add(cand['gcode'])
+                    used_schools.discard(vb['school']); used_schools.add(cand['school'])
+                    blacklist[ib].add(cand['gcode'])
+                    changes.append({'vol_idx': ib+1, 'tp': tp_group,
+                                    'old_school': old_school, 'old_gmin': vb['gmin25'],
+                                    'new_school': cand['school'], 'new_gmin': cand['gmin25']})
+                    break
+
+        plan_vols = new_vols
+        mc        = run_mc(plan_vols)
+        history.append({
+            'round': rnd,
+            'label': f'第{rnd}轮优化' if changes else f'第{rnd}轮（已收敛）',
+            'plan_vols': copy.deepcopy(plan_vols),
+            'mc': mc, 'changes': changes,
+        })
+
+        eq_now = mc['exp_q']
+        stall  = stall + 1 if abs(eq_now - prev_eq) < 0.5 else 0
+        prev_eq = eq_now
+        if stall >= 2 or not changes:
+            break
+
+    best = max(history, key=lambda h: h['mc']['exp_q'])
+    return {
+        'plan_vols':  best['plan_vols'],
+        'mc':         best['mc'],
+        'history':    history,
+        'best_round': best['round'],
+        'stats':      build_result['stats'],
+        'profile':    profile,
+    }
+
+def export_excel(plan_result: dict, mc_result: dict, out_path: str):
+    from openpyxl import Workbook
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from openpyxl.workbook.properties import CalcProperties
+
+    profile=plan_result['profile']; plan_vols=plan_result['plan_vols']
+    rates=mc_result.get('rates',[0]*len(plan_vols))
+    top_mjs=mc_result.get('top_majors',[None]*len(plan_vols))
+    major_hits=mc_result.get('major_hits',[{}]*len(plan_vols))
+    N_mc=mc_result.get('N',1)
+
+    wb=Workbook()
+    # Office 2019 兼容：关闭 full-calc-on-load，设置兼容模式
+    wb.properties.lastModifiedBy = ''
+    thin=Side(style='thin',color='00BDBDBD'); bdr=Border(left=thin,right=thin,top=thin,bottom=thin)
+    # PatternFill 颜色必须用完整 8 位 ARGB（前两位为 FF = 不透明）
+    FILL={
+        '冲': PatternFill('solid', fgColor='FFFFF3E0'),
+        '稳': PatternFill('solid', fgColor='FFE3F2FD'),
+        '保': PatternFill('solid', fgColor='FFE8F5E9'),
+        'hdr':PatternFill('solid', fgColor='FF1565C0'),
+    }
+
+    ws1=wb.active; ws1.title='志愿总表'
+    score=profile.get('score','?'); ke=profile.get('ke_lei','物理')
+    tgt='|'.join(profile.get('target_kw',[])[:6])
+
+    ws1.merge_cells('A1:R1'); ws1['A1']=f'吉林省高考志愿规划表  {score}分·{ke}选科·{tgt}'
+    ws1['A1'].font=Font(bold=True,size=13,color='FF1A237E')
+    ws1['A1'].fill=PatternFill('solid',fgColor='FFE8EAF6')
+    ws1['A1'].alignment=Alignment(horizontal='center',vertical='center'); ws1.row_dimensions[1].height=26
+
+    ws1.merge_cells('A2:R2')
+    ws1['A2']=(f"排除：{'|'.join(profile.get('exclude_kw',[])[:4]) or '无'}  ·  "
+               f"排除东北：{'是' if profile.get('exclude_northeast') else '否'}  ·  "
+               f"MC总录取率：{mc_result.get('total_rate',0):.1%}  ·  "
+               f"冲命中率：{mc_result.get('rush_rate',0):.1%}  ·  "
+               f"期望质量：{mc_result.get('exp_q',0):.1f}")
+    ws1['A2'].font=Font(size=9,color='FF555555')
+    ws1['A2'].fill=PatternFill('solid',fgColor='FFF5F5F5')
+    ws1['A2'].alignment=Alignment(horizontal='left',vertical='center'); ws1.row_dimensions[2].height=18
+
+    hdrs=['序号','梯度','院校名称','城市','省份','层次','专业组代码','gmin25','sc6','安全',
+          '专业①','专业②','专业③','专业④','专业⑤','专业⑥','MC命中率','最高命中专业']
+    widths=[5,5,22,8,8,7,14,7,7,7,18,18,18,18,18,18,9,18]
+    for ci,(h,w) in enumerate(zip(hdrs,widths),1):
+        c=ws1.cell(3,ci,h); c.font=Font(color='FFFFFFFF',bold=True,size=9)
+        c.fill=FILL['hdr']; c.alignment=Alignment(horizontal='center',vertical='center'); c.border=bdr
+        ws1.column_dimensions[get_column_letter(ci)].width=w
+    ws1.row_dimensions[3].height=18; ws1.freeze_panes='A4'
+
+    _MUNICIPALITIES = {'北京', '上海', '天津', '重庆'}
+    for i,v in enumerate(plan_vols):
+        row=i+4; tp=v['tp']; rate=rates[i] if i<len(rates) else 0; top=top_mjs[i] if i<len(top_mjs) else None
+        sc6v=v.get('sc6'); safe_str='✅安全' if v.get('safe') else ('⚠️注意' if sc6v else '❓')
+        top6=v.get('top6',[])[:6]
+        specs=[f"{m['name']}({int(m['s25']) if m['s25'] else '?'})" for m in top6]
+        while len(specs)<6: specs.append('')
+        # 直辖市城市名修正：city 字段存储的是区名（海淀区/闵行区），用 province 替代
+        _raw_city = v.get('city', '')
+        _province = v.get('province', '')
+        _city_display = (_province if (_raw_city and ('区' in _raw_city or '县' in _raw_city)
+                         and _province in _MUNICIPALITIES) else _raw_city)
+        vals=[i+1,tp,v['school'],_city_display,_province,v.get('lv_label','?'),v['gcode'],
+              int(v['gmin25']) if v.get('gmin25') else '',int(sc6v) if sc6v else '',safe_str]+specs+[f"{rate:.1%}",top['name'] if top else '']
+        for ci,val in enumerate(vals,1):
+            c=ws1.cell(row,ci,val); c.fill=FILL[tp]; c.border=bdr
+            c.alignment=Alignment(horizontal='center',vertical='center',wrap_text=True)
+            c.font=Font(size=9,bold=(ci==3))
+        ws1.row_dimensions[row].height=36
+
+    ws2=wb.create_sheet('专业分数明细')
+    hdrs2=['志愿序','梯度','院校','城市','层次','专业名称','类型','2025分','2024分','差值','MC命中率']
+    widths2=[5,5,20,8,7,28,7,8,8,10,10]
+    for ci,(h,w) in enumerate(zip(hdrs2,widths2),1):
+        c=ws2.cell(1,ci,h); c.font=Font(color='FFFFFFFF',bold=True,size=9)
+        c.fill=FILL['hdr']; c.border=bdr; c.alignment=Alignment(horizontal='center')
+        ws2.column_dimensions[get_column_letter(ci)].width=w
+    ws2.freeze_panes='A2'; row2=2; score_int=int(score)
+    for i,v in enumerate(plan_vols):
+        mhd=major_hits[i] if i<len(major_hits) else {}
+        for m in v.get('majors',[]):
+            s25=m.get('s25'); s24=m.get('s24'); kind=m.get('kind','other')
+            diff=round(s25-score_int,0) if (s25 and s25==s25) else None
+            bg='C8E6C9' if kind=='target' else 'FFE0B2' if kind=='cold' else 'FFFFFF'
+            cnt=mhd.get(m['name'],0); hr=f"{cnt/N_mc:.1%}" if cnt>0 else ''
+            vals2=[i+1,v['tp'],v['school'],v['city'],v.get('lv_label','?'),m['name'],kind,
+                   int(s25) if (s25 and s25==s25) else '',int(s24) if (s24 and s24==s24) else '',
+                   (f"+{int(diff)}" if diff and diff>0 else int(diff)) if diff is not None else '',hr]
+            for ci,val in enumerate(vals2,1):
+                c=ws2.cell(row2,ci,val); c.fill=PatternFill('solid',fgColor=bg); c.border=bdr
+                c.alignment=Alignment(horizontal='center',vertical='center')
+                fc='C62828' if (diff and diff>0) else '1B5E20' if (diff and diff<0) else '000000'
+                c.font=Font(size=9,color=fc)
+            ws2.row_dimensions[row2].height=16; row2+=1
+
+    ws3=wb.create_sheet('退档规则说明')
+    ws3.column_dimensions['A'].width=22; ws3.column_dimensions['B'].width=60
+    rules=[('【吉林省高考志愿填报核心规则】',''),('',''),
+           ('志愿结构','本科批最多40个专业组，每组最多6个专业'),('本方案','30志愿（冲10+稳10+保10），留余量10个'),('',''),
+           ('【退档机制（核心！）】',''),
+           ('档案提取条件','组最低分 ≤ 考生分 → 提档'),('录取条件','考生分 ≥ 某专业2025分 → 录取'),
+           ('退档触发','提档 + 所有填报专业分>考生分 + 不服从调剂 = 退档 → 后续全废！'),
+           ('历史冲击型（安全）','组最低>考生分 → 不提档 → 后续正常执行，失败零损失'),('',''),
+           ('【三梯度说明】',''),
+           ('⚡冲志愿','历史冲击型；gmin>考生分；意向专业有望降线命中'),
+           ('✅稳志愿','sc6≤考生分；第6专业分≤考生分，服从调剂保底'),
+           ('🛡保志愿','考生分远超sc6；第1专业即可进，零风险'),('',''),
+           ('【填报铁律】',''),
+           ('铁律1','全部勾选「服从专业调剂」'),
+           ('铁律2','专业从高到低排列：最想要的填①，最低保底填⑥'),
+           ('铁律3','⑥位填分数≤考生分的可接受专业作调剂锚')]
+    for ri,(a,b) in enumerate(rules,1):
+        ws3.cell(ri,1,a).font=Font(bold=bool(a and not b),size=10,color='FF1A237E' if a.startswith('【') else '000000')
+        ws3.cell(ri,2,b).font=Font(size=9)
+        if a.startswith('【'): ws3.cell(ri,1).fill=PatternFill('solid',fgColor='FFE8EAF6')
+        ws3.row_dimensions[ri].height=18
+
+    # ── 规则4：提前批 A 段独立 Sheet（Instructions核心规则）──────
+    # 提前批与本科批完全独立，不占40个本科批名额
+    ws4 = wb.create_sheet('提前批A段说明')
+    ws4.column_dimensions['A'].width = 24
+    ws4.column_dimensions['B'].width = 62
+    # 标题行
+    ws4.merge_cells('A1:B1')
+    ws4['A1'] = '提前批A段志愿填报说明（公费师范生等）'
+    ws4['A1'].font = Font(bold=True, size=13, color='FF1A237E')
+    ws4['A1'].fill = PatternFill('solid', fgColor='FFE3F2FD')
+    ws4['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    ws4.row_dimensions[1].height = 26
+    adv_rules = [
+        ('【关键规则】', ''),
+        ('独立批次', '提前批A段与本科批完全独立，不占本科批40个专业组名额'),
+        ('录取不影响本科批', '提前批录取或退档，均不影响本科批志愿的执行'),
+        ('单独规划', '本方案为本科批规划；如需报考公费师范/军队院校/公安院校，须单独制定提前批方案'),
+        ('', ''),
+        ('【常见提前批A段类型】', ''),
+        ('公费师范生', '教育部直属6所师范大学（北师大/华东师大/陕师大/西南大学/华中师大/东北师大）'),
+        ('军队院校', '解放军各院校，招飞/国防生等特殊项目'),
+        ('公安院校', '中国人民公安大学、中国人民警察大学等'),
+        ('航海类院校', '大连海事大学等部分涉密或特殊类专业'),
+        ('', ''),
+        ('【填报建议】', ''),
+        ('可以填', '若有意向，大胆填报，录取了比本科批更稳；未录取本科批照常投档'),
+        ('退档无损', '提前批退档后，系统自动进入本科批流程，两者互不干扰'),
+        ('分开备案', '本规划表仅覆盖本科批（30个志愿）；提前批另外准备，单独存档'),
+    ]
+    for ri, (a, b) in enumerate(adv_rules, 2):
+        ca = ws4.cell(ri, 1, a)
+        cb = ws4.cell(ri, 2, b)
+        ca.font = Font(bold=a.startswith('【'), size=10,
+                       color='FF1A237E' if a.startswith('【') else '000000')
+        cb.font = Font(size=9)
+        if a.startswith('【'):
+            ca.fill = PatternFill('solid', fgColor='FFE3F2FD')
+            cb.fill = PatternFill('solid', fgColor='FFE3F2FD')
+        ws4.row_dimensions[ri].height = 18
+
+    # 重排 sheet 顺序：志愿总表 > 专业分数明细 > 提前批A段说明 > 退档规则说明
+    wb.move_sheet('提前批A段说明', offset=-(len(wb.worksheets) - 3))
+
+    wb.save(out_path)
+    return out_path

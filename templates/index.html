@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>高考志愿规划系统</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PingFang SC',system-ui,sans-serif;background:#080F1A;color:#D0DCF0;min-height:100vh}
+.hero{background:linear-gradient(135deg,#0A1628,#121E38);padding:36px 20px 28px;text-align:center;border-bottom:1px solid rgba(255,255,255,.06)}
+.hero-tag{font-size:10px;letter-spacing:4px;color:#4A9EFF;margin-bottom:12px;font-weight:700}
+.hero-title{font-size:24px;font-weight:900;color:#fff;margin-bottom:6px}
+.hero-sub{font-size:12px;color:rgba(255,255,255,.4);line-height:1.8}
+.status-bar{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;padding:8px 16px;background:rgba(255,255,255,.04);border-radius:20px;display:inline-flex}
+.sb-dot{width:8px;height:8px;border-radius:50%;background:#FF453A}
+.sb-dot.ok{background:#34C759;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+.sb-text{font-size:11px;color:rgba(255,255,255,.5)}
+.nav-cards{display:grid;grid-template-columns:1fr;gap:10px;padding:20px 16px}
+.card{background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.08);border-radius:18px;padding:18px;cursor:pointer;transition:.2s;text-decoration:none;display:flex;align-items:center;gap:14px}
+.card:hover{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
+.card-icon{font-size:36px;flex-shrink:0}
+.card-body{flex:1}
+.card-title{font-size:15px;font-weight:800;color:#fff;margin-bottom:4px}
+.card-desc{font-size:11px;color:rgba(255,255,255,.4);line-height:1.6}
+.card-arrow{font-size:18px;color:rgba(255,255,255,.2)}
+.card-badge{font-size:9px;font-weight:700;padding:2px 8px;border-radius:6px;display:inline-block;margin-top:6px}
+.b-blue{background:rgba(74,158,255,.15);color:#4A9EFF}
+.b-green{background:rgba(52,199,89,.12);color:#34C759}
+.b-orange{background:rgba(255,159,10,.12);color:#FF9F0A}
+.card.highlight{border-color:rgba(74,158,255,.4);background:rgba(74,158,255,.06)}
+.flow{padding:0 16px 20px}
+.flow-title{font-size:11px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.25);padding:16px 0 10px}
+.step{display:flex;gap:12px;margin-bottom:8px;align-items:flex-start}
+.step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex-shrink:0}
+.step-body{flex:1;padding-top:4px}
+.step-name{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px}
+.step-desc{font-size:11px;color:rgba(255,255,255,.4);line-height:1.5}
+.connector{width:2px;height:16px;background:rgba(255,255,255,.08);margin-left:13px;margin-bottom:4px}
+
+/* 历史记录 */
+.hist-wrap{padding:0 16px 80px}
+.hist-title{font-size:11px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.25);padding:16px 0 10px}
+.hist-empty{font-size:12px;color:rgba(255,255,255,.2);padding:12px 0}
+.hist-item{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:.15s}
+.hist-item:hover{border-color:#4A9EFF;background:rgba(74,158,255,.05)}
+.hist-score{font-size:20px;font-weight:900;color:#4A9EFF;flex-shrink:0;min-width:48px}
+.hist-info{flex:1}
+.hist-meta{font-size:11px;color:rgba(255,255,255,.35);margin-top:2px}
+.hist-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:5px;background:rgba(52,199,89,.1);color:#34C759;flex-shrink:0}
+</style>
+</head>
+<body>
+<div style="background:#1a2a1a;padding:5px 16px;font-size:11px;color:#5fbd5f;font-family:monospace">
+  ✓ v20260314-C &nbsp;<span id="vt"></span>
+</div>
+<script>document.getElementById('vt').textContent=new Date().toLocaleTimeString('zh-CN');</script>
+<div class="hero">
+  <div class="hero-tag">JILIN GAOKAO VOLUNTEER PLANNER · LOCAL</div>
+  <div class="hero-title">🎓 吉林省高考志愿规划系统</div>
+  <div class="hero-sub">输入分数 · 自动匹配 · 生成18志愿方案<br>蒙特卡洛仿真 · 退档风险核验 · 一键导出Excel</div>
+  <div style="text-align:center;margin-top:14px">
+    <span class="status-bar">
+      <span class="sb-dot ok" id="sbDot"></span>
+      <span class="sb-text" id="sbText">系统就绪 · 无方案</span>
+    </span>
+  </div>
+</div>
+
+<div class="nav-cards">
+  <a class="card highlight" href="/plan">
+    <div class="card-icon">📝</div>
+    <div class="card-body">
+      <div class="card-title">生成志愿方案</div>
+      <div class="card-desc">填写考生信息（分数·科目·专业意向·城市偏好）<br>系统自动筛选院校，生成冲稳保18志愿表</div>
+      <span class="card-badge b-blue">从这里开始</span>
+    </div>
+    <div class="card-arrow">›</div>
+  </a>
+  <a class="card" href="/map">
+    <div class="card-icon">🗺️</div>
+    <div class="card-body">
+      <div class="card-title">院校分布地图</div>
+      <div class="card-desc">查看全国院校地理分布 · 院校层次热力图<br>生成方案后可在地图高亮显示已选志愿城市</div>
+      <span class="card-badge b-green">交互地图</span>
+    </div>
+    <div class="card-arrow">›</div>
+  </a>
+  <a class="card" href="/mc" id="mcCard">
+    <div class="card-icon">🎲</div>
+    <div class="card-body">
+      <div class="card-title">蒙特卡洛仿真</div>
+      <div class="card-desc">对生成的方案进行概率仿真<br>调节波动参数·查看专业命中率·累积曲线</div>
+      <span class="card-badge b-orange" id="mcBadge">需先生成方案</span>
+    </div>
+    <div class="card-arrow">›</div>
+  </a>
+</div>
+
+<div class="flow">
+  <div class="flow-title">使用流程</div>
+  <div class="step">
+    <div class="step-num" style="background:rgba(74,158,255,.2);color:#4A9EFF">1</div>
+    <div class="step-body">
+      <div class="step-name">填写考生信息</div>
+      <div class="step-desc">输入分数、选科（物理/历史）、专业意向、城市偏好、排除条件</div>
+    </div>
+  </div>
+  <div class="connector"></div>
+  <div class="step">
+    <div class="step-num" style="background:rgba(52,199,89,.2);color:#34C759">2</div>
+    <div class="step-body">
+      <div class="step-name">自动生成方案</div>
+      <div class="step-desc">系统从2026年录取数据中筛选候选组，按冲稳保梯度自动生成18志愿</div>
+    </div>
+  </div>
+  <div class="connector"></div>
+  <div class="step">
+    <div class="step-num" style="background:rgba(255,159,10,.2);color:#FF9F0A">3</div>
+    <div class="step-body">
+      <div class="step-name">蒙特卡洛验证 + 偏好优化</div>
+      <div class="step-desc">对方案进行万次仿真，锁定喜欢的志愿、排除不接受的院校，一键重新优化</div>
+    </div>
+  </div>
+  <div class="connector"></div>
+  <div class="step">
+    <div class="step-num" style="background:rgba(191,90,242,.2);color:#BF5AF2">4</div>
+    <div class="step-body">
+      <div class="step-name">导出Excel</div>
+      <div class="step-desc">下载志愿总表+专业分数明细+规则说明，直接用于填报</div>
+    </div>
+  </div>
+</div>
+
+<!-- 历史记录 -->
+<div class="hist-wrap">
+  <div class="hist-title">📋 历史方案记录</div>
+  <div id="histList"><div class="hist-empty">暂无历史记录，生成方案后自动保存</div></div>
+</div>
+
+<script>
+async function checkStatus(){
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    if(d.has_plan){
+      document.getElementById('sbText').textContent=`已有方案：${d.score}分 · ${d.plan_count}志愿`;
+      document.getElementById('mcBadge').textContent='点击进入仿真';
+      document.getElementById('mcBadge').className='card-badge b-green';
+    }
+  } catch(e){}
+}
+
+async function loadHistory(){
+  try {
+    const r = await fetch('/api/history');
+    const d = await r.json();
+    const list = d.history || [];
+    const el = document.getElementById('histList');
+    if(list.length === 0){
+      el.innerHTML='<div class="hist-empty">暂无历史记录，生成方案后自动保存</div>';
+      return;
+    }
+    el.innerHTML = list.map(h=>`
+      <div class="hist-item" onclick="restoreHistory(${h.idx})">
+        <div class="hist-score">${h.score}分</div>
+        <div class="hist-info">
+          <div style="font-size:13px;font-weight:700;color:#fff">${h.ke}选科 · ${h.tgt||'未指定方向'}</div>
+          <div class="hist-meta">${h.ts} · ${h.n_vols}个志愿 · 冲击率${h.rush_rate}%</div>
+        </div>
+        <div class="hist-badge">恢复方案 ›</div>
+      </div>`).join('');
+  } catch(e){}
+}
+
+async function restoreHistory(idx){
+  try {
+    const r = await fetch('/api/history/'+idx, {method:'POST'});
+    const d = await r.json();
+    if(d.ok){
+      // 把恢复的数据存到 sessionStorage，由 plan.html 读取后展示
+      sessionStorage.setItem('restored_plan', JSON.stringify(d));
+      window.location.href = '/plan?restored=1';
+    }
+  } catch(e){ alert('恢复失败'); }
+}
+
+checkStatus();
+loadHistory();
+</script>
+</body>
+</html>

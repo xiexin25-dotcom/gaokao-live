@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI咨询 · 志愿规划</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PingFang SC',system-ui,sans-serif;background:#080F1A;color:#D0DCF0;
+     min-height:100vh;display:flex;flex-direction:column}
+
+/* ── 顶栏 ── */
+.topbar{background:#0B1525;border-bottom:1px solid rgba(255,255,255,.06);
+        padding:12px 16px;display:flex;align-items:center;gap:10px;
+        position:sticky;top:0;z-index:100;flex-shrink:0}
+a.back{color:rgba(255,255,255,.4);font-size:20px;text-decoration:none}
+.tb-title{font-size:14px;font-weight:800;color:#fff;flex:1}
+.badge{font-size:10px;padding:3px 9px;border-radius:8px;font-weight:700;cursor:pointer}
+.b-blue{background:rgba(74,158,255,.2);color:#4A9EFF}
+.b-green{background:rgba(52,199,89,.2);color:#34C759}
+.b-orange{background:rgba(255,159,10,.2);color:#FF9F0A}
+.b-red{background:rgba(255,69,58,.15);color:#FF453A}
+
+/* ── 主体布局 ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;max-width:800px;
+      width:100%;margin:0 auto;padding:0}
+
+/* ── 无方案提示条 ── */
+.no-plan-bar{background:rgba(255,159,10,.08);border-bottom:1px solid rgba(255,159,10,.2);
+             padding:8px 16px;font-size:11px;color:#FF9F0A;display:none}
+
+/* ── 消息流 ── */
+.msg-list{flex:1;overflow-y:auto;padding:16px 16px 8px;
+          display:flex;flex-direction:column;gap:12px}
+.msg-list::-webkit-scrollbar{width:4px}
+.msg-list::-webkit-scrollbar-track{background:transparent}
+.msg-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:2px}
+
+/* 消息气泡 */
+.msg{display:flex;gap:10px;max-width:100%;animation:fadeUp .25s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{flex-direction:row-reverse}
+.avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;
+        justify-content:center;font-size:14px;flex-shrink:0;margin-top:2px}
+.av-ai{background:linear-gradient(135deg,#4A9EFF22,#BF5AF222);border:1px solid rgba(74,158,255,.2)}
+.av-user{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1)}
+.bubble{max-width:82%;padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.65;word-break:break-word}
+.msg.ai   .bubble{background:#0F1D32;border:1px solid rgba(255,255,255,.07);color:#D0DCF0;
+                  border-bottom-left-radius:4px}
+.msg.user .bubble{background:rgba(74,158,255,.18);border:1px solid rgba(74,158,255,.25);
+                  color:#fff;border-bottom-right-radius:4px}
+/* markdown-like styling inside AI bubbles */
+.bubble b,.bubble strong{color:#fff;font-weight:700}
+.bubble code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;
+             font-family:monospace;font-size:11px;color:#FFD60A}
+.bubble pre{background:rgba(0,0,0,.3);border-radius:8px;padding:10px;overflow-x:auto;
+            font-size:11px;line-height:1.5;margin:6px 0}
+.bubble ul,.bubble ol{padding-left:18px;margin:4px 0}
+.bubble li{margin:2px 0}
+.bubble p{margin:4px 0}
+.bubble h3{font-size:12px;font-weight:800;color:#4A9EFF;margin:8px 0 4px;
+           letter-spacing:1px;text-transform:uppercase}
+/* 正在输入 */
+.typing{display:inline-flex;gap:4px;align-items:center;padding:4px 2px}
+.typing span{width:6px;height:6px;border-radius:50%;background:#4A9EFF;
+             animation:blink 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+
+/* ── 快捷问题 ── */
+.quick-wrap{padding:6px 16px 4px;display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0}
+.quick-btn{padding:5px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.1);
+           background:rgba(255,255,255,.04);font-size:11px;color:rgba(255,255,255,.55);
+           cursor:pointer;transition:.15s;white-space:nowrap}
+.quick-btn:hover{border-color:#4A9EFF44;background:rgba(74,158,255,.08);color:#4A9EFF}
+
+/* ── 输入栏 ── */
+.input-bar{padding:10px 16px 16px;background:#0B1525;
+           border-top:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.input-row{display:flex;gap:8px;align-items:flex-end}
+textarea{flex:1;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);
+         border-radius:12px;padding:10px 12px;color:#fff;font-size:13px;resize:none;
+         outline:none;font-family:inherit;max-height:120px;min-height:42px;
+         line-height:1.5;transition:.15s}
+textarea:focus{border-color:#4A9EFF55;background:rgba(255,255,255,.07)}
+textarea::placeholder{color:rgba(255,255,255,.25)}
+.send-btn{width:42px;height:42px;border-radius:11px;border:none;cursor:pointer;
+          background:linear-gradient(135deg,#4A9EFF,#2A6FD0);
+          font-size:18px;display:flex;align-items:center;justify-content:center;
+          flex-shrink:0;transition:.15s;box-shadow:0 3px 12px rgba(74,158,255,.3)}
+.send-btn:disabled{opacity:.4;cursor:not-allowed}
+.send-btn:not(:disabled):hover{transform:scale(1.05)}
+.input-hint{font-size:10px;color:rgba(255,255,255,.2);margin-top:5px;padding:0 2px}
+
+/* ── 设置面板 ── */
+.settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;
+                  display:none;align-items:flex-end;justify-content:center}
+.settings-panel{background:#0F1D32;border:1px solid rgba(255,255,255,.1);
+                border-radius:20px 20px 0 0;width:100%;max-width:800px;
+                padding:20px 20px 32px;animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sp-title{font-size:15px;font-weight:800;margin-bottom:4px}
+.sp-sub{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:16px}
+.sp-label{font-size:11px;color:rgba(255,255,255,.5);margin-bottom:5px;font-weight:600}
+.sp-input{width:100%;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.12);
+          border-radius:10px;padding:10px 12px;color:#fff;font-size:13px;outline:none;
+          font-family:monospace}
+.sp-input:focus{border-color:#4A9EFF55}
+.sp-hint{font-size:10px;color:rgba(255,255,255,.25);margin-top:5px}
+.sp-btns{display:flex;gap:8px;margin-top:16px}
+.sp-save{flex:1;padding:11px;border-radius:11px;border:none;
+         background:linear-gradient(135deg,#4A9EFF,#2A6FD0);color:#fff;
+         font-size:13px;font-weight:800;cursor:pointer}
+.sp-cancel{padding:11px 16px;border-radius:11px;border:1px solid rgba(255,255,255,.12);
+           background:transparent;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer}
+.sp-ok{font-size:10px;color:#34C759;margin-top:6px}
+
+/* ── 欢迎屏 ── */
+.welcome{padding:24px 16px 8px;text-align:center;flex-shrink:0}
+.welcome-icon{font-size:40px;margin-bottom:10px}
+.welcome-title{font-size:16px;font-weight:800;margin-bottom:6px}
+.welcome-sub{font-size:12px;color:rgba(255,255,255,.4);line-height:1.6;max-width:320px;margin:0 auto 12px}
+.welcome-tip{font-size:10px;color:rgba(255,255,255,.25);padding:6px 10px;
+             background:rgba(255,255,255,.03);border-radius:8px;border:1px solid rgba(255,255,255,.06)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="/">←</a>
+  <div class="tb-title">🤖 AI志愿咨询</div>
+  <span class="badge b-blue" id="planBadge">检查方案…</span>
+  <span class="badge b-orange" id="keyBadge" onclick="openSettings()" style="display:none">⚙ 设置Key</span>
+</div>
+
+<div class="no-plan-bar" id="noPlanBar">
+  ⚠️ 尚未生成志愿方案，AI将基于通用规则回答。<a href="/plan" style="color:#FFD60A;margin-left:6px">→ 先生成方案</a>
+</div>
+
+<div class="main">
+  <div class="msg-list" id="msgList">
+    <div class="welcome">
+      <div class="welcome-icon">🎓</div>
+      <div class="welcome-title">吉林省高考志愿咨询助手</div>
+      <div class="welcome-sub">我了解吉林省招生规则、本方案的每一个志愿，以及蒙特卡洛仿真结果。有任何疑问都可以问我。</div>
+      <div class="welcome-tip">💡 提示：先运行 MC 仿真，再来咨询效果更佳（使用 Gemini 2.0 Flash）</div>
+    </div>
+  </div>
+
+  <div class="quick-wrap" id="quickWrap">
+    <button class="quick-btn" onclick="send('请帮我分析当前方案的整体风险')">整体风险分析</button>
+    <button class="quick-btn" onclick="send('稳区的院校排列顺序合理吗？')">稳区排序</button>
+    <button class="quick-btn" onclick="send('哪些志愿存在调剂风险？')">调剂风险</button>
+    <button class="quick-btn" onclick="send('我想考公务员，当前方案有哪些专业适合？')">考公适配</button>
+    <button class="quick-btn" onclick="send('提前批A段我应该怎么准备？')">提前批</button>
+  </div>
+
+  <div class="input-bar">
+    <div class="input-row">
+      <textarea id="inp" placeholder="问我任何关于志愿填报的问题…" rows="1"
+        onkeydown="onKey(event)" oninput="autoResize(this)"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="send()" title="发送">➤</button>
+    </div>
+    <div class="input-hint">Enter 发送 · Shift+Enter 换行 · <span id="modelHint">需要 Gemini API Key</span></div>
+  </div>
+</div>
+
+<!-- 设置面板 -->
+<div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-panel">
+    <div class="sp-title">⚙ API 设置</div>
+    <div class="sp-sub">填写你自己的 Gemini API Key，密钥仅保存在本地内存，不上传</div>
+    <div class="sp-label">GEMINI_API_KEY</div>
+    <input class="sp-input" id="apiKeyInput" type="password" placeholder="AIzaSy…">
+    <div class="sp-hint">
+      在 <a href="https://aistudio.google.com/app/apikey" target="_blank"
+           style="color:#4A9EFF">aistudio.google.com</a> 免费获取 API Key<br>
+      此程序使用 gemini-2.0-flash，免费额度充足（每分钟15次请求）
+    </div>
+    <div class="sp-ok" id="spOk" style="display:none">✅ 已保存</div>
+    <div class="sp-btns">
+      <button class="sp-save" onclick="saveKey()">保存并使用</button>
+      <button class="sp-cancel" onclick="closeSettings()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let history = [];
+let hasKey  = false;
+let hasPlan = false;
+
+// ── 初始化 ──────────────────────────────────────────────
+async function init(){
+  // 检查 API Key
+  const ks = await fetch('/api/settings').then(r=>r.json());
+  hasKey = ks.has_key;
+  updateKeyBadge();
+
+  // 检查方案
+  const ps = await fetch('/api/status').then(r=>r.json());
+  hasPlan = ps.has_plan;
+  if(hasPlan){
+    document.getElementById('planBadge').textContent = `${ps.score}分 · ${ps.plan_count}志愿`;
+    document.getElementById('planBadge').className = 'badge b-green';
+  } else {
+    document.getElementById('planBadge').textContent = '无方案';
+    document.getElementById('planBadge').className = 'badge b-orange';
+    document.getElementById('noPlanBar').style.display = '';
+  }
+}
+
+function updateKeyBadge(){
+  const kb = document.getElementById('keyBadge');
+  const hint = document.getElementById('modelHint');
+  if(hasKey){
+    kb.textContent = '✓ Key已配置';
+    kb.className = 'badge b-green';
+    hint.textContent = 'gemini-2.0-flash';
+  } else {
+    kb.textContent = '⚙ 设置 API Key';
+    kb.className = 'badge b-red';
+    hint.textContent = '需要 Gemini API Key ← 点右上角设置';
+  }
+  kb.style.display = '';
+}
+
+// ── 设置面板 ────────────────────────────────────────────
+function openSettings(){
+  document.getElementById('settingsOverlay').style.display = 'flex';
+  document.getElementById('apiKeyInput').focus();
+}
+function closeSettings(){
+  document.getElementById('settingsOverlay').style.display = 'none';
+}
+async function saveKey(){
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if(!key){ alert('请输入 API Key'); return; }
+  await fetch('/api/settings',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({api_key: key})
+  });
+  hasKey = true;
+  updateKeyBadge();
+  document.getElementById('spOk').style.display = '';
+  setTimeout(closeSettings, 800);
+}
+
+// ── 消息渲染 ─────────────────────────────────────────────
+function appendMsg(role, text, isTyping=false){
+  const list = document.getElementById('msgList');
+  const div  = document.createElement('div');
+  div.className = `msg ${role}`;
+  const icon = role==='ai' ? '🤖' : '👤';
+  div.innerHTML = `
+    <div class="avatar ${role==='ai'?'av-ai':'av-user'}">${icon}</div>
+    <div class="bubble" id="bubble-${Date.now()}">${
+      isTyping
+        ? '<div class="typing"><span></span><span></span><span></span></div>'
+        : renderMd(text)
+    }</div>`;
+  list.appendChild(div);
+  list.scrollTop = list.scrollHeight;
+  return div.querySelector('.bubble');
+}
+
+// 极简 Markdown 渲染（粗体/代码/列表/分隔线）
+function renderMd(text){
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`(.+?)`/g,'<code>$1</code>')
+    .replace(/^#{1,3} (.+)$/gm,'<h3>$1</h3>')
+    .replace(/^[-•] (.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g,'<ul>$&</ul>')
+    .replace(/^(\d+)\. (.+)$/gm,'<li>$2</li>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/\n/g,'<br>')
+    .replace(/^(.)/,'<p>$1').replace(/(.)$/,'$1</p>');
+}
+
+// ── 发送消息 ─────────────────────────────────────────────
+async function send(preset){
+  const inp = document.getElementById('inp');
+  const msg = (preset || inp.value).trim();
+  if(!msg) return;
+  if(!hasKey){ openSettings(); return; }
+
+  inp.value = '';
+  autoResize(inp);
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('quickWrap').style.display = 'none';
+
+  // 显示用户气泡
+  appendMsg('user', msg);
+
+  // 显示打字中动画
+  const typingBubble = appendMsg('ai', '', true);
+
+  try {
+    const res = await fetch('/api/chat', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ message: msg, history })
+    });
+    const d = await res.json();
+    if(d.error){
+      typingBubble.innerHTML = `<span style="color:#FF453A">❌ ${d.error}</span>`;
+      return;
+    }
+    typingBubble.innerHTML = renderMd(d.reply);
+    // 维护历史（限制 20 轮，防 context 过长）
+    history.push({role:'user', content:msg});
+    history.push({role:'assistant', content:d.reply});
+    if(history.length > 40) history = history.slice(-40);
+  } catch(e){
+    typingBubble.innerHTML = `<span style="color:#FF453A">❌ 网络错误: ${e.message}</span>`;
+  } finally {
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('msgList').scrollTop = 9999;
+  }
+}
+
+function onKey(e){
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); }
+}
+function autoResize(el){
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight,120)+'px';
+}
+
+init();
+</script>
+</body>
+</html>

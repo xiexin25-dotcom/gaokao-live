@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>蒙特卡洛仿真 · 志愿规划</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PingFang SC',system-ui,sans-serif;background:#080F1A;color:#D0DCF0;min-height:100vh}
+.topbar{background:#0B1525;border-bottom:1px solid rgba(255,255,255,.06);padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+a.back{color:rgba(255,255,255,.4);font-size:20px;text-decoration:none}
+.tb-title{font-size:14px;font-weight:800;color:#fff;flex:1}
+.badge{font-size:10px;padding:3px 9px;border-radius:8px;font-weight:700}
+.b-blue{background:rgba(74,158,255,.2);color:#4A9EFF}
+.b-green{background:rgba(52,199,89,.2);color:#34C759}
+.b-orange{background:rgba(255,159,10,.2);color:#FF9F0A;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* 参数面板 */
+.param-panel{background:#0B1525;border-bottom:1px solid rgba(255,255,255,.05);padding:14px 16px}
+.section-lbl{font-size:10px;font-weight:800;letter-spacing:3px;color:rgba(255,255,255,.25);margin-bottom:12px}
+.param-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.param-card{background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.07);border-radius:14px;padding:12px}
+.pc-lbl{font-size:10px;color:rgba(255,255,255,.4);margin-bottom:4px;display:flex;justify-content:space-between}
+.pc-val{font-size:20px;font-weight:900;color:#fff;margin-bottom:8px;line-height:1.2}
+.pc-unit{font-size:11px;color:rgba(255,255,255,.35);font-weight:400}
+.pc-hint{font-size:9px;color:rgba(255,255,255,.2);margin-top:4px;line-height:1.5}
+.sl{width:100%;-webkit-appearance:none;height:4px;border-radius:2px;outline:none;cursor:pointer}
+.sl::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;cursor:pointer;border:2.5px solid #080F1A}
+#slN::-webkit-slider-thumb{background:#4A9EFF}
+#slVol::-webkit-slider-thumb{background:#FF9F0A}
+#slSeed::-webkit-slider-thumb{background:#BF5AF2}
+.preset-row{display:flex;gap:6px;flex-wrap:wrap}
+.preset-lbl{font-size:10px;color:rgba(255,255,255,.25);align-self:center}
+.preset{padding:5px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);font-size:11px;font-weight:700;color:rgba(255,255,255,.45);cursor:pointer;transition:.2s}
+.preset.on{border-color:#4A9EFF;background:rgba(74,158,255,.12);color:#4A9EFF}
+
+/* 运行栏 */
+.run-bar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#0B1525;border-bottom:1px solid rgba(255,255,255,.04)}
+.btn{padding:9px 18px;border-radius:11px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:.15s}
+.btn-run{background:linear-gradient(135deg,#4A9EFF,#2A7FE0);color:#fff;box-shadow:0 4px 16px rgba(74,158,255,.3)}
+.btn-run:disabled{opacity:.5;cursor:not-allowed}
+.spd-row{display:flex;align-items:center;gap:6px;margin-left:auto}
+.spd-lbl{font-size:10px;color:rgba(255,255,255,.3)}
+.spd-sl{-webkit-appearance:none;height:3px;border-radius:2px;background:rgba(255,255,255,.12);width:60px}
+.spd-sl::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#4A9EFF;cursor:pointer}
+.spd-val{font-size:11px;font-weight:700;color:#4A9EFF;min-width:22px}
+
+/* 统计卡 */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px 16px}
+.stat-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:9px;text-align:center}
+.stat-val{font-size:16px;font-weight:900;margin-bottom:2px}
+.stat-lbl{font-size:9px;color:rgba(255,255,255,.3)}
+
+/* 标签页 */
+.tab-bar{display:flex;padding:0 16px;border-bottom:1px solid rgba(255,255,255,.06);background:#0B1525}
+.tab{flex:1;padding:10px 0;text-align:center;font-size:12px;font-weight:700;color:rgba(255,255,255,.3);cursor:pointer;border-bottom:2px solid transparent;transition:.2s}
+.tab.on{color:#4A9EFF;border-bottom-color:#4A9EFF}
+.pg{display:none;padding-bottom:20px}
+.pg.show{display:block}
+
+/* 志愿详情卡 */
+.vol-list{padding:10px 16px 20px;display:flex;flex-direction:column;gap:8px}
+.sec-lbl{font-size:10px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.25);padding:8px 0 4px}
+.vol-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden}
+.vc-hdr{display:flex;align-items:flex-start;gap:10px;padding:11px 12px}
+.vc-num{font-size:18px;font-weight:900;min-width:26px;text-align:center;padding-top:2px}
+.vc-body{flex:1;min-width:0}
+.vc-school{font-size:13px;font-weight:800;color:#fff;margin-bottom:3px}
+.vc-meta{display:flex;flex-wrap:wrap;gap:3px}
+.tag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px}
+.t-rush{background:rgba(255,159,10,.15);color:#FF9F0A}
+.t-safe{background:rgba(74,158,255,.12);color:#4A9EFF}
+.t-bao{background:rgba(52,199,89,.1);color:#34C759}
+.t-gray{background:rgba(255,255,255,.07);color:rgba(255,255,255,.5)}
+.vc-rate-block{text-align:right;flex-shrink:0}
+.vc-pct{font-size:18px;font-weight:900}
+/* 进度条 */
+.bar-row{padding:0 12px 4px;display:flex;align-items:center;gap:8px}
+.bar{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .4s}
+/* 专业行 */
+.major-list{border-top:1px solid rgba(255,255,255,.05);padding:8px 12px 10px}
+.ml-hdr{font-size:9px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,.2);padding-bottom:5px}
+.mj-row{display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:7px;background:rgba(255,255,255,.02);margin-bottom:3px}
+.mj-row.top-hit{background:rgba(52,199,89,.07);border:1px solid rgba(52,199,89,.15)}
+.mj-i{font-size:9px;color:rgba(255,255,255,.3);min-width:14px;text-align:center;font-weight:700}
+.mj-name{font-size:11px;font-weight:600;flex:1;color:rgba(255,255,255,.75)}
+.mj-name.top{color:#34C759;font-weight:800}
+.mj-s{font-size:10px;color:rgba(255,255,255,.4);min-width:34px;text-align:right}
+.mj-diff{font-size:9px;font-weight:700;padding:0 5px;border-radius:3px;min-width:38px;text-align:center}
+.d-pos{background:rgba(255,69,58,.1);color:#FF453A}
+.d-neg{background:rgba(52,199,89,.1);color:#34C759}
+.d-neu{background:rgba(255,255,255,.06);color:rgba(255,255,255,.35)}
+.mj-rate{font-size:11px;font-weight:800;min-width:38px;text-align:right}
+
+/* 曲线 */
+.curve-wrap{margin:10px 16px 80px;background:#050D18;border:1px solid rgba(255,255,255,.06);border-radius:14px;overflow:hidden}
+.curve-hdr{padding:8px 12px;font-size:10px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:2px;border-bottom:1px solid rgba(255,255,255,.04)}
+
+/* 用户交互按钮 */
+.vc-actions{display:flex;gap:5px;padding:0 12px 10px;border-top:1px solid rgba(255,255,255,.04);padding-top:8px;margin-top:2px}
+.act-btn{flex:1;padding:6px 0;border-radius:8px;border:none;font-size:11px;font-weight:700;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:4px}
+.act-lock{background:rgba(255,214,10,.08);color:#FFD60A;border:1px solid rgba(255,214,10,.2)}
+.act-lock.on{background:rgba(255,214,10,.22);border-color:#FFD60A;box-shadow:0 0 8px rgba(255,214,10,.2)}
+.act-excl{background:rgba(255,69,58,.06);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08)}
+.act-excl.on{background:rgba(255,69,58,.18);color:#FF453A;border-color:rgba(255,69,58,.4)}
+/* 卡片状态角标 */
+.vol-card{position:relative}
+.card-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px;pointer-events:none;z-index:2}
+.cb-lock{background:rgba(255,214,10,.25);color:#FFD60A}
+.cb-new{background:rgba(48,209,88,.2);color:#30D158}
+.cb-excl{background:rgba(255,69,58,.2);color:#FF453A}
+.vol-card.is-locked{border-color:rgba(255,214,10,.35)!important;box-shadow:0 0 10px rgba(255,214,10,.1)}
+.vol-card.is-excluded{opacity:.45;filter:grayscale(.6)}
+.vol-card.is-new{border-color:rgba(48,209,88,.4)!important;box-shadow:0 0 12px rgba(48,209,88,.1)}
+/* 浮动底栏 */
+.float-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(8,15,26,.92);backdrop-filter:blur(12px);border-top:1px solid rgba(255,255,255,.08);padding:10px 16px 14px;display:none;z-index:200}
+.fb-info{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.fb-chip{font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px}
+.fb-chip-lock{background:rgba(255,214,10,.15);color:#FFD60A}
+.fb-chip-excl{background:rgba(255,69,58,.12);color:#FF453A}
+.fb-chip-none{background:rgba(255,255,255,.07);color:rgba(255,255,255,.4);font-weight:400}
+.fb-btns{display:flex;gap:8px}
+.fb-opt-btn{flex:1;padding:10px;border-radius:12px;border:none;font-size:13px;font-weight:800;cursor:pointer;background:linear-gradient(135deg,#4A9EFF,#2A6FD0);color:#fff;box-shadow:0 4px 16px rgba(74,158,255,.35)}
+.fb-opt-btn:disabled{opacity:.5;cursor:not-allowed}
+.fb-clr-btn{padding:10px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);font-size:12px;font-weight:700;cursor:pointer}
+/* diff 摘要栏 */
+.diff-bar{background:rgba(48,209,88,.06);border:1px solid rgba(48,209,88,.2);border-radius:12px;padding:10px 14px;margin:8px 16px;font-size:11px;display:none}
+.diff-title{font-weight:800;color:#30D158;margin-bottom:6px}
+.diff-item{display:flex;align-items:center;gap:6px;padding:3px 0;color:rgba(255,255,255,.6)}
+.diff-arrow{color:rgba(255,255,255,.25);font-size:10px}
+.diff-old{color:rgba(255,255,255,.35);text-decoration:line-through;font-size:10px}
+.diff-new{color:#30D158;font-weight:700;font-size:11px}
+/* 无方案提示 */
+.no-plan{padding:60px 20px;text-align:center;color:rgba(255,255,255,.3)}
+.no-plan .np-icon{font-size:48px;margin-bottom:16px}
+.no-plan .np-text{font-size:14px;margin-bottom:16px}
+a.np-btn{display:inline-block;padding:10px 20px;border-radius:12px;background:rgba(74,158,255,.15);color:#4A9EFF;font-weight:700;text-decoration:none;font-size:13px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="back" href="/">←</a>
+  <div class="tb-title">🎲 蒙特卡洛仿真</div>
+  <span class="badge b-blue" id="statusBadge">检查方案…</span>
+</div>
+
+<!-- 无方案时显示 -->
+<div id="noPlan" style="display:none">
+  <div class="no-plan">
+    <div class="np-icon">📝</div>
+    <div class="np-text">尚未生成志愿方案<br>请先填写考生信息</div>
+    <a class="np-btn" href="/plan">前往生成方案 →</a>
+  </div>
+</div>
+
+<!-- 有方案时显示 -->
+<div id="hasPlan" style="display:none">
+
+<div class="param-panel">
+  <div class="section-lbl">⚙ 仿真参数</div>
+  <div class="param-grid">
+    <div class="param-card">
+      <div class="pc-lbl"><span>模拟次数</span><span style="color:#4A9EFF;font-size:9px">N</span></div>
+      <div class="pc-val" id="vN">1万<span class="pc-unit"> 次</span></div>
+      <input class="sl" id="slN" type="range" min="0" max="7" value="3" oninput="onSlN(this.value)">
+      <div class="pc-hint">1K·5K·1W·3W·5W·10W·20W·50W</div>
+    </div>
+    <div class="param-card">
+      <div class="pc-lbl"><span>分数线偏移</span><span style="color:#FF9F0A;font-size:9px">Bias</span></div>
+      <div class="pc-val" id="vVol"><span id="volNum" style="color:#FF9F0A">历年均值（基准）</span></div>
+      <div style="position:relative;margin-bottom:4px">
+        <input class="sl" id="slVol" type="range" min="-50" max="50" step="1" value="0" oninput="onSlVol(this.value)" style="width:100%">
+        <div style="position:absolute;left:50%;top:-3px;width:2px;height:24px;background:rgba(255,159,10,.6);border-radius:1px;pointer-events:none;transform:translateX(-50%)"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,.2);margin-top:1px">
+        <span style="color:#FF453A">涨线+50%</span><span>历年均值</span><span style="color:#34C759">降线-50%</span>
+      </div>
+    </div>
+    <div class="param-card">
+      <div class="pc-lbl"><span>随机种子</span><span style="color:#BF5AF2;font-size:9px">SEED</span></div>
+      <div class="pc-val" id="vSeed">42</div>
+      <input class="sl" id="slSeed" type="range" min="0" max="9" value="0" oninput="onSlSeed(this.value)">
+      <div class="pc-hint">42·1·2·7·13·21·99·123·777·2026</div>
+    </div>
+    <div class="param-card" style="display:flex;flex-direction:column;justify-content:center">
+      <div class="pc-lbl">噪声幅度</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:4px">固定 <span style="color:#FF9F0A;font-weight:800">±8%</span> 随机扰动</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.2);line-height:1.5">Bias叠加±8%均匀分布<br>模拟年度分数线波动</div>
+    </div>
+  </div>
+  <div class="preset-row">
+    <span class="preset-lbl">预设：</span>
+    <div class="preset on" id="pr0" onclick="applyPreset(0)">均值基准</div>
+    <div class="preset" id="pr1" onclick="applyPreset(1)">降线-20%</div>
+    <div class="preset" id="pr2" onclick="applyPreset(2)">涨线+20%</div>
+    <div class="preset" id="pr3" onclick="applyPreset(3)">高精度10W</div>
+  </div>
+</div>
+
+<div class="run-bar">
+  <button class="btn btn-run" id="btnRun" onclick="runSim()">▶ 运行仿真</button>
+  <div class="spd-row">
+    <span class="spd-lbl">后端 Python 高速计算</span>
+  </div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card"><div class="stat-val" id="sv-n" style="color:#4A9EFF">-</div><div class="stat-lbl">模拟次数</div></div>
+  <div class="stat-card"><div class="stat-val" id="sv-rate" style="color:#34C759">-</div><div class="stat-lbl">总录取率</div></div>
+  <div class="stat-card"><div class="stat-val" id="sv-rush" style="color:#FF9F0A">-</div><div class="stat-lbl">冲命中率</div></div>
+  <div class="stat-card"><div class="stat-val" id="sv-eq" style="color:#BF5AF2">-</div><div class="stat-lbl">期望质量</div></div>
+</div>
+
+<div class="tab-bar">
+  <div class="tab on" id="tab0" onclick="switchTab(0)">🏫 志愿详情</div>
+  <div class="tab" id="tab1" onclick="switchTab(1)">📈 累积曲线</div>
+</div>
+
+<div class="pg show" id="pg0">
+  <div class="diff-bar" id="diffBar">
+    <div class="diff-title">✨ 优化结果 — 替换了以下志愿</div>
+    <div id="diffItems"></div>
+  </div>
+  <div class="vol-list" id="volList"></div>
+</div>
+
+<!-- 浮动底栏 -->
+<div class="float-bar" id="floatBar">
+  <div class="fb-info" id="fbInfo"></div>
+  <div class="fb-btns">
+    <button class="fb-clr-btn" onclick="clearAllMarks()">✕ 清除选择</button>
+    <button class="fb-opt-btn" id="btnConstrained" onclick="runConstrainedOptimize()">
+      🎯 按偏好重新优化
+    </button>
+  </div>
+</div>
+<div class="pg" id="pg1">
+  <div class="curve-wrap" style="margin-bottom:20px">
+    <div class="curve-hdr">各志愿命中率（柱状）</div>
+    <svg id="barSvg" style="width:100%;display:block;height:200px" viewBox="0 0 340 200" preserveAspectRatio="none"></svg>
+  </div>
+</div>
+
+</div><!-- /hasPlan -->
+
+<script>
+const N_STEPS   = [1000,5000,10000,30000,50000,100000,200000,500000];
+const SEED_VALS = [42,1,2,7,13,21,99,123,777,2026];
+const PRESETS   = [{n:2,vol:0,seed:0},{n:2,vol:20,seed:0},{n:2,vol:-20,seed:0},{n:5,vol:0,seed:0}];
+const TP_C  = {'冲':'#FF9F0A','稳':'#4A9EFF','保':'#34C759'};
+const TP_CLS= {'冲':'t-rush','稳':'t-safe','保':'t-bao'};
+
+let pN=2, pVol=0, pSeed=0;
+let currentVols = [];
+let lastMC = null;
+// 用户标记状态
+const userMarks = {};    // gcode → 'lock' | 'exclude' | null
+
+function getMark(gcode){ return userMarks[gcode] || null; }
+
+function setMark(gcode, school, mark){
+  // 切换：再次点同一状态则取消
+  userMarks[gcode] = (userMarks[gcode] === mark) ? null : mark;
+  refreshCardMark(gcode);
+  refreshFloatBar();
+}
+
+function clearAllMarks(){
+  Object.keys(userMarks).forEach(k => delete userMarks[k]);
+  // 重新渲染所有卡片按钮状态
+  document.querySelectorAll('.act-btn').forEach(btn => btn.classList.remove('on'));
+  document.querySelectorAll('.vol-card').forEach(card => {
+    card.classList.remove('is-locked','is-excluded','is-new');
+    const cb = card.querySelector('.card-badge');
+    if(cb) cb.remove();
+  });
+  refreshFloatBar();
+}
+
+function refreshCardMark(gcode){
+  const mark = getMark(gcode);
+  const card = document.querySelector(`[data-gcode="${gcode}"]`);
+  if(!card) return;
+  const lockBtn = card.querySelector('.act-lock');
+  const exclBtn = card.querySelector('.act-excl');
+  if(lockBtn) lockBtn.classList.toggle('on', mark === 'lock');
+  if(exclBtn) exclBtn.classList.toggle('on', mark === 'exclude');
+  card.classList.toggle('is-locked',  mark === 'lock');
+  card.classList.toggle('is-excluded', mark === 'exclude');
+  // 角标
+  let cb = card.querySelector('.card-badge');
+  if(!cb){ cb = document.createElement('div'); cb.className='card-badge'; card.prepend(cb); }
+  if(mark === 'lock'){ cb.className='card-badge cb-lock'; cb.textContent='🔒 锁定'; }
+  else if(mark === 'exclude'){ cb.className='card-badge cb-excl'; cb.textContent='✕ 排除'; }
+  else { cb.remove(); }
+}
+
+function refreshFloatBar(){
+  const locked   = Object.entries(userMarks).filter(([,v])=>v==='lock');
+  const excluded = Object.entries(userMarks).filter(([,v])=>v==='exclude');
+  const bar      = document.getElementById('floatBar');
+  const info     = document.getElementById('fbInfo');
+
+  if(locked.length === 0 && excluded.length === 0){
+    bar.style.display = 'none'; return;
+  }
+  bar.style.display = '';
+
+  // 找学校名
+  const nameOf = gcode => {
+    const v = currentVols.find(v => v.gcode === gcode);
+    return v ? v.school : gcode;
+  };
+
+  let chips = '';
+  if(locked.length > 0){
+    chips += `<span class="fb-chip fb-chip-lock">🔒 锁定 ${locked.length} 个</span>`;
+    locked.forEach(([gc]) => chips += `<span class="fb-chip" style="background:rgba(255,214,10,.07);color:rgba(255,214,10,.7)">${nameOf(gc).slice(0,6)}</span>`);
+  }
+  if(excluded.length > 0){
+    chips += `<span class="fb-chip fb-chip-excl">✕ 排除 ${excluded.length} 所</span>`;
+    excluded.forEach(([gc]) => chips += `<span class="fb-chip" style="background:rgba(255,69,58,.06);color:rgba(255,69,58,.6)">${nameOf(gc).slice(0,6)}</span>`);
+  }
+  if(locked.length === 0)   chips += `<span class="fb-chip fb-chip-none">未锁定（全部可优化）</span>`;
+  if(excluded.length === 0) chips += `<span class="fb-chip fb-chip-none">未排除（候选池完整）</span>`;
+  info.innerHTML = chips;
+}
+
+function setSlBg(id,val,max,color){
+  const p=val/max*100;
+  document.getElementById(id).style.background=
+    `linear-gradient(90deg,${color}AA ${p}%,rgba(255,255,255,.12) ${p}%)`;
+}
+function fmtN(n){return n>=100000?(n/10000)+'W':n>=1000?(n/1000)+'K':n}
+
+function onSlN(v){
+  pN=+v; const n=N_STEPS[pN];
+  document.getElementById('vN').innerHTML=fmtN(n)+'<span class="pc-unit"> 次</span>';
+  setSlBg('slN',pN,7,'#4A9EFF');
+  clearPreset();
+}
+function onSlVol(v){
+  pVol=+v;
+  // 右 = 降线（乐观，绿色）；左 = 涨线（悲观，红色）
+  const color=pVol>0?'#34C759':pVol<0?'#FF453A':'#FF9F0A';
+  const label=pVol>0?`分数线降 ${pVol}%（偏乐观）`:pVol<0?`分数线涨 +${Math.abs(pVol)}%（偏悲观）`:`历年均值（基准）`;
+  document.getElementById('volNum').style.color=color;
+  document.getElementById('volNum').textContent=label;
+  clearPreset();
+  // 滑块背景：右绿（降线/乐观）左红（涨线/悲观）
+  const pct=(pVol+50)/100*100;
+  const sl=document.getElementById('slVol');
+  if(pVol>0) sl.style.background=`linear-gradient(90deg,rgba(255,159,10,.15) 50%,#34C759AA ${pct}%,rgba(255,255,255,.1) ${pct}%)`;
+  else if(pVol<0) sl.style.background=`linear-gradient(90deg,rgba(255,255,255,.1) ${pct}%,#FF453AAA ${pct}%,rgba(255,69,58,.15) 50%,rgba(52,199,89,.06) 100%)`;
+  else sl.style.background='linear-gradient(90deg,rgba(255,69,58,.1) 50%,rgba(52,199,89,.1) 50%)';
+}
+function onSlSeed(v){
+  pSeed=+v;
+  document.getElementById('vSeed').textContent=SEED_VALS[pSeed];
+  setSlBg('slSeed',pSeed,9,'#BF5AF2');
+}
+function clearPreset(){document.querySelectorAll('.preset').forEach(e=>e.classList.remove('on'));}
+function applyPreset(i){
+  const p=PRESETS[i]; pN=p.n; pSeed=p.seed;
+  document.getElementById('slN').value=pN; onSlN(pN);
+  document.getElementById('slVol').value=p.vol; onSlVol(p.vol);
+  document.getElementById('slSeed').value=pSeed; onSlSeed(pSeed);
+  document.querySelectorAll('.preset').forEach((e,j)=>e.classList.toggle('on',j===i));
+}
+
+// ── 运行仿真（Python后端）──
+async function runSim(){
+  const btn=document.getElementById('btnRun');
+  btn.disabled=true; btn.textContent='计算中…';
+  document.getElementById('statusBadge').textContent='Python计算中…';
+  document.getElementById('statusBadge').className='badge b-orange';
+  const N=N_STEPS[pN];
+  try {
+    const res=await fetch('/api/simulate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({N, seed:SEED_VALS[pSeed],
+        bias_lo: pVol > 0 ? -pVol : 0,
+        bias_hi: pVol < 0 ? -pVol : 0,
+        noise:8})
+    });
+    if(res.status===400){
+      const d=await res.json();
+      alert(d.error||'请先生成志愿方案');
+      window.location.href='/plan';
+      return;
+    }
+    const d=await res.json();
+    lastMC=d;
+    renderVolDetails(d, new Set());
+    renderBarChart(d);
+    document.getElementById('sv-n').textContent=N>=10000?(N/10000)+'W':N;
+    document.getElementById('sv-rate').textContent=(d.total_rate*100).toFixed(1)+'%';
+    document.getElementById('sv-rush').textContent=(d.rush_rate*100).toFixed(1)+'%';
+    document.getElementById('sv-eq').textContent=d.exp_q.toFixed(1);
+    document.getElementById('statusBadge').textContent='完成 ✓';
+    document.getElementById('statusBadge').className='badge b-green';
+  } catch(e){
+    alert('仿真失败：'+e.message);
+  } finally {
+    btn.disabled=false; btn.textContent='▶ 重新仿真';
+  }
+}
+
+function renderVolDetails(mc, diffGcodes = new Set()){
+  // 更新 currentVols（vols_rates 含 gcode 等元数据）
+  if(mc.vols_rates && mc.vols_rates.length > 0){
+    currentVols = mc.vols_rates;
+    window._lastScore = mc.student_rank_score || 585;
+  }
+  const vr = mc.vols_rates || [];
+  const TP_CLS = {'冲':'t-rush','稳':'t-safe','保':'t-bao'};
+  let rushH='', safeH='', baoH='';
+
+  currentVols.forEach((v, i) => {
+    const c   = TP_C[v.tp];
+    const cls = TP_CLS[v.tp];
+    const vrItem    = vr[i] || {};
+    const rate      = vrItem.rate || 0;
+    const topM      = vrItem.top_major;
+    const mark      = getMark(v.gcode);
+    const isNew     = diffGcodes.has(v.gcode);
+    const rateColor = rate>0.2?'#34C759':rate>0.05?'#4A9EFF':rate>0.01?'#FF9F0A':'rgba(255,255,255,.3)';
+    const bw        = Math.min(rate*3.5*100, 100).toFixed(1);
+
+    // 专业行
+    const mjRows = (vrItem.major_rates || []).map((m, mi) => {
+      const diff  = m.diff != null ? m.diff : 0;
+      const dCls  = diff>0 ? 'd-pos' : diff<-3 ? 'd-neg' : 'd-neu';
+      const dSign = diff > 0 ? '+' : '';
+      const isTop = topM && topM.name === m.name && m.rate > 0.005;
+      const rColor= m.rate>0.1?'#34C759':m.rate>0.02?'#4A9EFF':m.rate>0.005?'#FF9F0A':'rgba(255,255,255,.2)';
+      return `<div class="mj-row${isTop?' top-hit':''}">
+        <span class="mj-i">${mi+1}</span>
+        <span class="mj-name${isTop?' top':''}">${m.name}</span>
+        <span class="mj-s">${m.s25||'?'}分</span>
+        <span class="mj-diff ${dCls}">${dSign}${diff!=null?diff:''}</span>
+        <span class="mj-rate" style="color:${rColor}">${m.rate>0?(m.rate*100).toFixed(1)+'%':'-'}</span>
+      </div>`;
+    }).join('');
+
+    // 健康检查
+    const score   = window._lastScore || 585;
+    const gminNum = parseFloat(v.gmin25) || 0;
+    const sc6Num  = parseFloat(v.sc6)   || 0;
+    let healthWarn = '';
+    if(v.tp==='稳' && gminNum > score)
+      healthWarn = `<div style="background:rgba(255,69,58,.12);border:1px solid rgba(255,69,58,.3);border-radius:8px;padding:5px 10px;font-size:10px;color:#FF453A;margin:6px 0 0">⚠️ 异常：gmin=${gminNum} > 考生分${score}，可能来自旧版数据，建议重新生成方案。</div>`;
+    else if(v.tp==='稳' && sc6Num > score)
+      healthWarn = `<div style="background:rgba(255,159,10,.12);border:1px solid rgba(255,159,10,.3);border-radius:8px;padding:5px 10px;font-size:10px;color:#FF9F0A;margin:6px 0 0">⚠️ sc6=${sc6Num} > 考生分${score}，命中率可能为 0%。</div>`;
+
+    // 卡片类名
+    const cardCls = [
+      'vol-card',
+      mark==='lock'    ? 'is-locked'   : '',
+      mark==='exclude' ? 'is-excluded' : '',
+      isNew            ? 'is-new'      : '',
+    ].filter(Boolean).join(' ');
+
+    // 角标
+    let badge = '';
+    if(isNew)            badge = `<div class="card-badge cb-new">✨ 新替换</div>`;
+    else if(mark==='lock')   badge = `<div class="card-badge cb-lock">🔒 已锁定</div>`;
+    else if(mark==='exclude')badge = `<div class="card-badge cb-excl">✕ 已排除</div>`;
+
+    const card = `<div class="${cardCls}" data-gcode="${v.gcode}">
+      ${badge}
+      ${healthWarn ? `<div style="padding:8px 12px 0">${healthWarn}</div>` : ''}
+      <div class="vc-hdr">
+        <div class="vc-num" style="color:${c}">${i+1}</div>
+        <div class="vc-body">
+          <div class="vc-school">${v.school}</div>
+          <div class="vc-meta">
+            <span class="tag ${cls}">${v.tp}志愿</span>
+            <span class="tag t-gray">${v.lv_label}</span>
+            <span class="tag t-gray">${v.city}·${v.cr_label}</span>
+            <span class="tag t-gray">gmin ${v.gmin25||'?'}分</span>
+          </div>
+        </div>
+        <div class="vc-rate-block">
+          <div class="vc-pct" style="color:${rateColor}">${(rate*100).toFixed(1)}%</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.3)">${topM?topM.name.slice(0,5):'无命中'}</div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar"><div class="bar-fill" style="width:${bw}%;background:${c}"></div></div>
+        <span style="font-size:9px;color:rgba(255,255,255,.25);min-width:46px;text-align:right">${Math.round(rate*(mc.N||10000))}次</span>
+      </div>
+      <div class="major-list">
+        <div class="ml-hdr">意向专业 · 各专业命中率</div>
+        ${mjRows||'<div style="font-size:10px;color:rgba(255,255,255,.25);padding:4px 0">无专业数据</div>'}
+      </div>
+      <div class="vc-actions">
+        <button class="act-btn act-lock${mark==='lock'?' on':''}"
+          onclick="setMark('${v.gcode}','${v.school}','lock')" title="锁定后，优化时此志愿不被替换">
+          🔒 锁定此志愿
+        </button>
+        <button class="act-btn act-excl${mark==='exclude'?' on':''}"
+          onclick="setMark('${v.gcode}','${v.school}','exclude')" title="排除后，该院校不进入候选池">
+          ✕ 排除此院校
+        </button>
+      </div>
+    </div>`;
+
+    if(v.tp==='冲') rushH+=card;
+    else if(v.tp==='稳') safeH+=card;
+    else baoH+=card;
+  });
+
+  const lbl = t => `<div class="sec-lbl">${t}</div>`;
+  document.getElementById('volList').innerHTML =
+    lbl('⚡ 冲志愿') + rushH +
+    lbl('✅ 稳志愿') + safeH +
+    lbl('🛡 保志愿') + baoH;
+
+  // 底部占位，防止浮动栏遮住最后一张卡片
+  document.getElementById('volList').insertAdjacentHTML('beforeend',
+    '<div style="height:80px"></div>');
+}
+
+async function runConstrainedOptimize(){
+  const btn = document.getElementById('btnConstrained');
+  btn.disabled = true;
+  btn.textContent = '优化中…';
+  document.getElementById('statusBadge').textContent = '优化中…';
+  document.getElementById('statusBadge').className = 'badge b-orange';
+
+  const locked_codes     = Object.entries(userMarks).filter(([,v])=>v==='lock').map(([k])=>k);
+  const excluded_gcodes  = Object.entries(userMarks).filter(([,v])=>v==='exclude').map(([k])=>k);
+  // 将排除的 gcode → school 名称，传给后端
+  const excluded_schools = excluded_gcodes.map(gc => {
+    const v = currentVols.find(v=>v.gcode===gc);
+    return v ? v.school : gc;
+  }).filter(Boolean);
+
+  try {
+    const res = await fetch('/api/optimize_constrained', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        locked_codes, excluded_schools,
+        max_rounds: 10, mc_n: 8000, noise_pct: 15,
+      })
+    });
+    const d = await res.json();
+    if(d.error){ alert('优化失败：'+d.error); return; }
+
+    // 计算新加入的 gcode 集合（用于高亮）
+    const newGcodes = new Set(d.diff.map(di => di.new_gcode));
+
+    // 跑一次正式MC，拿带专业命中率的结果
+    const mcRes = await fetch('/api/simulate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({N: 10000, seed: SEED_VALS[pSeed],
+        bias_lo: pVol > 0 ? -pVol : 0,
+        bias_hi: pVol < 0 ? -pVol : 0,
+        noise: 8})
+    });
+    const mcData = await mcRes.json();
+
+    // 渲染
+    renderVolDetails(mcData, newGcodes);
+    renderBarChart(mcData);
+    document.getElementById('sv-n').textContent    = '1W';
+    document.getElementById('sv-rate').textContent = (mcData.total_rate*100).toFixed(1)+'%';
+    document.getElementById('sv-rush').textContent = (mcData.rush_rate*100).toFixed(1)+'%';
+    document.getElementById('sv-eq').textContent   = mcData.exp_q.toFixed(1);
+
+    // 渲染 diff 栏
+    renderDiff(d.diff);
+
+    const summary = d.diff.length === 0
+      ? `方案已最优，无志愿被替换（锁定${d.locked_count}个·排除${d.excluded_count}所）`
+      : `✨ 优化完成：替换了 ${d.diff.length} 个志愿，共跑 ${d.rounds_run} 轮`;
+    document.getElementById('statusBadge').textContent = summary;
+    document.getElementById('statusBadge').className   = 'badge b-green';
+
+  } catch(e){ alert('请求失败：'+e.message); }
+  finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 再次优化';
+  }
+}
+
+function renderDiff(diff){
+  const bar   = document.getElementById('diffBar');
+  const items = document.getElementById('diffItems');
+  if(!diff || diff.length === 0){
+    bar.style.display = 'none'; return;
+  }
+  bar.style.display = '';
+  const TP_COLOR = {'冲':'#FF9F0A','稳':'#4A9EFF','保':'#34C759'};
+  items.innerHTML = diff.map(d => `
+    <div class="diff-item">
+      <span style="font-size:9px;font-weight:800;color:${TP_COLOR[d.tp]||'#fff'};min-width:28px">#${d.vol_idx}[${d.tp}]</span>
+      <span class="diff-old">${d.old_school}（${d.old_lv}·${d.old_gmin}分）</span>
+      <span class="diff-arrow">→</span>
+      <span class="diff-new">${d.new_school}（${d.new_lv}·${d.new_gmin}分）</span>
+    </div>`
+  ).join('');
+}
+
+function renderBarChart(mc){
+  const rates=mc.vols_rates||[];
+  const W=340,H=200,PX=8,PY=20;
+  const n=rates.length||18;
+  const bw=(W-PX*2)/n-2;
+  let svg='';
+  const maxR=Math.max(...rates.map(r=>r.rate||0),0.05);
+  rates.forEach((vr,i)=>{
+    const v=currentVols[i]; if(!v) return;
+    const c=TP_C[v.tp]; const rate=vr.rate||0;
+    const bh=(rate/maxR)*(H-PY*2);
+    const x=PX+i*(bw+2); const y=H-PY-bh;
+    svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" 
+      fill="${c}" opacity="${rate>0?0.85:0.2}" rx="2"/>`;
+    if(rate>0.01){
+      svg+=`<text x="${(x+bw/2).toFixed(1)}" y="${(y-3).toFixed(1)}" text-anchor="middle" 
+        fill="${c}" font-size="7" font-weight="700">${(rate*100).toFixed(0)}%</text>`;
+    }
+    svg+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" 
+      fill="rgba(255,255,255,.3)" font-size="7">${i+1}</text>`;
+  });
+  document.getElementById('barSvg').innerHTML=svg;
+}
+
+function switchTab(i){
+  ['pg0','pg1'].forEach((id,j)=>document.getElementById(id).classList.toggle('show',j===i));
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('on',j===i));
+}
+
+// ── 初始化 ──
+async function init(){
+  const st=await fetch('/api/status').then(r=>r.json());
+  if(!st.has_plan){
+    document.getElementById('noPlan').style.display='';
+    document.getElementById('statusBadge').textContent='无方案';
+    return;
+  }
+  document.getElementById('hasPlan').style.display='';
+  document.getElementById('statusBadge').textContent=`${st.score}分·${st.plan_count}志愿`;
+  document.getElementById('statusBadge').className='badge b-green';
+
+  // 自动执行一次仿真（N=1万，均值），结果中包含vols元数据
+  await runSim();
+}
+
+// 初始化滑块背景
+setSlBg('slN',pN,7,'#4A9EFF');
+onSlVol(0);
+setSlBg('slSeed',pSeed,9,'#BF5AF2');
+init();
+</script>
+</body>
+</html>

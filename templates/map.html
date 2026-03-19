@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>院校分布地图 · 志愿规划</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PingFang SC',system-ui,sans-serif;background:#080F1A;color:#D0DCF0;overflow:hidden;height:100vh}
+
+/* ── 顶栏 ── */
+.topbar{background:#0B1525;border-bottom:1px solid rgba(255,255,255,.06);padding:0 14px;height:48px;display:flex;align-items:center;gap:10px;position:fixed;top:0;left:0;right:0;z-index:200}
+a.back{color:rgba(255,255,255,.4);font-size:22px;text-decoration:none;line-height:1;padding:4px}
+.tb-title{font-size:14px;font-weight:800;color:#fff;flex:1}
+.ke-toggle{display:flex;background:rgba(255,255,255,.07);border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.ke-tab{padding:5px 13px;font-size:11px;font-weight:700;cursor:pointer;color:rgba(255,255,255,.4);border:none;background:none;transition:.15s;font-family:inherit}
+.ke-tab.on{background:#4A9EFF;color:#fff}
+.stat-chip{font-size:10px;font-weight:700;padding:4px 10px;border-radius:8px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.45);white-space:nowrap}
+
+/* ── 地图主体 ── */
+#mapChart{position:fixed;top:48px;left:0;right:0;bottom:0}
+
+/* ── 加载遮罩 ── */
+#loadOverlay{position:fixed;inset:0;background:#080F1A;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.spin{width:32px;height:32px;border:3px solid rgba(74,158,255,.2);border-top-color:#4A9EFF;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-txt{font-size:13px;color:rgba(255,255,255,.4)}
+
+/* ── 侧边面板 ── */
+#panel{position:fixed;top:48px;right:-360px;width:340px;bottom:0;background:#0B1525;border-left:1px solid rgba(255,255,255,.08);z-index:150;transition:right .28s cubic-bezier(.4,0,.2,1);overflow-y:auto;display:flex;flex-direction:column}
+#panel.open{right:0}
+.ph{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:flex-start;gap:8px;flex-shrink:0}
+.ph-city{font-size:16px;font-weight:900;color:#fff}
+.ph-prov{font-size:10px;color:rgba(255,255,255,.4);margin-top:2px}
+.ph-close{margin-left:auto;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;color:rgba(255,255,255,.4);background:rgba(255,255,255,.06);border:none;flex-shrink:0;transition:.15s}
+.ph-close:hover{background:rgba(255,255,255,.12);color:#fff}
+.ps{padding:10px 16px;display:flex;gap:14px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.05);flex-shrink:0}
+.ps-item{text-align:center}
+.ps-num{font-size:17px;font-weight:900}
+.ps-lbl{font-size:9px;color:rgba(255,255,255,.35);margin-top:2px;letter-spacing:.5px}
+.panel-body{flex:1;overflow-y:auto}
+.lv-sec{padding:8px 0}
+.lv-hd{display:flex;align-items:center;gap:7px;padding:6px 16px}
+.lv-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.lv-name{font-size:10px;font-weight:800;letter-spacing:1px}
+.lv-cnt{font-size:10px;color:rgba(255,255,255,.3);margin-left:auto}
+.sch-item{padding:7px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.04);cursor:default}
+.sch-item:last-child{border:none}
+.sch-item.plan-hi{background:rgba(74,158,255,.06)}
+.sch-name{font-size:12px;font-weight:600;flex:1;line-height:1.35}
+.sch-score{font-size:11px;font-weight:700;color:#FFD60A;flex-shrink:0}
+.tp-tag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0}
+.tp-rush{background:rgba(255,159,10,.15);color:#FF9F0A}
+.tp-steady{background:rgba(52,199,89,.15);color:#34C759}
+.tp-safe{background:rgba(74,158,255,.15);color:#4A9EFF}
+.no-data{padding:24px 16px;text-align:center;font-size:12px;color:rgba(255,255,255,.25)}
+
+/* ── 图例 ── */
+.legend{position:fixed;bottom:20px;left:16px;background:rgba(11,21,37,.92);border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:12px 14px;z-index:140;backdrop-filter:blur(10px)}
+.leg-title{font-size:9px;font-weight:800;letter-spacing:2px;color:rgba(255,255,255,.3);margin-bottom:8px}
+.leg-item{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px;color:rgba(255,255,255,.6)}
+.leg-item:last-child{margin-bottom:0}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.leg-ring{width:10px;height:10px;border-radius:50%;border:2px solid #4A9EFF;flex-shrink:0}
+.leg-sep{border-top:1px solid rgba(255,255,255,.08);margin:6px 0}
+
+/* ── 提示条 ── */
+.tip-bar{position:fixed;top:58px;left:50%;transform:translateX(-50%);background:rgba(11,21,37,.88);border:1px solid rgba(74,158,255,.25);border-radius:20px;padding:5px 14px;font-size:11px;color:#4A9EFF;z-index:160;pointer-events:none;backdrop-filter:blur(8px);transition:opacity .5s;white-space:nowrap}
+
+/* ── 误差提示 ── */
+.offline-warn{position:fixed;bottom:20px;right:16px;background:rgba(255,159,10,.1);border:1px solid rgba(255,159,10,.3);border-radius:10px;padding:8px 12px;font-size:11px;color:#FF9F0A;z-index:140;max-width:220px;display:none}
+</style>
+</head>
+<body>
+
+<div id="loadOverlay">
+  <div class="spin"></div>
+  <div class="load-txt">正在加载地图数据…</div>
+</div>
+
+<div class="topbar">
+  <a class="back" href="/" title="返回首页">&#8592;</a>
+  <div class="tb-title">院校分布地图</div>
+  <span class="stat-chip" id="totalChip">加载中…</span>
+  <div class="ke-toggle">
+    <button class="ke-tab on" id="kePhys" onclick="switchKe('物理')">物理</button>
+    <button class="ke-tab"    id="keHist" onclick="switchKe('历史')">历史</button>
+  </div>
+</div>
+
+<div id="mapChart"></div>
+
+<!-- 侧边面板 -->
+<div id="panel">
+  <div class="ph">
+    <div>
+      <div class="ph-city" id="phCity">—</div>
+      <div class="ph-prov" id="phProv">—</div>
+    </div>
+    <button class="ph-close" onclick="closePanel()">&#10005;</button>
+  </div>
+  <div class="ps" id="phStats"></div>
+  <div class="panel-body" id="panelBody"></div>
+</div>
+
+<!-- 图例 -->
+<div class="legend">
+  <div class="leg-title">院校层次</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#FF375F"></div>985</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#FF9F0A"></div>211+双一流</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#FFD60A"></div>211</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#34C759"></div>国重点</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#5AC8FA"></div>省重点</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#636366"></div>其他</div>
+  <div class="leg-sep"></div>
+  <div class="leg-item"><div class="leg-ring"></div>已选志愿城市</div>
+</div>
+
+<div class="tip-bar" id="tipBar">点击圆点查看院校详情 &nbsp;· 滚轮缩放地图</div>
+<div class="offline-warn" id="offlineWarn">底图加载失败（离线模式）<br>院校数据点仍可正常显示</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script>
+// ── 城市坐标表 [lon, lat] ────────────────────────────────
+const CC = {
+  '北京':[116.46,39.92],'上海':[121.47,31.23],'天津':[117.19,39.13],'重庆':[106.53,29.53],
+  '广州':[113.27,23.13],'深圳':[114.05,22.54],'珠海':[113.58,22.27],'汕头':[116.68,23.35],
+  '佛山':[113.12,23.02],'东莞':[113.75,23.04],'中山':[113.38,22.52],'湛江':[110.36,21.28],
+  '惠州':[114.40,23.09],'梅州':[116.12,24.29],'韶关':[113.60,24.81],'清远':[113.06,23.70],
+  '潮州':[116.63,23.68],'揭市':[116.37,23.55],'茂名':[110.91,21.66],'江门':[113.09,22.59],
+  '肇庆':[112.47,23.05],'阳江':[111.97,21.86],'云浮':[112.04,22.93],
+  '南京':[118.78,32.07],'苏州':[120.62,31.32],'无锡':[120.29,31.57],'常州':[119.95,31.79],
+  '南通':[120.87,32.00],'扬州':[119.42,32.39],'镇江':[119.43,32.20],'徐州':[117.20,34.27],
+  '连云港':[119.22,34.60],'淮安':[119.02,33.60],'盐城':[120.15,33.35],'宿迁':[118.28,33.96],
+  '泰州':[119.92,32.46],'淮徐':[117.20,34.27],
+  '杭州':[120.15,30.29],'宁波':[121.56,29.86],'温州':[120.67,28.01],'绍兴':[120.58,30.01],
+  '金华':[119.65,29.08],'嘉兴':[120.75,30.77],'台州':[121.42,28.66],'湖州':[120.09,30.90],
+  '衢州':[118.87,28.94],'丽水':[119.92,28.47],'舟山':[122.21,29.99],
+  '合肥':[117.28,31.86],'芜湖':[118.37,31.33],'蚌埠':[117.37,32.92],'马鞍山':[118.50,31.67],
+  '淮南':[116.98,32.62],'安庆':[117.06,30.54],'滁州':[118.33,32.30],'淮北':[116.80,33.95],
+  '铜陵':[117.83,30.93],'宣城':[118.76,30.95],'黄山':[118.34,29.71],'六安':[116.52,31.74],
+  '宿州':[116.98,33.65],'亳州':[115.78,33.87],'阜阳':[115.82,32.90],'池州':[117.50,30.67],
+  '福州':[119.30,26.08],'厦门':[118.08,24.48],'泉州':[118.60,24.90],'漳州':[117.65,24.51],
+  '南平':[118.18,26.63],'三明':[117.64,26.27],'莆田':[119.01,25.44],'宁德':[119.53,26.67],
+  '龙岩':[117.01,25.09],
+  '南昌':[115.90,28.68],'赣州':[114.92,25.83],'九江':[115.97,29.71],'宜春':[114.38,27.80],
+  '景德镇':[117.18,29.27],'上饶':[117.97,28.46],'吉安':[114.97,27.12],'新余':[114.92,27.82],
+  '鹰潭':[117.07,28.26],'萍乡':[113.85,27.63],'抚州':[116.36,27.96],
+  '济南':[117.00,36.67],'青岛':[120.38,36.07],'烟台':[121.39,37.52],'济宁':[116.60,35.40],
+  '泰安':[117.13,36.18],'潍坊':[119.17,36.71],'淄博':[118.05,36.81],'威海':[122.12,37.50],
+  '临沂':[118.35,35.05],'东营':[118.67,37.43],'日照':[119.52,35.42],'德州':[116.30,37.45],
+  '聊城':[115.98,36.45],'滨州':[117.97,37.38],'菏泽':[115.48,35.23],'枣庄':[117.32,34.82],
+  '郑州':[113.65,34.76],'洛阳':[112.44,34.70],'开封':[114.35,34.80],'新乡':[113.92,35.30],
+  '许昌':[113.83,34.02],'南阳':[112.58,33.00],'安阳':[114.35,36.10],'平顶山':[113.29,33.74],
+  '焦作':[113.24,35.22],'商丘':[115.65,34.45],'信阳':[114.08,32.13],'周口':[114.65,33.63],
+  '驻马店':[114.02,32.98],'三门峡':[111.20,34.77],'漯河':[114.02,33.58],
+  '武汉':[114.31,30.52],'宜昌':[111.28,30.70],'襄阳':[112.12,32.00],'荆州':[112.24,30.32],
+  '黄石':[115.08,30.22],'十堰':[110.78,32.65],'孝感':[113.92,30.92],'黄冈':[114.90,30.45],
+  '恩施':[109.47,30.29],'鄂州':[114.90,30.40],'咸宁':[114.32,29.85],'荆门':[112.20,31.03],
+  '长沙':[112.97,28.19],'株洲':[113.13,27.83],'湘潭':[112.93,27.83],'衡阳':[112.60,26.89],
+  '常德':[111.70,29.03],'岳阳':[113.13,29.37],'益阳':[112.33,28.55],'怀化':[109.97,27.57],
+  '郴州':[113.02,25.78],'永州':[111.61,26.43],'邵阳':[111.47,27.25],'娄底':[111.99,27.70],
+  '张家界':[110.48,29.12],
+  '南宁':[108.37,22.82],'桂林':[110.28,25.28],'柳州':[109.40,24.33],'北海':[109.12,21.48],
+  '玉林':[110.18,22.65],'梧州':[111.29,23.47],'贵港':[109.60,23.11],'百色':[106.62,23.90],
+  '河池':[108.07,24.70],'贺州':[111.57,24.42],'崇左':[107.36,22.38],
+  '成都':[104.07,30.67],'绵阳':[104.73,31.48],'乐山':[103.77,29.56],'宜宾':[104.60,28.77],
+  '南充':[106.08,30.79],'德阳':[104.40,31.13],'自贡':[104.77,29.34],'泸州':[105.44,28.87],
+  '达州':[107.50,31.22],'广元':[105.85,32.44],'雅安':[103.00,30.02],'遂宁':[105.59,30.54],
+  '内江':[105.05,29.58],'眉山':[103.83,30.06],'广安':[106.63,30.46],'攀枝花':[101.72,26.58],
+  '贵阳':[106.71,26.57],'遵义':[106.90,27.70],'毕节':[105.28,27.30],'六盘水':[104.83,26.60],
+  '安顺':[105.93,26.25],'铜仁':[109.18,27.72],'凯里':[107.98,26.57],
+  '昆明':[102.73,25.04],'曲靖':[103.80,25.49],'玉溪':[102.52,24.35],'保山':[99.16,25.12],
+  '大理':[100.25,25.61],'丽江':[100.23,26.88],'昭通':[103.71,27.34],'楚雄':[101.54,25.03],
+  '红河':[103.38,23.36],'文山':[104.24,23.37],
+  '西安':[108.95,34.27],'宝鸡':[107.15,34.37],'汉中':[107.03,33.08],'渭南':[109.51,34.52],
+  '咸阳':[108.72,34.33],'铜川':[109.09,34.90],'延安':[109.49,36.60],'榆林':[109.74,38.29],
+  '商洛':[109.94,33.87],'安康':[109.02,32.69],
+  '兰州':[103.72,36.03],'天水':[105.73,34.57],'白银':[104.14,36.55],'庆阳':[107.63,35.71],
+  '平凉':[106.67,35.55],'武威':[102.64,37.93],'张掖':[100.46,38.93],'酒泉':[98.51,39.74],
+  '嘉峪关':[98.29,39.77],'定西':[104.60,35.58],'陇南':[104.93,33.39],
+  '西宁':[101.77,36.62],'海东':[102.10,36.50],
+  '银川':[106.28,38.47],'石嘴山':[106.38,38.98],'吴忠':[106.20,37.99],'固原':[106.24,36.01],
+  '乌鲁木齐':[87.62,43.82],'克拉玛依':[84.89,45.59],'吐鲁番':[89.18,42.95],
+  '喀什':[75.99,39.47],'哈密':[93.51,42.82],
+  '拉萨':[91.13,29.65],
+  '呼和浩特':[111.65,40.82],'包头':[109.83,40.65],'赤峰':[118.88,42.27],
+  '鄂尔多斯':[109.97,39.82],'通辽':[122.27,43.62],'巴彦淖尔':[107.39,40.74],
+  '乌海':[106.81,39.67],
+  '沈阳':[123.38,41.79],'大连':[121.62,38.91],'鞍山':[122.99,41.13],'抚顺':[123.97,41.88],
+  '本溪':[123.73,41.30],'丹东':[124.38,40.13],'锦州':[121.13,41.10],'营口':[122.24,40.66],
+  '阜新':[121.65,42.01],'辽阳':[123.18,41.26],'盘锦':[122.06,40.99],'铁岭':[123.82,42.29],
+  '朝阳':[120.44,41.57],'葫芦岛':[120.84,40.71],
+  '长春':[125.35,43.87],'吉林':[126.55,43.83],'四平':[124.37,43.17],'延吉':[129.51,42.90],
+  '通化':[125.94,41.73],'白城':[122.84,45.62],'松原':[124.83,45.14],'白山':[126.41,41.94],
+  '辽源':[125.13,42.92],'延边':[129.51,42.90],
+  '哈尔滨':[126.64,45.75],'齐齐哈尔':[123.96,47.35],'牡丹江':[129.63,44.58],
+  '佳木斯':[130.37,46.80],'大庆':[125.00,46.59],'绥化':[126.99,46.65],'鸡西':[130.97,45.30],
+  '鹤岗':[130.30,47.33],'双鸭山':[131.16,46.65],'伊春':[128.91,47.73],'黑河':[127.53,50.25],
+  '石家庄':[114.48,38.04],'保定':[115.47,38.87],'唐山':[118.17,39.63],'邯郸':[114.53,36.62],
+  '廊坊':[116.70,39.52],'秦皇岛':[119.60,39.93],'沧州':[116.84,38.30],'邢台':[114.50,37.07],
+  '张家口':[114.87,40.81],'承德':[117.96,40.95],'衡水':[115.68,37.74],
+  '太原':[112.55,37.87],'大同':[113.30,40.08],'临汾':[111.52,36.09],'运城':[111.00,35.02],
+  '长治':[113.12,36.19],'晋城':[112.85,35.49],'晋中':[112.75,37.69],'忻州':[112.73,38.42],
+  '阳泉':[113.59,37.85],'朔州':[112.44,39.34],'吕梁':[111.14,37.52],
+  '海口':[110.33,20.03],'三亚':[109.52,18.25],
+};
+
+const LV_COLOR = {1:'#FF375F',2:'#FF9F0A',3:'#FFD60A',4:'#34C759',5:'#5AC8FA',6:'#636366'};
+const LV_NAME  = {1:'985',2:'211+',3:'211',4:'国重点',5:'省重点',6:'其他'};
+const TP_CLS   = {'冲':'tp-rush','稳':'tp-steady','保':'tp-safe'};
+
+let chart = null;
+let currentKe = '物理';
+let mapData   = null;
+let geoLoaded = false;
+
+// ── 初始化 ────────────────────────────────────────────────
+async function init() {
+  chart = echarts.init(document.getElementById('mapChart'));
+  window.addEventListener('resize', () => chart && chart.resize());
+
+  // 加载中国地图 GeoJSON
+  try {
+    const geoResp = await fetch(
+      'https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json'
+    );
+    const geoJson = await geoResp.json();
+    echarts.registerMap('china', geoJson);
+    geoLoaded = true;
+  } catch(e) {
+    console.warn('地图底图加载失败（可能处于离线状态）:', e);
+    document.getElementById('offlineWarn').style.display = 'block';
+  }
+
+  await loadData('物理');
+
+  document.getElementById('loadOverlay').style.display = 'none';
+
+  // 3秒后淡出提示条
+  setTimeout(() => {
+    const tip = document.getElementById('tipBar');
+    tip.style.opacity = '0';
+    tip.style.pointerEvents = 'none';
+  }, 3500);
+}
+
+// ── 切换科类 ──────────────────────────────────────────────
+function switchKe(ke) {
+  if (ke === currentKe) return;
+  currentKe = ke;
+  document.getElementById('kePhys').classList.toggle('on', ke === '物理');
+  document.getElementById('keHist').classList.toggle('on', ke === '历史');
+  closePanel();
+  loadData(ke);
+}
+
+// ── 拉取数据 ──────────────────────────────────────────────
+async function loadData(ke) {
+  try {
+    const r = await fetch('/api/map_data?ke=' + encodeURIComponent(ke));
+    mapData = await r.json();
+    if (!mapData.ok) throw new Error(mapData.error || '未知错误');
+    document.getElementById('totalChip').textContent =
+      `共 ${mapData.total_schools} 所院校 · ${mapData.cities.length} 个城市`;
+    renderMap();
+  } catch(e) {
+    document.getElementById('totalChip').textContent = '数据加载失败';
+    console.error(e);
+  }
+}
+
+// ── 渲染地图 ──────────────────────────────────────────────
+function renderMap() {
+  if (!mapData || !chart) return;
+
+  // 普通城市散点
+  const scatterData = [];
+  for (const c of mapData.cities) {
+    const coord = CC[c.city];
+    if (!coord) continue;
+    scatterData.push({
+      name: c.city,
+      value: [coord[0], coord[1], c.count],
+      cityData: c,
+      itemStyle: { color: LV_COLOR[c.top_lv] || '#636366', opacity: 0.82 },
+    });
+  }
+
+  // 已选志愿城市（effectScatter）
+  const planData = [];
+  if (mapData.has_plan && mapData.plan_cities) {
+    for (const [city, schools] of Object.entries(mapData.plan_cities)) {
+      const coord = CC[city];
+      if (!coord) continue;
+      planData.push({ name: city, value: [coord[0], coord[1]], planSchools: schools });
+    }
+  }
+
+  const geoSeries = geoLoaded ? [{
+    type: 'map',
+    map: 'china',
+    roam: false,
+    silent: true,
+    label: { show: false },
+    itemStyle: { areaColor: '#091527', borderColor: '#162a50', borderWidth: 0.8 },
+    emphasis: { disabled: true },
+    select: { disabled: true },
+    data: [],
+  }] : [];
+
+  const option = {
+    backgroundColor: '#080F1A',
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(11,21,37,.96)',
+      borderColor: 'rgba(255,255,255,.1)',
+      textStyle: { color: '#D0DCF0', fontSize: 12 },
+      padding: [8, 12],
+      formatter(params) {
+        const d = params.data;
+        if (!d) return '';
+        if (d.cityData) {
+          const c = d.cityData;
+          const lvLine = LV_NAME[c.top_lv] ? `最高层次: <b style="color:${LV_COLOR[c.top_lv]}">${LV_NAME[c.top_lv]}</b>` : '';
+          return `<b>${d.name}</b> · ${c.province}<br>${lvLine}<br>院校数: <b>${c.count}</b> 所`;
+        }
+        if (d.planSchools) {
+          const lines = d.planSchools.map(s =>
+            `<span style="color:${LV_COLOR[s.lv]||'#aaa'}">${s.school}</span> [${s.tp}]`
+          ).join('<br>');
+          return `<b>${d.name}</b> · 已选 ${d.planSchools.length} 所<br>${lines}`;
+        }
+        return d.name;
+      }
+    },
+    geo: {
+      map: geoLoaded ? 'china' : undefined,
+      roam: true,
+      zoom: 1.18,
+      center: [105, 36],
+      label: { show: false },
+      itemStyle: {
+        areaColor: '#091527',
+        borderColor: '#1a3560',
+        borderWidth: 0.8,
+        shadowColor: 'rgba(0,20,60,.4)',
+        shadowBlur: 10,
+      },
+      emphasis: {
+        label: { show: false },
+        itemStyle: { areaColor: '#0e2248' },
+      },
+    },
+    series: [
+      ...geoSeries,
+      {
+        name: '院校城市',
+        type: 'scatter',
+        coordinateSystem: 'geo',
+        data: scatterData,
+        symbolSize(val) {
+          const n = val[2];
+          return Math.min(Math.max(Math.sqrt(n) * 5 + 3, 5), 48);
+        },
+        emphasis: {
+          scale: 1.5,
+          itemStyle: { borderColor: '#fff', borderWidth: 2, opacity: 1 },
+        },
+        zlevel: 10,
+      },
+      ...(planData.length ? [{
+        name: '已选志愿',
+        type: 'effectScatter',
+        coordinateSystem: 'geo',
+        data: planData,
+        symbolSize: 13,
+        rippleEffect: { brushType: 'stroke', scale: 3.5, period: 2.8, color: '#4A9EFF' },
+        itemStyle: { color: '#4A9EFF', opacity: 0.92 },
+        label: {
+          show: true, position: 'right',
+          formatter: '{b}',
+          color: '#4A9EFF', fontSize: 10, fontWeight: 700,
+        },
+        zlevel: 20,
+      }] : []),
+    ],
+  };
+
+  chart.setOption(option, true);
+
+  chart.off('click');
+  chart.on('click', params => {
+    const d = params.data;
+    if (!d) return;
+    if (d.cityData) {
+      showPanel(d.cityData);
+    } else if (d.planSchools) {
+      const cd = mapData.cities.find(c => c.city === d.name);
+      showPanel(cd || { city: d.name, province: '', schools: [], lv_counts: {}, count: 0 }, d.planSchools);
+    }
+  });
+}
+
+// ── 侧边面板 ──────────────────────────────────────────────
+function showPanel(cityData, extraPlanSchools) {
+  document.getElementById('phCity').textContent = cityData.city;
+  document.getElementById('phProv').textContent = cityData.province || '';
+
+  // 统计行
+  const lc = cityData.lv_counts || {};
+  const statsEl = document.getElementById('phStats');
+  let statsHtml = `<div class="ps-item"><div class="ps-num" style="color:#4A9EFF">${cityData.count}</div><div class="ps-lbl">院校总数</div></div>`;
+  for (let lv = 1; lv <= 3; lv++) {
+    const cnt = parseInt(lc[String(lv)] || 0);
+    if (cnt) statsHtml += `<div class="ps-item"><div class="ps-num" style="color:${LV_COLOR[lv]}">${cnt}</div><div class="ps-lbl">${LV_NAME[lv]}</div></div>`;
+  }
+  statsEl.innerHTML = statsHtml;
+
+  // 当前方案在该城市的学校映射
+  const planMap = {};
+  const planSchools = extraPlanSchools || (mapData.plan_cities && mapData.plan_cities[cityData.city]) || [];
+  for (const s of planSchools) planMap[s.school] = s.tp;
+
+  // 按层次分组
+  const byLv = {};
+  for (const s of (cityData.schools || [])) {
+    if (!byLv[s.lv]) byLv[s.lv] = [];
+    byLv[s.lv].push(s);
+  }
+
+  let html = '';
+  for (let lv = 1; lv <= 6; lv++) {
+    const schools = byLv[lv];
+    if (!schools || !schools.length) continue;
+    html += `<div class="lv-sec">
+      <div class="lv-hd">
+        <div class="lv-dot" style="background:${LV_COLOR[lv]}"></div>
+        <div class="lv-name" style="color:${LV_COLOR[lv]}">${LV_NAME[lv]}</div>
+        <div class="lv-cnt">${schools.length} 所</div>
+      </div>
+      ${schools.map(s => {
+        const tp = planMap[s.name];
+        const tpTag = tp ? `<span class="tp-tag ${TP_CLS[tp]||''}">${tp}</span>` : '';
+        const scoreHtml = s.score ? `<div class="sch-score">${s.score}</div>` : '';
+        return `<div class="sch-item ${tp ? 'plan-hi' : ''}">
+          <div class="sch-name">${s.name}</div>
+          ${tpTag}${scoreHtml}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  if (!html) html = '<div class="no-data">暂无院校数据</div>';
+
+  document.getElementById('panelBody').innerHTML = html;
+  document.getElementById('panel').classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
+}
+
+init();
+</script>
+</body>
+</html>

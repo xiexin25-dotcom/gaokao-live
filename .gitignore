@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.spec
+
+# Logs
+*.log
+
+# Output directories
+output/
+outputs/
+reports/
+
+# PyInstaller
+*.exe
+*.pkg
+
+# OS
+.DS_Store
+Thumbs.db

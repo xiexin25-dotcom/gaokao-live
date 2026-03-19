@@ -1,0 +1,2853 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>填写考生信息 · 志愿规划 [{{ ver_str }}]</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PingFang SC',system-ui,sans-serif;background:#080F1A;color:#D0DCF0;min-height:100vh}
+.topbar{background:#0B1525;border-bottom:1px solid rgba(255,255,255,.06);padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+a.back{color:rgba(255,255,255,.4);font-size:20px;text-decoration:none}
+.tb-title{font-size:14px;font-weight:800;color:#fff;flex:1}
+.badge{font-size:10px;padding:3px 9px;border-radius:8px;font-weight:700}
+.b-blue{background:rgba(74,158,255,.2);color:#4A9EFF}
+.b-green{background:rgba(52,199,89,.2);color:#34C759}
+.b-orange{background:rgba(255,159,10,.2);color:#FF9F0A}
+.b-run{animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ── 表单 ── */
+.form-wrap{padding:14px 16px 160px}
+.section{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:14px;margin-bottom:12px}
+.sec-title{font-size:11px;font-weight:800;letter-spacing:3px;color:#4A9EFF;margin-bottom:12px}
+.field{margin-bottom:12px}
+.field-lbl{font-size:11px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:6px;display:flex;justify-content:space-between}
+.field-sub{font-size:9px;color:rgba(255,255,255,.3);font-weight:400}
+input[type=number],input[type=text]{width:100%;padding:10px 12px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;font-size:14px;outline:none;transition:.2s}
+input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
+
+/* 科类选择 */
+.ke-row{display:flex;gap:8px}
+.ke-btn{flex:1;padding:10px;border-radius:10px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);font-size:13px;font-weight:700;cursor:pointer;transition:.2s;text-align:center}
+.ke-btn.on{border-color:#4A9EFF;background:rgba(74,158,255,.12);color:#4A9EFF}
+.subj-btn{padding:5px 12px;border-radius:8px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.45);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;user-select:none}
+.subj-btn.on{border-color:#34C759;background:rgba(52,199,89,.14);color:#34C759}
+
+/* 标签多选 */
+.tag-grid{display:flex;flex-wrap:wrap;gap:6px}
+.tag-btn{padding:5px 12px;border-radius:8px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.45);font-size:11px;font-weight:700;cursor:pointer;transition:.15s}
+.tag-btn.on{border-color:#4A9EFF;background:rgba(74,158,255,.12);color:#4A9EFF}
+.tag-btn.on-red{border-color:rgba(255,69,58,.4);background:rgba(255,69,58,.1);color:#FF453A}
+/* 自定义输入 */
+.custom-kw{display:flex;gap:6px;margin-top:6px}
+.custom-kw input{flex:1;padding:7px 10px;font-size:12px}
+.kw-add-btn{padding:7px 12px;border-radius:8px;border:none;background:#4A9EFF;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+/* 已添加标签 */
+.kw-added{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.kw-chip{padding:3px 8px 3px 10px;border-radius:6px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px}
+.kw-chip.target{background:rgba(52,199,89,.1);color:#34C759;border:1px solid rgba(52,199,89,.2)}
+.kw-chip.exclude{background:rgba(255,69,58,.1);color:#FF453A;border:1px solid rgba(255,69,58,.2)}
+.kw-chip span{cursor:pointer;opacity:.6;font-size:13px;line-height:1}
+.kw-chip span:hover{opacity:1}
+
+/* 学费区间 */
+.fee-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.fee-btn{padding:9px 4px;border-radius:10px;border:1.5px solid rgba(255,255,255,.08);
+         background:rgba(255,255,255,.03);text-align:center;cursor:pointer;
+         font-size:11px;font-weight:700;color:rgba(255,255,255,.5);transition:.15s;line-height:1.4}
+.fee-btn.on{border-color:#30D158;background:rgba(48,209,88,.12);color:#30D158}
+.fee-sub{font-size:9px;font-weight:400;color:rgba(255,255,255,.3);display:block;margin-top:2px}
+.fee-btn.on .fee-sub{color:rgba(48,209,88,.6)}
+.fee-custom{display:none;margin-top:8px;align-items:center;gap:8px}
+.fee-custom.show{display:flex}
+.fee-custom input{flex:1;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);
+                  border-radius:9px;padding:8px 10px;color:#fff;font-size:13px;
+                  outline:none;font-family:inherit;text-align:center}
+.fee-custom input:focus{border-color:#30D15888}
+.fee-unit{font-size:11px;color:rgba(255,255,255,.4);white-space:nowrap}
+
+/* 省份偏好 */
+.prov-mode-tab{padding:3px 9px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;border:none;background:rgba(255,255,255,.06);color:rgba(255,255,255,.35);transition:.12s;user-select:none}
+.prov-mode-tab.on.inc{background:#4A9EFF;color:#fff}
+.prov-mode-tab.on.exc{background:#FF453A;color:#fff}
+.prov-quick-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.prov-quick{padding:4px 11px;border-radius:7px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:rgba(255,255,255,.4);font-size:11px;font-weight:700;cursor:pointer;transition:.15s}
+.prov-quick.on{border-color:#4A9EFF;background:rgba(74,158,255,.12);color:#4A9EFF}
+.prov-region{margin-bottom:8px}
+.prov-region-lbl{font-size:9px;font-weight:800;letter-spacing:2px;color:rgba(255,255,255,.22);margin-bottom:5px}
+.prov-chips{display:flex;flex-wrap:wrap;gap:5px}
+.prov-chip{padding:4px 10px;border-radius:7px;border:1.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:rgba(255,255,255,.45);font-size:11px;font-weight:700;cursor:pointer;transition:.15s;user-select:none}
+.prov-chip.on{border-color:#4A9EFF;background:rgba(74,158,255,.1);color:#4A9EFF}
+.prov-chip.na{opacity:.25;cursor:not-allowed;border-style:dashed}
+
+/* ── 结果区 ── */
+.result-wrap{padding:0 16px;display:none}
+.result-wrap.show{display:block}
+.r-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+.r-stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:9px;text-align:center}
+.r-stat-val{font-size:18px;font-weight:900;margin-bottom:2px}
+.r-stat-lbl{font-size:9px;color:rgba(255,255,255,.3)}
+
+/* 志愿卡 */
+.vol-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:14px;margin-bottom:8px;overflow:hidden}
+.vc-hdr{display:flex;align-items:flex-start;gap:10px;padding:11px 12px}
+.vc-num{font-size:18px;font-weight:900;min-width:26px;text-align:center;padding-top:2px}
+.vc-body{flex:1;min-width:0}
+.vc-school{font-size:13px;font-weight:800;color:#fff;margin-bottom:3px}
+.vc-meta{display:flex;flex-wrap:wrap;gap:3px}
+.tag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px}
+.t-rush{background:rgba(255,159,10,.15);color:#FF9F0A}
+.t-safe{background:rgba(74,158,255,.12);color:#4A9EFF}
+.t-bao{background:rgba(52,199,89,.1);color:#34C759}
+.t-gray{background:rgba(255,255,255,.07);color:rgba(255,255,255,.5)}
+.t-ok{background:rgba(52,199,89,.08);color:#34C759}
+.t-warn{background:rgba(255,159,10,.08);color:#FF9F0A}
+.vc-rate{text-align:right;flex-shrink:0}
+.vc-pct{font-size:16px;font-weight:900}
+/* 专业列表 */
+.vc-majors{border-top:1px solid rgba(255,255,255,.05);padding:8px 12px;display:flex;flex-direction:column;gap:3px}
+.mj-row{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;background:rgba(255,255,255,.02)}
+.mj-idx{font-size:9px;color:rgba(255,255,255,.3);min-width:14px;text-align:center}
+.mj-name{font-size:11px;font-weight:600;flex:1;color:rgba(255,255,255,.75)}
+.mj-s{font-size:10px;color:rgba(255,255,255,.45);min-width:36px;text-align:right}
+.mj-diff{font-size:9px;font-weight:700;padding:0 5px;border-radius:3px;min-width:38px;text-align:center}
+.d-pos{background:rgba(255,69,58,.1);color:#FF453A}
+.d-neg{background:rgba(52,199,89,.1);color:#34C759}
+.d-neu{background:rgba(255,255,255,.06);color:rgba(255,255,255,.35)}
+.mj-rate{font-size:10px;font-weight:800;min-width:36px;text-align:right;color:rgba(255,255,255,.3)}
+/* 警告角标 */
+.vol-card{position:relative}
+.warn-badge{position:absolute;top:7px;right:7px;font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px;pointer-events:none;z-index:2;line-height:1.4;text-align:center}
+.warn-critical{background:rgba(255,69,58,.25);color:#FF453A;border:1px solid rgba(255,69,58,.4)}
+.warn-few{background:rgba(255,159,10,.2);color:#FF9F0A;border:1px solid rgba(255,159,10,.3)}
+.warn-cold{background:rgba(255,159,10,.15);color:#FF9F0A;border:1px solid rgba(255,159,10,.25)}
+.warn-tuidan{background:rgba(255,69,58,.3);color:#FF453A;border:1px solid rgba(255,69,58,.6);animation:warn-pulse 1.8s ease-in-out infinite}
+@keyframes warn-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,69,58,.4)}50%{box-shadow:0 0 6px 2px rgba(255,69,58,.2)}}
+/* 服从调剂标签 */
+.t-diaoji{background:rgba(52,199,89,.1);color:#34C759;border:1px solid rgba(52,199,89,.25)}
+/* 冷门专业标记 */
+.mj-cold{font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:rgba(255,159,10,.15);color:#FF9F0A;margin-left:3px;white-space:nowrap}
+/* 实验班徽章 */
+.mj-syban{font-size:8px;font-weight:800;padding:1px 5px;border-radius:3px;background:rgba(94,92,230,.2);color:#8E8CF0;border:1px solid rgba(94,92,230,.35);margin-left:4px;white-space:nowrap;cursor:pointer}
+.mj-row.has-syban{cursor:pointer;border-radius:6px;transition:.1s}
+.mj-row.has-syban:hover{background:rgba(94,92,230,.06)}
+.mj-row.has-syban.open .mj-syban{background:rgba(94,92,230,.35);color:#fff}
+/* 实验班分流专业展开区 */
+.mj-syban-detail{padding:5px 10px 6px 28px;background:rgba(94,92,230,.06);border-radius:0 0 6px 6px;border-top:1px solid rgba(94,92,230,.15)}
+.sbd-label{font-size:9px;color:rgba(255,255,255,.4);margin-right:4px}
+.sbd-chip{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(94,92,230,.18);color:#A8A6F8;margin:2px 2px 0 0}
+.sbd-chip.sbd-hit{background:rgba(52,199,89,.18);color:#34C759;border:1px solid rgba(52,199,89,.4);font-size:10px;padding:2px 8px}
+/* 志愿卡片 hover 浮窗 */
+#volTooltip{position:fixed;z-index:9998;pointer-events:auto;background:#0D1E35;border:1px solid rgba(74,158,255,.35);border-radius:12px;padding:12px 14px;width:380px;box-shadow:0 8px 32px rgba(0,0,0,.6);display:none}
+#volTooltip.show{display:block}
+.vtt-title{font-size:13px;font-weight:900;color:#fff;margin-bottom:2px}
+.vtt-sub{font-size:10px;color:#6E7EAB;margin-bottom:8px}
+.vtt-list{max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin;scrollbar-color:rgba(74,158,255,.3) transparent}
+.vtt-row{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px}
+.vtt-row.vtt-sel{background:rgba(52,199,89,.10);border:1px solid rgba(52,199,89,.25)}
+.vtt-row:not(.vtt-sel){background:rgba(255,255,255,.03)}
+.vtt-check{font-size:12px;min-width:16px;color:#34C759;font-weight:900}
+.vtt-idx{font-size:10px;color:rgba(255,255,255,.2);min-width:18px;text-align:right}
+.vtt-name{flex:1;font-size:11px;color:rgba(255,255,255,.8);overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-all}
+.vtt-score{font-size:11px;font-weight:800;min-width:32px;text-align:right;color:#4A9EFF}
+.vtt-rank{font-size:10px;color:rgba(255,255,255,.3);min-width:52px;text-align:right;white-space:nowrap}
+.vtt-empty{font-size:11px;color:rgba(255,255,255,.25);text-align:center;padding:16px}
+.vtt-loading{font-size:11px;color:rgba(255,255,255,.3);text-align:center;padding:16px}
+
+/* ── 志愿编辑功能 ── */
+.vc-edit-ctrl{display:flex;gap:4px;flex-shrink:0;margin-left:6px;align-self:flex-start;padding-top:2px}
+.vc-btn{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;border:none;cursor:pointer;transition:.12s;white-space:nowrap;line-height:1.6}
+.vc-btn-edit{background:rgba(74,158,255,.15);color:#4A9EFF}
+.vc-btn-edit:hover{background:rgba(74,158,255,.28)}
+.vc-btn-del{background:rgba(255,69,58,.1);color:#FF453A}
+.vc-btn-del:hover{background:rgba(255,69,58,.22)}
+.insert-bar{text-align:center;padding:2px 0;margin:0}
+.insert-bar button{font-size:10px;padding:1px 12px;border-radius:8px;border:1px dashed rgba(74,158,255,.25);background:transparent;color:rgba(74,158,255,.45);cursor:pointer;transition:.12s}
+.insert-bar button:hover{border-color:#4A9EFF;color:#4A9EFF;background:rgba(74,158,255,.07)}
+/* 编辑 overlay */
+#editOverlay{display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.72);align-items:center;justify-content:center}
+#editOverlay.show{display:flex}
+#editBox{background:#0D1E35;border:1px solid rgba(74,158,255,.4);border-radius:16px;width:420px;max-width:94vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.75)}
+.ed-hdr{padding:13px 16px 10px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.ed-title{font-size:14px;font-weight:900;color:#fff;flex:1}
+.ed-close{font-size:20px;color:rgba(255,255,255,.4);cursor:pointer;line-height:1;flex-shrink:0}
+.ed-close:hover{color:#fff}
+.ed-body{flex:1;overflow-y:auto;padding:10px 14px;scrollbar-width:thin;scrollbar-color:rgba(74,158,255,.3) transparent}
+.ed-mj{display:flex;align-items:center;gap:5px;padding:5px 7px;border-radius:7px;background:rgba(255,255,255,.04);margin-bottom:4px}
+.ed-mj-idx{font-size:11px;color:rgba(255,255,255,.25);min-width:16px;text-align:center;flex-shrink:0}
+.ed-mj-name{flex:1;font-size:12px;color:rgba(255,255,255,.85);overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-all}
+.ed-mj-s{font-size:10px;color:#4A9EFF;min-width:34px;text-align:right;flex-shrink:0}
+.ed-mj-btns{display:flex;gap:2px;flex-shrink:0}
+.ed-mj-btns button{font-size:11px;padding:1px 5px;border-radius:3px;border:none;cursor:pointer;background:rgba(255,255,255,.08);color:rgba(255,255,255,.55);line-height:1.5}
+.ed-mj-btns button:hover{background:rgba(255,255,255,.18)}
+.ed-mj-btns .e-rm{background:rgba(255,69,58,.1);color:#FF453A}
+.ed-mj-btns .e-rm:hover{background:rgba(255,69,58,.25)}
+.ed-add{display:flex;gap:6px;margin-top:8px}
+.ed-add input{flex:1;padding:7px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:12px;outline:none;font-family:inherit}
+.ed-add input:focus{border-color:#4A9EFF}
+.ed-add button{padding:7px 12px;border-radius:8px;border:none;background:#4A9EFF;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.ed-hint{font-size:10px;color:rgba(255,255,255,.28);margin-top:5px;line-height:1.5}
+.ed-footer{padding:10px 14px;border-top:1px solid rgba(255,255,255,.08);display:flex;gap:8px;flex-shrink:0}
+.ed-save{flex:1;padding:9px;border-radius:10px;border:none;background:linear-gradient(135deg,#34C759,#2AA147);color:#fff;font-size:13px;font-weight:800;cursor:pointer}
+.ed-cancel{padding:9px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.5);font-size:13px;cursor:pointer}
+/* 插入面板 */
+#insertPanel{display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.72);align-items:center;justify-content:center}
+#insertPanel.show{display:flex}
+#insertBox{background:#0D1E35;border:1px solid rgba(74,158,255,.4);border-radius:16px;width:500px;max-width:94vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.8);overflow:hidden}
+.ins-hdr{padding:13px 18px 10px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0;display:flex;align-items:center;gap:8px}
+.ins-title{font-size:14px;font-weight:900;color:#fff;flex:1}
+.ins-close{font-size:20px;color:rgba(255,255,255,.4);cursor:pointer;line-height:1}
+.ins-close:hover{color:#fff}
+.ins-tp-row{display:flex;gap:6px;padding:8px 14px 6px;flex-shrink:0;align-items:center}
+.ins-tp-lbl{font-size:11px;color:rgba(255,255,255,.4);margin-right:2px}
+.ins-tp-btn{padding:3px 10px;border-radius:6px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.45);font-size:11px;font-weight:700;cursor:pointer;transition:.12s}
+.ins-tp-btn.on.rush{border-color:#FF9F0A;background:rgba(255,159,10,.15);color:#FF9F0A}
+.ins-tp-btn.on.safe{border-color:#4A9EFF;background:rgba(74,158,255,.15);color:#4A9EFF}
+.ins-tp-btn.on.bao{border-color:#34C759;background:rgba(52,199,89,.12);color:#34C759}
+.ins-search-row{display:flex;gap:8px;padding:6px 14px 10px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06)}
+#insSearch{flex:1;padding:8px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#fff;font-size:13px;outline:none;font-family:inherit}
+#insSearch:focus{border-color:#4A9EFF}
+.ins-srch-btn{padding:8px 14px;border-radius:9px;border:none;background:#4A9EFF;color:#fff;font-size:13px;font-weight:700;cursor:pointer}
+#insResults{flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:5px;scrollbar-width:thin;scrollbar-color:rgba(74,158,255,.3) transparent}
+.ins-g{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:9px 12px;cursor:pointer;transition:.12s}
+.ins-g:hover{border-color:#4A9EFF;background:rgba(74,158,255,.08)}
+.ins-g-hdr{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.ins-g-name{font-size:13px;font-weight:800;color:#fff;flex:1}
+.ins-g-scores{font-size:10px;color:rgba(255,255,255,.45);margin-bottom:3px}
+.ins-g-mjs{font-size:10px;color:rgba(255,255,255,.3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ins-empty{text-align:center;padding:24px;font-size:12px;color:rgba(255,255,255,.3)}
+.ins-hint{font-size:11px;color:rgba(255,255,255,.3);text-align:center;padding:20px}
+.ins-g-dup{opacity:.5;cursor:default !important}
+
+/* 院校类型标签三态 */
+.stype-grid{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:4px}
+.stype-btn{padding:5px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.45);transition:.12s;user-select:none}
+.stype-btn.inc{border-color:#34C759;background:rgba(52,199,89,.15);color:#34C759}
+.stype-btn.exc{border-color:#FF453A;background:rgba(255,69,58,.12);color:#FF453A}
+
+/* 专业选择器 hover 浮窗 */
+#mpTooltip{
+  position:fixed;z-index:9999;pointer-events:auto;
+  background:#0D1E35;border:1px solid rgba(74,158,255,.35);
+  border-radius:12px;padding:12px 14px;width:320px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+  display:none;
+}
+#mpTooltip.show{display:block}
+.mpt-title{font-size:12px;font-weight:900;color:#fff;margin-bottom:2px}
+.mpt-sub{font-size:10px;color:#6E7EAB;margin-bottom:8px}
+.mpt-list{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:rgba(74,158,255,.3) transparent}
+.mpt-footer{margin-top:8px;text-align:center}
+.mpt-all-btn{font-size:11px;color:#4A9EFF;cursor:pointer;border:none;background:none;padding:2px 0;text-decoration:underline}
+.mpt-all-btn:hover{color:#7BBFFF}
+/* 分数区间筛选栏 */
+.mpt-filter{display:flex;align-items:center;gap:5px;margin-bottom:7px;padding:5px 8px;background:rgba(255,255,255,.04);border-radius:7px;border:1px solid rgba(255,255,255,.07)}
+.mpt-filter-lbl{font-size:9px;color:rgba(255,255,255,.4);white-space:nowrap}
+.mpt-filter input{width:52px;padding:2px 5px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:5px;color:#fff;font-size:11px;outline:none;text-align:center;font-family:inherit}
+.mpt-filter input:focus{border-color:#4A9EFF}
+.mpt-filter-sep{font-size:10px;color:rgba(255,255,255,.3)}
+.mpt-filter-clear{font-size:10px;color:rgba(255,255,255,.3);cursor:pointer;border:none;background:none;padding:0 2px;line-height:1}
+.mpt-filter-clear:hover{color:#FF453A}
+.mpt-filter-count{font-size:9px;color:rgba(74,158,255,.8);margin-left:auto;white-space:nowrap}
+/* 全部院校模态框 */
+#mptModal{display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.7);align-items:center;justify-content:center}
+#mptModal.show{display:flex}
+#mptModalBox{background:#0D1E35;border:1px solid rgba(74,158,255,.4);border-radius:16px;width:560px;max-width:94vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.8)}
+#mptModalHead{padding:16px 20px 10px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
+#mptModalTitle{font-size:15px;font-weight:900;color:#fff}
+#mptModalSub{font-size:11px;color:#6E7EAB;margin-top:2px}
+#mptModalClose{float:right;cursor:pointer;color:rgba(255,255,255,.4);font-size:18px;line-height:1;margin-left:12px}
+#mptModalClose:hover{color:#fff}
+#mptModalList{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:rgba(74,158,255,.3) transparent}
+.mpt-row{display:grid;grid-template-columns:18px 1fr auto auto auto auto auto;align-items:center;gap:5px;padding:4px 6px;border-radius:6px;background:rgba(255,255,255,.03)}
+.mpt-rank{font-size:10px;color:rgba(255,255,255,.2);text-align:right}
+.mpt-sch{font-size:11px;color:rgba(255,255,255,.75);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.mpt-lv{font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;white-space:nowrap}
+.mpt-lv-985{background:rgba(255,159,10,.2);color:#FF9F0A}
+.mpt-lv-211{background:rgba(74,158,255,.2);color:#4A9EFF}
+.mpt-lv-prov{background:rgba(52,199,89,.15);color:#34C759}
+.mpt-disc{font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;white-space:nowrap;background:rgba(191,90,242,.15);color:#BF5AF2}
+.mpt-disc-A{background:rgba(255,159,10,.2);color:#FF9F0A}
+.mpt-disc-B{background:rgba(74,158,255,.15);color:#4A9EFF}
+.mpt-natrank{font-size:9px;color:rgba(255,255,255,.3);white-space:nowrap;text-align:right}
+.mpt-score{font-size:11px;font-weight:800;min-width:28px;text-align:right;color:#4A9EFF}
+.mpt-admrank{font-size:9px;color:rgba(255,255,255,.35);white-space:nowrap;text-align:right}
+.mpt-empty{font-size:11px;color:rgba(255,255,255,.25);text-align:center;padding:12px}
+.mpt-row-syban{background:rgba(94,92,230,.06);border-left:2px solid rgba(94,92,230,.4)}
+.mpt-syban{display:inline-block;font-size:8px;font-weight:800;padding:0px 4px;border-radius:3px;background:rgba(94,92,230,.25);color:#A8A6F8;margin-left:4px;vertical-align:middle;cursor:help}
+.mpt-score.mpt-score-syban{color:#A8A6F8}  /* 实验班分数用紫色区分 */
+.mpt-loading{font-size:11px;color:rgba(255,255,255,.3);text-align:center;padding:12px}
+
+/* 底栏 */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(8,15,26,.97);backdrop-filter:blur(12px);border-top:1px solid rgba(255,255,255,.05);padding:10px 16px;display:flex;gap:8px}
+.btn{padding:11px;border-radius:12px;border:none;font-size:13px;font-weight:800;cursor:pointer;transition:.15s}
+.btn-generate{flex:1;background:linear-gradient(135deg,#4A9EFF,#2A7FE0);color:#fff;box-shadow:0 4px 16px rgba(74,158,255,.3)}
+.btn-generate:active{transform:scale(.98)}
+.btn-export{padding:11px 14px;background:rgba(52,199,89,.15);color:#34C759;border:1.5px solid rgba(52,199,89,.3)}
+.btn-opt{background:linear-gradient(135deg,#1c7a3d,#30D158);color:#fff}
+.btn-opt:disabled{opacity:.5;cursor:default}
+.btn-mc{padding:11px 14px;background:rgba(255,159,10,.12);color:#FF9F0A;border:1.5px solid rgba(255,159,10,.25);text-decoration:none;display:flex;align-items:center}
+/* 近三年组最低分 */
+.ys-row{display:flex;gap:8px;margin-top:5px;flex-wrap:wrap}
+.ys-item{font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;background:rgba(255,255,255,.05);color:rgba(255,255,255,.5)}
+.ys-item.ys-high{background:rgba(255,69,58,.08);color:#FF6B6B}
+.ys-item.ys-near{background:rgba(74,158,255,.1);color:#4A9EFF}
+.ys-item.ys-low{background:rgba(52,199,89,.1);color:#34C759}
+.ys-item.ys-na{color:rgba(255,255,255,.2);background:none}
+.ys-diff{font-size:9px;font-weight:400;margin-left:3px;opacity:.8}
+.ys-old-tag{display:inline-block;font-size:8px;font-weight:800;padding:0 3px;border-radius:2px;background:rgba(255,159,10,.25);color:#FF9F0A;margin:0 2px;vertical-align:middle;cursor:help}
+.sec-lbl{font-size:10px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.25);padding:8px 0 4px}
+
+/* ── 专业选择器弹窗 ── */
+.mp-open-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:11px 14px;border-radius:11px;border:1.5px dashed rgba(74,158,255,.35);background:rgba(74,158,255,.05);color:#4A9EFF;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;margin-bottom:8px}
+.mp-open-btn:hover{background:rgba(74,158,255,.1);border-color:#4A9EFF}
+.mp-open-btn .mp-count{font-size:11px;background:rgba(74,158,255,.2);padding:2px 8px;border-radius:6px}
+.mp-selected-chips{display:flex;flex-wrap:wrap;gap:5px;min-height:0}
+.mp-chip{padding:4px 8px 4px 10px;border-radius:7px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;background:rgba(52,199,89,.1);color:#34C759;border:1px solid rgba(52,199,89,.25)}
+.mp-chip .mp-rm{cursor:pointer;opacity:.6;font-size:13px;line-height:1}
+.mp-chip .mp-rm:hover{opacity:1}
+
+/* Modal overlay */
+#mpOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;flex-direction:column}
+#mpOverlay.open{display:flex}
+.mp-modal{background:#080F1A;flex:1;display:flex;flex-direction:column;overflow:hidden;max-width:680px;width:100%;margin:0 auto;border-left:1px solid rgba(255,255,255,.07);border-right:1px solid rgba(255,255,255,.07)}
+.mp-hdr{background:#0B1525;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.mp-hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.mp-title{font-size:15px;font-weight:900;color:#fff}
+.mp-close{background:rgba(255,255,255,.08);border:none;color:#fff;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;line-height:1}
+.mp-search{position:relative}
+.mp-search input{width:100%;padding:9px 12px 9px 32px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;font-size:12px;outline:none;font-family:inherit}
+.mp-search::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px}
+.mp-cats{display:flex;gap:5px;overflow-x:auto;padding:8px 16px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.05);scrollbar-width:none}
+.mp-cats::-webkit-scrollbar{display:none}
+.mp-cat{padding:4px 12px;border-radius:15px;font-size:11px;font-weight:700;border:none;cursor:pointer;flex-shrink:0;white-space:nowrap;background:rgba(255,255,255,.06);color:rgba(255,255,255,.45);transition:.12s}
+.mp-cat.on{background:#4A9EFF;color:#fff}
+.mp-filters{display:flex;gap:12px;align-items:center;padding:7px 16px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.04)}
+.mp-flt-lbl{font-size:10px;color:#6E7EAB;margin-right:3px}
+.mp-flt-btn{padding:2px 9px;border-radius:6px;font-size:10px;font-weight:700;border:none;cursor:pointer;transition:.12s;background:rgba(255,255,255,.05);color:rgba(255,255,255,.35)}
+.mp-flt-btn.on{color:#fff}
+.mp-body{flex:1;overflow-y:auto;padding:10px 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;align-content:start}
+.mp-card{background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.07);border-radius:12px;padding:12px;cursor:pointer;transition:.12s;user-select:none}
+.mp-card:hover{background:rgba(74,158,255,.05);border-color:rgba(74,158,255,.4)}
+.mp-card.selected{background:rgba(52,199,89,.08);border-color:#34C759}
+/* 有报告的卡片——金边高亮 */
+.mp-card.has-report{border-color:rgba(255,159,10,.35);box-shadow:0 0 0 1px rgba(255,159,10,.08) inset}
+.mp-card.has-report:hover{border-color:rgba(255,159,10,.7);background:rgba(255,159,10,.03)}
+.mp-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px}
+.mp-card-name{font-size:13px;font-weight:900;color:#fff;line-height:1.2}
+.mp-card-cat{font-size:9px;color:#6E7EAB;margin-bottom:2px}
+.mp-hot-icon{font-size:14px;flex-shrink:0}
+.mp-tags{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:7px}
+.mp-tag{font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px}
+.mp-preview{font-size:10px;color:rgba(255,255,255,.4);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mp-sel-mark{display:none;font-size:11px;font-weight:800;color:#34C759;margin-top:5px}
+.mp-card.selected .mp-sel-mark{display:block}
+/* ── 深度报告条带 ── */
+.report-strip{
+  display:flex;align-items:center;justify-content:space-between;
+  margin:7px 0 6px;padding:6px 10px;border-radius:7px;
+  background:linear-gradient(90deg,rgba(255,159,10,.13),rgba(255,159,10,.06));
+  border:1px solid rgba(255,159,10,.45);
+  cursor:pointer;transition:.15s;position:relative;overflow:hidden;
+}
+.report-strip::before{                        /* 流光扫描 */
+  content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,215,100,.18),transparent);
+  animation:strip-shine 2.8s infinite;
+}
+@keyframes strip-shine{0%{left:-60%}100%{left:140%}}
+.report-strip:hover{background:linear-gradient(90deg,rgba(255,159,10,.22),rgba(255,159,10,.12));border-color:rgba(255,159,10,.75)}
+.rs-left{display:flex;align-items:center;gap:6px}
+.rs-icon{font-size:13px}
+.rs-text{font-size:11px;font-weight:900;color:#FF9F0A;letter-spacing:.4px}
+.rs-sub{font-size:9px;color:rgba(255,159,10,.6);margin-left:2px;font-weight:600}
+.rs-arrow{font-size:11px;color:rgba(255,159,10,.6);transition:.15s}
+.report-strip:hover .rs-arrow{color:#FF9F0A;transform:translateX(2px)}
+/* ── 深度报告悬浮窗 ── */
+#reportFloat{
+  display:none;position:fixed;z-index:9999;
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(820px,92vw);height:min(640px,85vh);
+  background:#0D1B2E;border:1.5px solid rgba(255,159,10,.5);
+  border-radius:16px;box-shadow:0 0 0 1px rgba(255,159,10,.12),0 24px 64px rgba(0,0,0,.7);
+  flex-direction:column;overflow:hidden;resize:both;
+}
+#reportFloat.open{display:flex}
+#rfMask{display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);backdrop-filter:blur(3px)}
+#rfMask.open{display:block}
+.rf-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;background:#0B1525;border-bottom:1px solid rgba(255,159,10,.2);flex-shrink:0;
+}
+.rf-title-wrap{display:flex;align-items:center;gap:10px}
+.rf-icon{font-size:18px}
+.rf-name{font-size:14px;font-weight:900;color:#fff}
+.rf-sub{font-size:10px;color:#FF9F0A;margin-top:1px}
+.rf-btns{display:flex;align-items:center;gap:8px}
+.rf-btn-detail{
+  display:flex;align-items:center;gap:5px;
+  padding:6px 12px;border-radius:8px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,rgba(255,159,10,.25),rgba(255,159,10,.12));
+  border:1px solid rgba(255,159,10,.5);color:#FF9F0A;font-size:11px;font-weight:800;
+  transition:.12s;
+}
+.rf-btn-detail:hover{background:linear-gradient(135deg,rgba(255,159,10,.4),rgba(255,159,10,.22));color:#fff}
+.rf-close{width:28px;height:28px;border-radius:7px;border:none;background:rgba(255,255,255,.07);color:rgba(255,255,255,.5);font-size:14px;cursor:pointer;transition:.12s;display:flex;align-items:center;justify-content:center}
+.rf-close:hover{background:rgba(255,69,58,.2);color:#FF453A}
+#rfFrame{flex:1;width:100%;border:none;background:#fff}
+.rf-footer{padding:6px 14px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:#0B1525}
+.rf-footer-tip{font-size:9px;color:rgba(255,255,255,.2)}
+
+.mp-footer{padding:10px 14px;border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:#0B1525}
+.mp-footer-info{font-size:11px;color:#6E7EAB}
+.mp-footer-info span{color:#34C759;font-weight:800}
+.mp-confirm{padding:9px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#34C759,#2AA147);color:#fff;font-size:13px;font-weight:800;cursor:pointer}
+.mp-empty{grid-column:1/-1;text-align:center;padding:40px;color:rgba(255,255,255,.2);font-size:13px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="back" href="/">←</a>
+  <div class="tb-title">📝 考生信息 · 生成志愿方案</div>
+  <span class="badge b-blue" id="statusBadge">就绪</span>
+</div>
+
+<!-- 版本标记：由Flask注入模板最后修改时间 -->
+<div id="verBar" style="background:#1a2a1a;border-bottom:2px solid #2d6a2d;padding:6px 16px;font-size:11px;color:#5fbd5f;font-family:monospace;letter-spacing:1px">
+  ✓ 最后更新 {{ ver_str }}
+</div>
+
+<div class="form-wrap" id="formWrap">
+
+<!-- ① 基本信息 -->
+<div class="section">
+  <div class="sec-title">① 基本信息</div>
+
+  <div class="field">
+    <div class="field-lbl">高考分数 <span class="field-sub">裸分，不含加分</span></div>
+    <input type="number" id="score" placeholder="例：585" min="300" max="750" oninput="onScoreInput()">
+    <div id="rankEstimate" style="margin-top:5px;font-size:10px;color:rgba(255,255,255,.35);min-height:14px"></div>
+  </div>
+
+  <div class="field">
+    <div class="field-lbl">选科类别</div>
+    <div class="ke-row">
+      <div class="ke-btn on" id="ke物理" onclick="selKe('物理')">物理（理科方向）</div>
+      <div class="ke-btn" id="ke历史" onclick="selKe('历史')">历史（文科方向）</div>
+    </div>
+  </div>
+
+  <!-- P6：细化选科（3+1+2，再选科匹配） -->
+  <div class="field" id="selectSubjField" style="display:none">
+    <div class="field-lbl">再选科目 <span class="field-sub">选择你实际选考的科目（用于过滤选科要求不匹配的专业组）</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px" id="selectSubjBtns"></div>
+    <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">不选则不过滤（含所有选科要求的专业）</div>
+  </div>
+</div>
+
+
+<!-- ② 院校偏好与地区 -->
+<div class="section">
+  <div class="sec-title">② 院校偏好与地区</div>
+
+  <!-- 院校/城市优先级 -->
+  <div class="field">
+    <div class="field-lbl">院校/城市优先级</div>
+    <div class="ke-row">
+      <div class="ke-btn on" id="pref_school" onclick="selPref('school')">🏫 院校层次优先<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.4)">985>211>省重点</span></div>
+      <div class="ke-btn" id="pref_city" onclick="selPref('city')">🌆 城市优先<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.4)">北上广深>新一线</span></div>
+    </div>
+  </div>
+
+  <!-- 省份偏好（含包含/排除双模式） -->
+  <div class="field">
+    <div class="field-lbl" style="display:flex;align-items:center;justify-content:space-between">
+      <span>省份偏好</span>
+      <div style="display:flex;gap:4px">
+        <div class="prov-mode-tab on inc" id="pm_inc" onclick="setProvMode('inc')" title="只看这些省份">✅ 只看</div>
+        <div class="prov-mode-tab"        id="pm_exc" onclick="setProvMode('exc')" title="排除这些省份">🚫 排除</div>
+      </div>
+    </div>
+    <div onclick="toggleProvPanel()" id="provToggleBtn"
+         style="display:flex;justify-content:space-between;align-items:center;
+                padding:10px 14px;border-radius:10px;cursor:pointer;
+                background:rgba(74,158,255,.06);border:1.5px solid rgba(74,158,255,.2);
+                transition:.15s;user-select:none">
+      <span style="font-size:12px;font-weight:700;color:#4A9EFF">🗺 选择省份</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span id="provCount" style="font-size:11px;font-weight:700;color:rgba(255,255,255,.45)">全部（32省市）</span>
+        <span id="provToggleArrow" style="font-size:11px;color:rgba(74,158,255,.6)">▶</span>
+      </span>
+    </div>
+    <!-- 折叠内容 -->
+    <div id="provPanel" style="display:none;margin-top:8px">
+      <div class="prov-quick-row">
+        <div class="prov-quick on" id="pq_all"     onclick="provQuick('all')">全部不限</div>
+        <div class="prov-quick"    id="pq_ne"      onclick="provQuick('ne')">排除东北</div>
+        <div class="prov-quick"    id="pq_jsg"     onclick="provQuick('jsg')">仅京沪广</div>
+        <div class="prov-quick"    id="pq_huadong" onclick="provQuick('huadong')">仅华东</div>
+        <div class="prov-quick"    id="pq_huabei"  onclick="provQuick('huabei')">仅华北</div>
+        <div class="prov-quick"    id="pq_huanan"  onclick="provQuick('huanan')">仅华南</div>
+        <div class="prov-quick"    id="pq_clear"   onclick="provQuick('clear')" style="color:rgba(255,69,58,.6);border-color:rgba(255,69,58,.2)">清除</div>
+      </div>
+      <div id="provGroups" style="margin-top:6px"></div>
+      <div id="provModeHint" style="margin-top:6px;font-size:10px;color:rgba(74,158,255,.5)">💡 当前：包含模式 — 选中省份 = 只看这些省。未选 = 全国不限。</div>
+    </div>
+  </div>
+
+  <!-- 院校类型筛选 -->
+  <div class="field">
+    <div class="field-lbl" style="display:flex;align-items:center;justify-content:space-between">
+      <span>院校类型</span>
+      <span style="font-size:9px;color:rgba(255,255,255,.25)">点击切换：灰=不限 · ✅绿=只要 · 🚫红=排除</span>
+    </div>
+    <div class="stype-grid" id="stypeGrid"></div>
+    <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">
+      <button class="prov-quick on" id="st_all"    onclick="stypePreset('all')">全部</button>
+      <button class="prov-quick"    id="st_theory" onclick="stypePreset('theory')">文理综合</button>
+      <button class="prov-quick"    id="st_tech"   onclick="stypePreset('tech')">理工+综合</button>
+      <button class="prov-quick"    id="st_nomed"  onclick="stypePreset('nomed')">排除医药农林</button>
+    </div>
+  </div>
+</div>
+
+<!-- ③ 专业意向 -->
+<div class="section">
+  <div class="sec-title">③ 专业意向（目标方向）</div>
+  <div class="field">
+    <div class="field-lbl">从专业库选择 <span class="field-sub">含课程/风评/就业全信息</span></div>
+    <button class="mp-open-btn" onclick="openMajorPicker()">
+      <span>🎓 打开专业选择器</span>
+      <span class="mp-count" id="mpCountBadge">已选 0 个</span>
+    </button>
+    <div class="mp-selected-chips" id="mpSelectedChips"></div>
+  </div>
+  <div class="field">
+    <div class="field-lbl">快速方向标签 <span class="field-sub">可与上方叠加</span></div>
+    <div class="tag-grid" id="targetGrid"></div>
+  </div>
+  <div class="field">
+    <div class="field-lbl">自定义关键词</div>
+    <div class="custom-kw">
+      <input type="text" id="customTarget" placeholder="输入专业关键词，如：金融、师范">
+      <button class="kw-add-btn" onclick="addCustomKw('target')">+ 添加</button>
+    </div>
+    <div class="kw-added" id="targetAdded"></div>
+  </div>
+</div>
+
+<!-- ④ 排除条件 -->
+<div class="section">
+  <div class="sec-title">④ 排除条件</div>
+  <div class="field">
+    <div class="field-lbl">快速排除预设 <span class="field-sub">可多选</span></div>
+    <div class="tag-grid" id="excludeGrid"></div>
+  </div>
+  <div class="field">
+    <div class="field-lbl">自定义排除</div>
+    <div class="custom-kw">
+      <input type="text" id="customExclude" placeholder="输入要排除的专业关键词">
+      <button class="kw-add-btn" style="background:#FF453A" onclick="addCustomKw('exclude')">+ 添加排除</button>
+    </div>
+    <div class="kw-added" id="excludeAdded"></div>
+  </div>
+</div>
+
+<!-- ⑤ 学费要求 -->
+<div class="section">
+  <div class="sec-title">⑤ 学费要求（元/年）</div>
+  <div class="fee-grid">
+    <div class="fee-btn on" id="fee_0"      onclick="selFee(0)">不限<span class="fee-sub">包含所有学费</span></div>
+    <div class="fee-btn"    id="fee_8000"   onclick="selFee(8000)">≤ 8,000元<span class="fee-sub">多数公办院校</span></div>
+    <div class="fee-btn"    id="fee_20000"  onclick="selFee(20000)">≤ 20,000元<span class="fee-sub">含中外合办等</span></div>
+    <div class="fee-btn"    id="fee_50000"  onclick="selFee(50000)">≤ 50,000元<span class="fee-sub">含高收费专业</span></div>
+    <div class="fee-btn"    id="fee_100000" onclick="selFee(100000)">≤ 100,000元<span class="fee-sub">含顶尖私立</span></div>
+    <div class="fee-btn"    id="fee_custom" onclick="selFee('custom')">自定义<span class="fee-sub">手动输入上限</span></div>
+  </div>
+  <div class="fee-custom" id="feeCustomRow">
+    <span class="fee-unit">上限</span>
+    <input type="number" id="feeCustomVal" placeholder="例如 12000" min="1000" max="200000" step="500" oninput="onFeeCustomInput()">
+    <span class="fee-unit">元 / 年</span>
+  </div>
+  <div style="margin-top:6px;font-size:10px;color:rgba(255,255,255,.25)">💡 按专业组最高学费过滤。部分院校有高收费班（≥5万/年），注意甄别。</div>
+</div>
+
+</div><!-- /form-wrap -->
+
+<!-- 结果区 -->
+<div class="result-wrap" id="resultWrap">
+  <!-- P3：新高考首届数据警告 -->
+  <div style="margin:0 0 10px;padding:9px 14px;border-radius:9px;background:rgba(255,159,10,.08);border:1px solid rgba(255,159,10,.3);font-size:11px;line-height:1.6;color:#FF9F0A">
+    <b>⚠️ 历史数据参考说明</b>：2025年为吉林省新高考首届（院校专业组模式），
+    历史数据中 <b>'24年/'23年</b> 来自老高考（院校平行志愿），录取逻辑和分数体系不同，
+    差值仅供趋势参考，<b>请以'25年数据为主要决策依据</b>，老高考年份数据已在志愿卡片中标注「旧」。
+  </div>
+  <div class="r-stats" style="grid-template-columns:repeat(4,1fr)">
+    <div class="r-stat"><div class="r-stat-val" id="rs-cands" style="color:#4A9EFF">-</div><div class="r-stat-lbl">候选专业组</div></div>
+    <div class="r-stat"><div class="r-stat-val" id="rs-rate" style="color:#FF9F0A">-</div><div class="r-stat-lbl">MC总命中率</div></div>
+    <div class="r-stat"><div class="r-stat-val" id="rs-eq" style="color:#BF5AF2">-</div><div class="r-stat-lbl">期望质量</div></div>
+    <div class="r-stat"><div class="r-stat-val" id="rs-rounds" style="color:#30D158">-</div><div class="r-stat-lbl">优化轮次</div></div>
+  </div>
+  <!-- 冲/稳/保分布条 -->
+  <div id="tpDistBar" style="display:none;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:9px 14px;margin-bottom:10px;display:flex;gap:0;align-items:center">
+    <div style="flex:1;text-align:center">
+      <div style="font-size:16px;font-weight:900;color:#FF9F0A" id="rs-rush">-</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.35)">⚡ 冲志愿</div>
+    </div>
+    <div style="width:1px;height:28px;background:rgba(255,255,255,.08)"></div>
+    <div style="flex:1;text-align:center">
+      <div style="font-size:16px;font-weight:900;color:#4A9EFF" id="rs-safe">-</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.35)">✅ 稳志愿</div>
+    </div>
+    <div style="width:1px;height:28px;background:rgba(255,255,255,.08)"></div>
+    <div style="flex:1;text-align:center">
+      <div style="font-size:16px;font-weight:900;color:#34C759" id="rs-bao">-</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.35)">🛡 保志愿</div>
+    </div>
+    <div style="width:1px;height:28px;background:rgba(255,255,255,.08)"></div>
+    <div style="flex:1;text-align:center">
+      <div style="font-size:16px;font-weight:900;color:#30D158" id="rs-total-rate">-</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.35)">总录取率</div>
+    </div>
+  </div>
+  <!-- 优化历史时间线 -->
+  <div id="optHistory" style="display:none;margin:0 0 12px;padding:0 2px"></div>
+  <div id="volList"></div>
+</div>
+
+<!-- 底栏 -->
+<div class="bottom-bar">
+  <button class="btn btn-generate" id="btnGen" onclick="generate()">▶ 生成志愿方案</button>
+  <button class="btn btn-opt" id="btnOpt" style="display:none" onclick="optimize()">🔁 迭代优化</button>
+  <button class="btn btn-export" id="btnExport" style="display:none" onclick="exportExcel()">📥 Excel</button>
+  <a class="btn btn-mc" id="btnMC" href="/mc" style="display:none">🎲 仿真</a>
+  <button class="btn" id="btnHistory" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);font-size:11px;padding:8px 12px" onclick="openHistory()">📋 历史</button>
+</div>
+
+<!-- 历史方案面板 -->
+<div id="historyPanel" style="display:none;position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center">
+  <div style="background:#0D1E35;border:1px solid rgba(74,158,255,.3);border-radius:16px 16px 0 0;width:100%;max-width:560px;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 -8px 32px rgba(0,0,0,.6)">
+    <div style="padding:14px 18px 10px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center">
+      <span style="font-size:14px;font-weight:900;color:#fff;flex:1">📋 历史方案</span>
+      <span style="font-size:22px;color:rgba(255,255,255,.4);cursor:pointer;line-height:1" onclick="closeHistory()">×</span>
+    </div>
+    <div id="historyList" style="flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:6px">
+      <div style="text-align:center;padding:24px;color:rgba(255,255,255,.3);font-size:12px">加载中…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 状态 ──────────────────────────────────────────────
+let kwLib = {}, exPresets = {};
+let selKeLei = '物理', selSchoolPref = 'school';
+let selProvinces = new Set(); // 空 = 全国不限
+let provMode = 'inc';         // 'inc'=白名单(只看) / 'exc'=黑名单(排除)
+let selFeeMax = 0;    // 0 = 不限
+let targetKws = [], excludeKws = [];  // 从预设或自定义累积
+// 院校类型：'' = 不限, 'inc' = 只要, 'exc' = 排除
+const ALL_STYPES = ['综合','理工','财经','医药','师范','农林','语言','政法','军事','民族','艺术','航空','体育'];
+let stypeState = {};
+let customTargets = [], customExcludes = [];
+let generatedVols = [];
+
+// ── 关键词标签定义（必须在 buildTargetGrid 调用前）──────
+const KW_LABELS = {
+  CS_AI:'💻 计算机/AI', ELEC:'⚡ 电子/自动化',
+  MATH:'📐 数学/统计', FINANCE:'💰 金融/经济',
+  MECH:'⚙️ 机械/制造', MED:'🏥 医学',
+  LAW:'⚖️ 法学', TEACH:'📚 教育',
+  MGMT:'📊 管理/会计', LANG:'🌐 外语/传媒',
+  ART:'🎨 艺术/设计', AGRI:'🌿 农林/食品',
+  CHEM:'🧪 化工/材料', GEO:'🗺 地质/测绘',
+};
+const EX_LABELS = {
+  northeast:'🚫 东北三省', nursing:'🚫 护理/助产',
+  biochem:'🚫 生化/化工', medicine:'🚫 医学类',
+  agri:'🚫 农林类', civil:'🚫 土建/地质',
+  law:'🚫 法学类', art:'🚫 艺术类', finance:'🚫 金融/会计',
+};
+let selTargetLibs = new Set(), selExcludePresets = new Set();
+
+// ── 立即渲染按钮（不依赖网络请求）────────────────────
+buildTargetGrid();
+buildExcludeGrid();
+
+// ── 异步加载关键词数据（重试5次）────────────────────
+async function loadKwLib(){
+  for(let attempt = 1; attempt <= 5; attempt++){
+    try {
+      const r = await fetch('/api/keywords');
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      kwLib = d.kw_lib; exPresets = d.exclude_presets;
+      return;
+    } catch(e) {
+      if(attempt < 5){
+        await new Promise(res => setTimeout(res, 1000));
+      } else {
+        console.warn('关键词库加载失败，使用内置默认值');
+        Object.keys(KW_LABELS).forEach(k => { kwLib[k] = [k.toLowerCase()]; });
+      }
+    }
+  }
+}
+
+function buildTargetGrid(){
+  const g = document.getElementById('targetGrid');
+  g.innerHTML = Object.entries(KW_LABELS).map(([k,lbl])=>
+    `<div class="tag-btn" id="tl_${k}" onclick="toggleTargetLib('${k}')">${lbl}</div>`
+  ).join('');
+}
+
+function buildExcludeGrid(){
+  const g = document.getElementById('excludeGrid');
+  g.innerHTML = Object.entries(EX_LABELS).map(([k,lbl])=>
+    `<div class="tag-btn" id="ep_${k}" onclick="toggleExPreset('${k}')">${lbl}</div>`
+  ).join('');
+}
+
+function toggleTargetLib(k){
+  if(selTargetLibs.has(k)) selTargetLibs.delete(k);
+  else selTargetLibs.add(k);
+  document.getElementById('tl_'+k).classList.toggle('on', selTargetLibs.has(k));
+  rebuildKws();
+}
+
+function toggleExPreset(k){
+  if(selExcludePresets.has(k)) selExcludePresets.delete(k);
+  else selExcludePresets.add(k);
+  document.getElementById('ep_'+k).classList.toggle('on-red', selExcludePresets.has(k));
+  rebuildKws();
+}
+
+function rebuildKws(){
+  targetKws = [];
+  selTargetLibs.forEach(k=>{ if(kwLib[k]) targetKws.push(...kwLib[k]); });
+  targetKws.push(...customTargets);
+  excludeKws = [];
+  selExcludePresets.forEach(k=>{ if(exPresets[k]) excludeKws.push(...exPresets[k]); });
+  excludeKws.push(...customExcludes);
+}
+
+function addCustomKw(type){
+  const inputId = type==='target'?'customTarget':'customExclude';
+  const val = document.getElementById(inputId).value.trim();
+  if(!val) return;
+  if(type==='target') customTargets.push(val);
+  else customExcludes.push(val);
+  document.getElementById(inputId).value='';
+  rebuildKws();
+  renderChips();
+}
+
+function renderChips(){
+  const ta = document.getElementById('targetAdded');
+  const ea = document.getElementById('excludeAdded');
+  ta.innerHTML = customTargets.map((k,i)=>
+    `<span class="kw-chip target">${k}<span onclick="removeChip('target',${i})">×</span></span>`).join('');
+  ea.innerHTML = customExcludes.map((k,i)=>
+    `<span class="kw-chip exclude">${k}<span onclick="removeChip('exclude',${i})">×</span></span>`).join('');
+}
+function removeChip(type,i){
+  if(type==='target') customTargets.splice(i,1);
+  else customExcludes.splice(i,1);
+  rebuildKws(); renderChips();
+}
+
+// ── 省份数据 ──────────────────────────────────────────
+const PROV_GROUPS = [
+  { label:'华北', provs:['北京','天津','河北','山西','内蒙古'] },
+  { label:'东北', provs:['辽宁','吉林','黑龙江'] },
+  { label:'华东', provs:['上海','江苏','浙江','安徽','福建','江西','山东'] },
+  { label:'华中', provs:['河南','湖北','湖南'] },
+  { label:'华南', provs:['广东','广西','海南'] },
+  { label:'西南', provs:['重庆','四川','贵州','云南','西藏'] },
+  { label:'西北', provs:['陕西','甘肃','青海','宁夏','新疆'] },
+  { label:'港澳台', provs:['香港','澳门','台湾'] },
+];
+// 数据中实际存在的省份
+const DATA_PROVS = new Set(['上海','云南','内蒙古','北京','吉林','四川','天津','宁夏',
+  '安徽','山东','山西','广东','广西','新疆','江苏','江西','河北','河南',
+  '浙江','海南','湖北','湖南','甘肃','福建','西藏','贵州','辽宁','重庆',
+  '陕西','青海','香港','黑龙江']);
+const ALL_DATA_PROVS = [...DATA_PROVS];
+
+function buildProvGroups(){
+  const wrap = document.getElementById('provGroups');
+  wrap.innerHTML = PROV_GROUPS.map(g => `
+    <div class="prov-region">
+      <div class="prov-region-lbl">${g.label}</div>
+      <div class="prov-chips">
+        ${g.provs.map(p => {
+          const inData = DATA_PROVS.has(p);
+          return `<div class="prov-chip${inData?'':' na'}" id="pc_${p}"
+            onclick="${inData?`toggleProv('${p}')`:''}">
+            ${p}${inData?'':'·无数据'}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+}
+
+// ── 省份模式切换（包含/排除）────────────────────────────
+function setProvMode(mode){
+  provMode = mode;
+  selProvinces.clear();
+  const incBtn = document.getElementById('pm_inc');
+  const excBtn = document.getElementById('pm_exc');
+  incBtn.classList.toggle('on', mode==='inc');
+  incBtn.classList.toggle('inc', mode==='inc');
+  excBtn.classList.toggle('on', mode==='exc');
+  excBtn.classList.toggle('exc', mode==='exc');
+  const hint = document.getElementById('provModeHint');
+  if(hint) hint.textContent = mode==='inc'
+    ? '💡 当前：包含模式 — 选中省份 = 只看这些省。未选 = 全国不限。'
+    : '🚫 当前：排除模式 — 选中省份 = 排除这些省（红色）。未选 = 全国不限。';
+  refreshProvUI();
+}
+
+function toggleProv(p){
+  if(selProvinces.has(p)) selProvinces.delete(p);
+  else selProvinces.add(p);
+  refreshProvUI();
+}
+
+function toggleProvPanel(){
+  const panel = document.getElementById('provPanel');
+  const arrow = document.getElementById('provToggleArrow');
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  arrow.textContent = open ? '▼' : '▶';
+}
+
+function provQuick(preset){
+  const NE = ['辽宁','吉林','黑龙江'];
+  switch(preset){
+    case 'all':
+      selProvinces.clear();
+      provMode = 'inc';
+      document.getElementById('pm_inc').classList.add('on','inc');
+      document.getElementById('pm_exc').classList.remove('on','exc');
+      break;
+    case 'clear':
+      selProvinces.clear();
+      break;
+    case 'ne':   // 排除东北 → 自动切换到排除模式
+      provMode = 'exc';
+      document.getElementById('pm_inc').classList.remove('on','inc');
+      document.getElementById('pm_exc').classList.add('on','exc');
+      selProvinces = new Set(NE);
+      break;
+    case 'jsg':
+      provMode = 'inc';
+      document.getElementById('pm_inc').classList.add('on','inc');
+      document.getElementById('pm_exc').classList.remove('on','exc');
+      selProvinces = new Set(['北京','上海','广东']);
+      break;
+    case 'huadong':
+      provMode = 'inc';
+      document.getElementById('pm_inc').classList.add('on','inc');
+      document.getElementById('pm_exc').classList.remove('on','exc');
+      selProvinces = new Set(['上海','江苏','浙江','安徽','福建','江西','山东']);
+      break;
+    case 'huabei':
+      provMode = 'inc';
+      document.getElementById('pm_inc').classList.add('on','inc');
+      document.getElementById('pm_exc').classList.remove('on','exc');
+      selProvinces = new Set(['北京','天津','河北','山西','内蒙古']);
+      break;
+    case 'huanan':
+      provMode = 'inc';
+      document.getElementById('pm_inc').classList.add('on','inc');
+      document.getElementById('pm_exc').classList.remove('on','exc');
+      selProvinces = new Set(['广东','广西','海南']);
+      break;
+  }
+  refreshProvUI();
+}
+
+function refreshProvUI(){
+  const n = selProvinces.size;
+  const isExc = provMode === 'exc';
+  // 更新 chip 样式
+  ALL_DATA_PROVS.forEach(p=>{
+    const el = document.getElementById('pc_'+p);
+    if(!el) return;
+    const sel = selProvinces.has(p);
+    el.classList.remove('on','exc-on');
+    if(n === 0){
+      el.classList.add('on'); // 全不选时全部亮
+    } else if(isExc){
+      if(sel) el.style.cssText += ';border-color:rgba(255,69,58,.6);background:rgba(255,69,58,.12);color:#FF453A';
+      else el.style.cssText += ';border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:rgba(255,255,255,.45)';
+      return; // 不用 on class，直接用 style
+    } else {
+      if(sel) el.classList.add('on');
+    }
+    el.style.cssText = ''; // 清除内联样式（inc模式用class控制）
+    if(n>0 && !isExc) el.classList.toggle('on', sel);
+    else if(n===0) el.classList.add('on');
+  });
+  // 计数
+  const countEl = document.getElementById('provCount');
+  const btn = document.getElementById('provToggleBtn');
+  const hint = document.getElementById('provModeHint');
+  if(n===0){
+    countEl.textContent='全部（32省市）';
+    countEl.style.color='rgba(255,255,255,.45)';
+    if(btn){ btn.style.borderColor='rgba(74,158,255,.2)'; btn.style.background='rgba(74,158,255,.06)'; }
+  } else if(isExc){
+    countEl.textContent=`排除 ${n} 个省市`;
+    countEl.style.color='#FF453A';
+    if(btn){ btn.style.borderColor='rgba(255,69,58,.4)'; btn.style.background='rgba(255,69,58,.06)'; }
+  } else {
+    countEl.textContent=`已选 ${n} 个省市`;
+    countEl.style.color='#4A9EFF';
+    if(btn){ btn.style.borderColor='rgba(74,158,255,.6)'; btn.style.background='rgba(74,158,255,.12)'; }
+  }
+  document.getElementById('pq_all').classList.toggle('on', n===0);
+  ['ne','jsg','huadong','huabei','huanan'].forEach(id=>{
+    document.getElementById('pq_'+id)?.classList.remove('on');
+  });
+  if(hint){
+    hint.textContent = isExc
+      ? '🚫 当前：排除模式 — 红色省份将被排除在外。'
+      : (n===0 ? '💡 当前：全国不限，可点击省份标签选择目标范围。' : '💡 当前：包含模式 — 只看蓝色省份的院校。');
+  }
+}
+
+// ── 院校类型筛选 ────────────────────────────────────────
+function buildStypeGrid(){
+  const g = document.getElementById('stypeGrid');
+  if(!g) return;
+  ALL_STYPES.forEach(t=>{ stypeState[t]=''; });
+  g.innerHTML = ALL_STYPES.map(t=>
+    `<div class="stype-btn" id="st_${t}" onclick="cycleStypeBtn('${t}')">${t}</div>`
+  ).join('');
+}
+
+function cycleStypeBtn(t){
+  const cur = stypeState[t]||'';
+  stypeState[t] = cur===''?'inc': cur==='inc'?'exc':'';
+  const el = document.getElementById('st_'+t);
+  if(!el) return;
+  el.classList.remove('inc','exc');
+  const labels = {inc:'✅ ',exc:'🚫 ','':''};
+  el.textContent = labels[stypeState[t]] + t;
+  if(stypeState[t]) el.classList.add(stypeState[t]);
+  ['all','theory','tech','nomed'].forEach(id=>document.getElementById('st_'+id)?.classList.remove('on'));
+}
+
+function stypePreset(name){
+  ALL_STYPES.forEach(t=>{
+    stypeState[t]='';
+    const el=document.getElementById('st_'+t);
+    if(el){ el.classList.remove('inc','exc'); el.textContent=t; }
+  });
+  ['all','theory','tech','nomed'].forEach(id=>document.getElementById('st_'+id)?.classList.remove('on'));
+  const p = {
+    all:    {},
+    theory: {inc:['综合','语言','政法','财经']},
+    tech:   {inc:['理工','综合']},
+    nomed:  {exc:['医药','农林']},
+  }[name]||{};
+  (p.inc||[]).forEach(t=>{
+    stypeState[t]='inc';
+    const el=document.getElementById('st_'+t);
+    if(el){ el.classList.add('inc'); el.textContent='✅ '+t; }
+  });
+  (p.exc||[]).forEach(t=>{
+    stypeState[t]='exc';
+    const el=document.getElementById('st_'+t);
+    if(el){ el.classList.add('exc'); el.textContent='🚫 '+t; }
+  });
+  document.getElementById('st_'+name)?.classList.add('on');
+}
+
+buildProvGroups();
+buildStypeGrid();
+refreshProvUI(); // 初始全选高亮
+
+// ── 选科/偏好 ──────────────────────────────────────────
+// P6：再选科目（3+1+2：物理方向再选2科；历史方向再选2科）
+const SUBJ_OPTIONS = {
+  '物理': ['化学','生物','地理','政治','历史'],
+  '历史': ['政治','地理','化学','生物','物理'],
+};
+let selSubjects = new Set(); // 用户勾选的再选科
+
+function renderSelectSubj(ke){
+  const field = document.getElementById('selectSubjField');
+  const wrap  = document.getElementById('selectSubjBtns');
+  const opts  = SUBJ_OPTIONS[ke] || [];
+  if(!opts.length){ field.style.display='none'; return; }
+  field.style.display = '';
+  selSubjects.clear();
+  wrap.innerHTML = opts.map(s=>`
+    <span class="subj-btn" onclick="toggleSubj('${s}',this)" data-s="${s}">${s}</span>
+  `).join('');
+}
+function toggleSubj(s, el){
+  if(selSubjects.has(s)){ selSubjects.delete(s); el.classList.remove('on'); }
+  else { selSubjects.add(s); el.classList.add('on'); }
+}
+function selKe(k){
+  selKeLei=k;
+  ['物理','历史'].forEach(x=>document.getElementById('ke'+x).classList.toggle('on',x===k));
+  renderSelectSubj(k);
+}
+// 初始化渲染
+renderSelectSubj(selKeLei);
+function selPref(p){
+  selSchoolPref=p;
+  ['school','city'].forEach(x=>document.getElementById('pref_'+x).classList.toggle('on',x===p));
+}
+function selFee(v){
+  const ids = [0,8000,20000,50000,100000,'custom'];
+  ids.forEach(id=>document.getElementById('fee_'+(id===0?'0':id)).classList.toggle('on', id===v));
+  document.getElementById('feeCustomRow').classList.toggle('show', v==='custom');
+  selFeeMax = (v==='custom') ? (parseInt(document.getElementById('feeCustomVal').value)||0) : (v||0);
+}
+function onFeeCustomInput(){
+  selFeeMax = parseInt(document.getElementById('feeCustomVal').value)||0;
+}
+
+// ── 生成方案 ──────────────────────────────────────────
+async function generate(){
+  const score = parseInt(document.getElementById('score').value);
+  if(!score || score<300||score>750){ alert('请输入有效分数（300-750）'); return; }
+  if(targetKws.length===0){ alert('请至少选择一个目标专业方向'); return; }
+
+  const btn = document.getElementById('btnGen');
+  btn.textContent='生成中…'; btn.disabled=true;
+  document.getElementById('statusBadge').textContent='规划中…';
+  document.getElementById('statusBadge').className='badge b-orange b-run';
+
+  try {
+    const res = await fetch('/api/generate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        score, ke_lei: selKeLei,
+        target_kw: targetKws, exclude_kw: excludeKws,
+        pref_provinces:    provMode==='inc' && selProvinces.size>0 ? [...selProvinces] : [],
+        exclude_provinces: provMode==='exc' && selProvinces.size>0 ? [...selProvinces] : [],
+        include_types: ALL_STYPES.filter(t=>stypeState[t]==='inc'),
+        exclude_types: ALL_STYPES.filter(t=>stypeState[t]==='exc'),
+        school_pref: selSchoolPref,
+        fee_max: selFeeMax || null,
+        select_subjects: [...selSubjects],   // P6 再选科过滤
+      })
+    });
+    const d = await res.json();
+    if(d.error){ alert('错误：'+d.error); return; }
+
+    generatedVols = d.vols;
+    window._lastStats   = d.stats;
+    window._lastProfile = d.profile;
+    renderResult({...d, opt_rounds: undefined});
+
+    document.getElementById('statusBadge').textContent=`完成 ${d.vols.length}志愿 ✓`;
+    document.getElementById('statusBadge').className='badge b-green';
+    document.getElementById('btnExport').style.display='';
+    document.getElementById('btnMC').style.display='';
+    document.getElementById('btnOpt').style.display=''; document.getElementById('btnOpt').textContent='🔁 迭代优化';
+    document.getElementById('resultWrap').classList.add('show');
+    document.getElementById('formWrap').style.display='none';
+    window.scrollTo(0,0);
+  } catch(e){
+    alert('请求失败：'+e.message);
+  } finally {
+    btn.textContent='▶ 重新生成'; btn.disabled=false;
+  }
+}
+
+// ── 志愿列表构建 ──────────────────────────────────────
+function buildVolListHTML(vols, profile){
+  const TP_C={'冲':'#FF9F0A','稳':'#4A9EFF','保':'#34C759'};
+  const TP_CLS={'冲':'t-rush','稳':'t-safe','保':'t-bao'};
+  let rushH='',safeH='',baoH='';
+
+  // 先分组，再按冲→稳→保顺序分配连续志愿编号
+  const rushVols = vols.filter(v=>v.tp==='冲');
+  const safeVols = vols.filter(v=>v.tp==='稳');
+  const baoVols  = vols.filter(v=>v.tp==='保');
+  const ordered = [...rushVols, ...safeVols, ...baoVols];
+
+  ordered.forEach((v,i)=>{
+    const c = TP_C[v.tp]; const cls = TP_CLS[v.tp];
+    const rate = v._rate||0; const topM = v._topM||null;
+    const sc6ok = v.sc6 && v.sc6 <= profile.score;
+    const pct = (rate*100).toFixed(1);
+    const rateColor = rate>0.2?'#34C759':rate>0.05?'#4A9EFF':rate>0.01?'#FF9F0A':'rgba(255,255,255,.3)';
+
+    const mjRows = (v.intent6||[]).map((m,mi)=>{
+      const diff = m.diff!=null?m.diff:(m.s25?m.s25-profile.score:null);
+      const dCls = diff>0?'d-pos':diff<-3?'d-neg':'d-neu';
+      const dSign = diff>0?'+':'';
+      const isColdAnchor = m.kind==='cold' && mi>=4;
+      const coldTag = isColdAnchor ? `<span class="mj-cold">⚠️冷门</span>` : '';
+      // 实验班：syban_all=全量分流专业；syban_majors=命中目标的子集（高亮用）
+      const sybanAll  = m.syban_all  && m.syban_all.length  > 0 ? m.syban_all  : null;
+      const sybanHitSet = new Set(m.syban_majors || []);
+      const sybanTag  = sybanAll
+        ? `<span class="mj-syban">实验班（点击查看全部分流专业）</span>`
+        : '';
+      const mjRateTxt = (m._mjRate != null && m._mjRate > 0)
+        ? (m._mjRate*100).toFixed(1)+'%'
+        : (v._rate>0 && mi===0 ? (v._rate*100).toFixed(1)+'%' : '-');
+      const mjRateColor = m._mjRate>0.15?'#34C759':m._mjRate>0.05?'#4A9EFF':m._mjRate>0?'#FF9F0A':'rgba(255,255,255,.3)';
+      // 展开区：全量分流专业，命中目标的高亮显示
+      const sybanDetail = sybanAll ? `
+        <div class="mj-syban-detail" style="display:none">
+          <span class="sbd-label">全部分流专业：</span>
+          ${sybanAll.map(s=>{
+            const hit = sybanHitSet.has(s);
+            return `<span class="sbd-chip${hit?' sbd-hit':''}">${hit?'★ ':''}${s}</span>`;
+          }).join('')}
+        </div>` : '';
+      return `<div class="mj-row${sybanAll?' has-syban':''}" ${sybanAll?'onclick="event.stopPropagation();toggleSyban(this)"':''}>
+        <span class="mj-idx">${mi+1}</span>
+        <span class="mj-name" title="${m.name}">${simplifyMajorName(m.name)}${coldTag}${sybanTag}</span>
+        <span class="mj-s">${m.s25||'?'}分</span>
+        <span class="mj-diff ${dCls}">${dSign}${diff!=null?diff:''}</span>
+        <span class="mj-rate" style="color:${mjRateColor}">${mjRateTxt}</span>
+      </div>${sybanDetail}`;
+    }).join('');
+
+    // '25年为新高考首届（院校专业组模式）；'24/'23年为老高考（院校平行志愿），分数线体系不同，仅供参考
+    const yScores = [{y:'25',s:v.gmin25,isNew:true},{y:'24',s:v.gmin24,isNew:false},{y:'23',s:v.gmin23,isNew:false}];
+    const scoreRow = yScores.map(({y,s,isNew})=>{
+      if(!s) return `<span class="ys-item ys-na">'${y}年 —</span>`;
+      const diff = Math.round(s - profile.score);
+      const dCls = diff>0?'ys-high':diff<-3?'ys-low':'ys-near';
+      const dSign = diff>0?'+':'';
+      // 老高考数据加"旧"标注和tooltip提示
+      const oldTag = isNew ? '' : `<span class="ys-old-tag" title="2024/2023年为老高考（院校平行志愿）数据，与新高考专业组录取逻辑不同，差值仅供参考">旧</span>`;
+      return `<span class="ys-item ${dCls}">'${y}年 ${Math.round(s)}分${oldTag}<span class="ys-diff">${dSign}${diff}</span></span>`;
+    }).join('');
+
+    let warnBadge='';
+    if(v.warn_critical)        warnBadge=`<div class="warn-badge warn-critical">⚠️ 专业不足<br>调剂风险</div>`;
+    else if(v.warn_tuidan)     warnBadge=`<div class="warn-badge warn-tuidan">🚨 退档<br>高风险</div>`;
+    else if(v.warn_few_majors) warnBadge=`<div class="warn-badge warn-few">⚠️ 专业不足</div>`;
+    else if(v.warn_cold_anchor) warnBadge=`<div class="warn-badge warn-cold">⚠️ 锚点冷门</div>`;
+
+    const warnMsgs=[
+      v.warn_msg         ?`<div style="font-size:10px;color:#FF9F0A;margin-bottom:2px">⚠️ ${v.warn_msg}</div>`:'',
+      v.warn_msg_cold    ?`<div style="font-size:10px;color:#FF9F0A;margin-bottom:2px">⚠️ ${v.warn_msg_cold}</div>`:'',
+      v.warn_msg_tuidan  ?`<div style="font-size:10px;color:#FF453A;margin-bottom:2px">${v.warn_msg_tuidan}</div>`:'',
+    ].filter(Boolean).join('');
+    const warnBar = warnMsgs?`<div style="padding:6px 12px;border-top:1px solid rgba(255,255,255,.04)">${warnMsgs}</div>`:'';
+
+    const selNames = JSON.stringify((v.intent6||[]).map(m=>m.name)).replace(/'/g,'&#39;');
+    const gcode = String(v.gcode||'').replace(/"/g,'&quot;');
+    const card = `<div class="vol-card" data-gcode="${gcode}" data-school="${v.school.replace(/"/g,'&quot;')}" data-ke="${selKeLei}" data-selected='${selNames}'>
+      ${warnBadge}
+      <div class="vc-hdr">
+        <div class="vc-num" style="color:${c}">${i+1}</div>
+        <div class="vc-body">
+          <div class="vc-school">${v.school}</div>
+          <div class="vc-meta">
+            <span class="tag ${cls}">${v.tp}志愿</span>
+            <span class="tag t-gray">${v.lv_label}</span>
+            <span class="tag t-gray">${v.city}·${v.cr_label}</span>
+            <span class="tag ${sc6ok?'t-ok':'t-warn'}">sc6 ${v.sc6||'?'}${sc6ok?' ✓':' △'}</span>
+            <span class="tag t-diaoji">服从调剂 ✓</span>
+          </div>
+          <div class="ys-row">${scoreRow}</div>
+        </div>
+        <div class="vc-rate">
+          <div class="vc-pct" style="color:${rateColor}">${pct}%</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.3)">${topM?topM.name.slice(0,6):'无命中'}</div>
+        </div>
+        <div class="vc-edit-ctrl">
+          <button class="vc-btn vc-btn-edit" onclick="openVolEdit('${gcode}')">编辑</button>
+          <button class="vc-btn vc-btn-del"  onclick="deleteVol('${gcode}')">✕</button>
+        </div>
+      </div>
+      <div class="vc-majors">${mjRows}</div>
+      ${warnBar}
+    </div>
+    <div class="insert-bar"><button onclick="openInsertPanel('${gcode}')">＋ 在此后插入</button></div>`;
+
+    if(v.tp==='冲') rushH+=card;
+    else if(v.tp==='稳') safeH+=card;
+    else baoH+=card;
+  });
+
+  const lbl=(t,n)=>`<div class="sec-lbl">${t}（${n}个）</div>`;
+  return lbl('⚡ 冲志愿',rushVols.length)+rushH+
+         lbl('✅ 稳志愿',safeVols.length)+safeH+
+         lbl('🛡 保志愿',baoVols.length)+baoH;
+}
+
+function renderResult(d){
+  // 统计卡
+  document.getElementById('rs-cands').textContent  = d.stats.total_cands;
+  document.getElementById('rs-rate').textContent   = (d.mc.rush_rate*100).toFixed(1)+'%';
+  document.getElementById('rs-rounds').textContent = d.opt_rounds!==undefined?d.opt_rounds+'轮':'未优化';
+  document.getElementById('rs-eq').textContent     = d.mc.exp_q.toFixed(1);
+  // 冲/稳/保分布条
+  const rushN = d.vols.filter(v=>v.tp==='冲').length;
+  const safeN = d.vols.filter(v=>v.tp==='稳').length;
+  const baoN  = d.vols.filter(v=>v.tp==='保').length;
+  document.getElementById('rs-rush').textContent = rushN+'个';
+  document.getElementById('rs-safe').textContent = safeN+'个';
+  document.getElementById('rs-bao').textContent  = baoN+'个';
+  document.getElementById('rs-total-rate').textContent = (d.mc.total_rate*100).toFixed(1)+'%';
+  document.getElementById('tpDistBar').style.display = 'flex';
+
+  // 存储供 rerenderVolList 使用
+  window._lastRenderData = d;
+  const rates = d.mc.rates||[];
+  const topMs = d.mc.top_majors||[];
+  const majorHits = d.mc.major_hits||[];
+  const mcN = d.mc.N || d.mc.n || 10000;
+  d.vols.forEach((v,i)=>{
+    v._rate = rates[i]||0;
+    v._topM = topMs[i]||null;
+    // 将各专业命中率注入 intent6
+    const hits = majorHits[i] || {};
+    const volRate = rates[i] || 0;
+    (v.intent6||[]).forEach(m=>{
+      const h = hits[m.name] || 0;
+      m._mjRate = volRate > 0 ? h / mcN : 0;
+    });
+  });
+
+  document.getElementById('volList').innerHTML = buildVolListHTML(d.vols, d.profile);
+  bindVolCardHover();
+}
+
+function rerenderVolList(){
+  const d = window._lastRenderData;
+  if(!d || !generatedVols) return;
+  document.getElementById('volList').innerHTML = buildVolListHTML(generatedVols, d.profile);
+  bindVolCardHover();
+}
+
+async function optimize(){
+  const btn = document.getElementById('btnOpt');
+  btn.disabled = true;
+  btn.textContent = '优化中…';
+  document.getElementById('statusBadge').textContent='优化中…';
+  document.getElementById('statusBadge').className='badge b-orange b-run';
+
+  try {
+    const extended = btn._extended || false;
+    const res = await fetch('/api/optimize',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ max_rounds:15, mc_n:extended?12000:8000, noise_pct:extended?20:15 })
+    });
+    const d = await res.json();
+    if(d.error){ alert('优化失败：'+d.error); return; }
+
+    generatedVols = d.vols;
+    // 构造渲染数据（兼容 renderResult 格式）
+    const stats = window._lastStats   || { total_cands:'-', student_rank:'-' };
+    const profile = window._lastProfile || { score: 0 };
+    renderResult({ vols: d.vols, mc: d.mc, stats,
+                   profile: profile,
+                   opt_rounds: d.rounds_run });
+
+    // 渲染优化历史时间线
+    renderOptHistory(d.history);
+
+    const isAlreadyBest = d.best_round === 0;
+    const badgeText = isAlreadyBest
+      ? `初始方案已是最优（共尝试${d.rounds_run}轮）✓`
+      : `优化完成 第${d.best_round}轮最优（共${d.rounds_run}轮）✓`;
+    document.getElementById('statusBadge').textContent = badgeText;
+    document.getElementById('statusBadge').className='badge b-green';
+    btn.textContent = isAlreadyBest ? `🔁 扩展优化（放宽条件）` : `🔁 再次优化`;
+    btn._extended = isAlreadyBest;
+
+  } catch(e){ alert('请求失败：'+e.message); }
+  finally { btn.disabled=false; }
+}
+
+function renderOptHistory(history){
+  const wrap = document.getElementById('optHistory');
+  if(!history || history.length <= 1){ wrap.style.display='none'; return; }
+  wrap.style.display='';
+
+  const totalChanges = history.reduce((s,h)=>s+(h.changes||[]).length, 0);
+  const summaryText = totalChanges === 0
+    ? '初始方案已达最优，无需替换'
+    : '共替换 '+totalChanges+' 个志愿，'+(history.length-1)+' 轮收敛';
+
+  let html = '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px;padding-left:4px;display:flex;justify-content:space-between">'
+    + '<span>迭代优化历史（共'+(history.length-1)+'轮）</span>'
+    + '<span style="color:#34d399">'+summaryText+'</span></div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:0 2px">';
+
+  history.forEach(function(h){
+    var isFirst = h.round === 0;
+    var changes = h.changes || [];
+    var tip = changes.length > 0
+      ? changes.map(function(c){ return '第'+c.vol_idx+'志愿: '+c.old_school+'→'+c.new_school; }).join(' | ')
+      : (isFirst ? '初始方案' : '已收敛');
+    var bg = isFirst ? 'rgba(255,255,255,.08)' : 'rgba(74,158,255,.12)';
+    var badge = changes.length > 0 ? '<span style="color:#FF9F0A;margin-left:4px">替换'+changes.length+'个</span>' : '';
+    html += '<div title="'+tip+'" style="background:'+bg+';border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:5px 10px;cursor:default">'
+      + '<span style="color:rgba(255,255,255,.5);font-size:10px">'+h.label+'</span>'
+      + '<span style="color:#BF5AF2;font-weight:700;margin-left:6px;font-size:12px">'+h.exp_q.toFixed(1)+'</span>'
+      + '<span style="color:#4A9EFF;font-size:10px;margin-left:4px">冲'+(h.rush_rate*100).toFixed(1)+'%</span>'
+      + badge + '</div>';
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+
+function exportExcel(){
+  const f=document.createElement('a');
+  f.href='/api/export_excel';
+  // 用POST触发download
+  fetch('/api/export_excel',{method:'POST'})
+    .then(r=>r.blob())
+    .then(b=>{
+      const url=URL.createObjectURL(b);
+      const a=document.createElement('a'); a.href=url;
+      a.download=`志愿规划表.xlsx`; a.click();
+    });
+}
+
+// ── 志愿编辑 ─────────────────────────────────────────
+let editGcode = null;
+let editMajors = [];   // working copy: [{name, s25, diff, kind}, ...]
+
+function openVolEdit(gcode){
+  const v = generatedVols.find(x=>String(x.gcode)===String(gcode));
+  if(!v) return;
+  editGcode = gcode;
+  editMajors = (v.intent6||[]).map(m=>({...m}));
+  document.getElementById('edTitle').textContent = v.school;
+  refreshEditPanel();
+  document.getElementById('editOverlay').classList.add('show');
+}
+
+function closeVolEdit(){ document.getElementById('editOverlay').classList.remove('show'); editGcode=null; editMajors=[]; }
+
+function refreshEditPanel(){
+  const body = document.getElementById('edBody');
+  body.innerHTML = editMajors.map((m,mi)=>`
+    <div class="ed-mj">
+      <span class="ed-mj-idx">${mi+1}</span>
+      <span class="ed-mj-name" title="${m.name}">${simplifyMajorName(m.name)}</span>
+      <span class="ed-mj-s">${m.s25||'?'}分</span>
+      <div class="ed-mj-btns">
+        ${mi>0 ? `<button onclick="editMoveUp(${mi})">↑</button>` : '<button disabled style="opacity:.2">↑</button>'}
+        ${mi<editMajors.length-1 ? `<button onclick="editMoveDown(${mi})">↓</button>` : '<button disabled style="opacity:.2">↓</button>'}
+        <button class="e-rm" onclick="editRemoveMajor(${mi})">✕</button>
+      </div>
+    </div>`).join('') +
+    `<div class="ed-add">
+      <input id="edAddInput" placeholder="输入专业名称（如 计算机科学与技术）" onkeydown="if(event.key==='Enter')editAddMajor()">
+      <button onclick="editAddMajor()">添加</button>
+    </div>
+    <div class="ed-hint">分数会在保存后重新查询。最多6个专业，建议第⑤⑥填分低但可接受的专业作为保底。</div>`;
+}
+
+function editMoveUp(mi){
+  if(mi<=0) return;
+  [editMajors[mi-1],editMajors[mi]]=[editMajors[mi],editMajors[mi-1]];
+  refreshEditPanel();
+}
+function editMoveDown(mi){
+  if(mi>=editMajors.length-1) return;
+  [editMajors[mi+1],editMajors[mi]]=[editMajors[mi],editMajors[mi+1]];
+  refreshEditPanel();
+}
+function editRemoveMajor(mi){
+  editMajors.splice(mi,1);
+  refreshEditPanel();
+}
+function editAddMajor(){
+  const inp = document.getElementById('edAddInput');
+  const name = (inp.value||'').trim();
+  if(!name){ inp.focus(); return; }
+  if(editMajors.length>=6){ alert('每组最多填6个专业'); return; }
+  if(editMajors.some(m=>m.name===name)){ alert('专业已在列表中'); inp.select(); return; }
+  editMajors.push({name, s25:null, diff:null, kind:'other'});
+  inp.value='';
+  refreshEditPanel();
+}
+
+function saveVolEdit(){
+  if(!editGcode) return;
+  const idx = generatedVols.findIndex(v=>String(v.gcode)===String(editGcode));
+  if(idx<0){ closeVolEdit(); return; }
+  generatedVols[idx].intent6 = editMajors.map(m=>({...m}));
+  closeVolEdit();
+  rerenderVolList();
+  syncPlanToServer();
+}
+
+// ── 删除志愿组 ────────────────────────────────────────
+function deleteVol(gcode){
+  if(!confirm('确认删除该志愿组？')) return;
+  generatedVols = generatedVols.filter(v=>String(v.gcode)!==String(gcode));
+  rerenderVolList();
+  syncPlanToServer();
+  // 更新志愿数量显示
+  const d = window._lastRenderData;
+  if(d) { const rushN2=generatedVols.filter(v=>v.tp==='冲').length; const safeN2=generatedVols.filter(v=>v.tp==='稳').length; const baoN2=generatedVols.filter(v=>v.tp==='保').length; document.getElementById('rs-rush').textContent=rushN2+'个'; document.getElementById('rs-safe').textContent=safeN2+'个'; document.getElementById('rs-bao').textContent=baoN2+'个'; }
+}
+
+// ── 插入志愿组 ────────────────────────────────────────
+let insertAfterGcode = null;
+let insertSelTp = '稳';
+
+function openInsertPanel(afterGcode){
+  insertAfterGcode = afterGcode;
+  // 根据afterGcode推断默认类型
+  const idx = generatedVols.findIndex(v=>String(v.gcode)===String(afterGcode));
+  insertSelTp = idx>=0 ? generatedVols[idx].tp : '稳';
+  setInsTp(insertSelTp);
+  document.getElementById('insSearch').value='';
+  document.getElementById('insResults').innerHTML='<div class="ins-hint">搜索院校名称（如"吉林大学"）</div>';
+  document.getElementById('insertPanel').classList.add('show');
+  setTimeout(()=>document.getElementById('insSearch').focus(), 100);
+}
+function closeInsertPanel(){ document.getElementById('insertPanel').classList.remove('show'); }
+
+function setInsTp(tp){
+  insertSelTp = tp;
+  ['rush','safe','bao'].forEach(k=>document.getElementById('instp_'+k).classList.remove('on','rush','safe','bao'));
+  const map={冲:'rush',稳:'safe',保:'bao'};
+  const el = document.getElementById('instp_'+map[tp]);
+  if(el){ el.classList.add('on', map[tp]); }
+}
+
+let _insGroupCache = [];  // 搜索结果缓存，供 insertGroup(idx) 使用
+
+async function doInsertSearch(){
+  const q = (document.getElementById('insSearch').value||'').trim();
+  if(q.length<2){ alert('请输入至少2个字'); return; }
+  const d = window._lastRenderData;
+  const ke = d?.profile?.ke_lei || selKeLei;
+  const score = d?.profile?.score || 0;
+  document.getElementById('insResults').innerHTML='<div class="ins-hint">搜索中…</div>';
+  try{
+    const r = await fetch(`/api/search_groups?q=${encodeURIComponent(q)}&ke=${encodeURIComponent(ke)}&score=${score}`);
+    const data = await r.json();
+    if(data.error){ document.getElementById('insResults').innerHTML=`<div class="ins-empty">${data.error}</div>`; return; }
+    if(!data.groups||!data.groups.length){ document.getElementById('insResults').innerHTML='<div class="ins-empty">未找到匹配院校</div>'; return; }
+    _insGroupCache = data.groups;
+    const existGcodes = new Set(generatedVols.map(v=>String(v.gcode)));
+    document.getElementById('insResults').innerHTML = data.groups.map((g, idx)=>{
+      const alreadyIn = existGcodes.has(String(g.gcode));
+      const lvBadge = g.lv_label && g.lv_label!=='其他' ? `<span class="tag t-gray" style="font-size:9px">${g.lv_label}</span>` : '';
+      const mjPreview = g.majors.slice(0,4).map(m=>m.name).join('、');
+      return `<div class="ins-g${alreadyIn?' ins-g-dup':''}" onclick="${alreadyIn?'alert(\'该院校专业组已在志愿表中\')':'insertGroup('+idx+')'}" title="${alreadyIn?'已在志愿表中':'点击插入'}">
+        <div class="ins-g-hdr">
+          <span class="ins-g-name">${g.school}</span>
+          ${lvBadge}
+          ${alreadyIn?'<span style="font-size:9px;color:#FF9F0A">已填报</span>':''}
+        </div>
+        <div class="ins-g-scores">${g.city}·${g.cr_label} | 组最低分 ${g.gmin25}分 | sc6 ${g.sc6}分</div>
+        <div class="ins-g-mjs">${mjPreview}${g.majors.length>4?` 等${g.majors.length}个专业`:''}</div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    document.getElementById('insResults').innerHTML=`<div class="ins-empty">请求失败: ${e.message}</div>`;
+  }
+}
+
+function insertGroup(idx){
+  const g = _insGroupCache[idx];
+  if(!g) return;
+  // 构建新的 vols_out 格式 vol
+  const profile = window._lastRenderData?.profile || {};
+  const sc6ok = g.sc6 && g.sc6 <= (profile.score||0);
+  const newVol = {
+    gcode:     g.gcode,
+    tp:        insertSelTp,
+    school:    g.school,
+    city:      g.city,
+    lv_label:  g.lv_label||'其他',
+    cr_label:  g.cr_label||'其他',
+    school_lv: g.school_lv||6,
+    city_rank: g.city_rank||4,
+    gmin25:    g.gmin25,
+    gmin24:    null, gmin23: null,
+    sc6:       g.sc6,
+    safe:      sc6ok,
+    n_target:  0, n_cold: 0,
+    gmin_rank: null,
+    intent6:   g.majors.slice(0,6).map(m=>({name:m.name, s25:m.s25, diff:m.s25?(m.s25-(profile.score||0)):null, kind:'other'})),
+    diaoji:    true,
+    dedup_count: 0,
+    warn_few_majors: g.majors.length < 3,
+    warn_critical:   g.majors.length < 2,
+    warn_msg:'', warn_cold_anchor:false, warn_msg_cold:'',
+    _rate: 0, _topM: null,
+  };
+  // 插入到 afterGcode 之后
+  const afterIdx = generatedVols.findIndex(v=>String(v.gcode)===String(insertAfterGcode));
+  if(afterIdx>=0) generatedVols.splice(afterIdx+1, 0, newVol);
+  else            generatedVols.push(newVol);
+  closeInsertPanel();
+  rerenderVolList();
+  syncPlanToServer();
+  const d = window._lastRenderData;
+  if(d) { const rushN2=generatedVols.filter(v=>v.tp==='冲').length; const safeN2=generatedVols.filter(v=>v.tp==='稳').length; const baoN2=generatedVols.filter(v=>v.tp==='保').length; document.getElementById('rs-rush').textContent=rushN2+'个'; document.getElementById('rs-safe').textContent=safeN2+'个'; document.getElementById('rs-bao').textContent=baoN2+'个'; }
+}
+
+// ── 同步到服务器 ──────────────────────────────────────
+async function syncPlanToServer(){
+  if(!generatedVols||!generatedVols.length) return;
+  try{
+    await fetch('/api/save_plan',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ vols: generatedVols.map(v=>({
+        gcode:     String(v.gcode),
+        tp:        v.tp,
+        school:    v.school,
+        city:      v.city,
+        lv_label:  v.lv_label,
+        cr_label:  v.cr_label,
+        school_lv: v.school_lv,
+        city_rank: v.city_rank,
+        gmin25:    v.gmin25,
+        gmin24:    v.gmin24,
+        gmin23:    v.gmin23,
+        sc6:       v.sc6,
+        intent6:   v.intent6||[],
+      })) })
+    });
+  }catch(e){ console.warn('syncPlanToServer失败:', e); }
+}
+
+// ── 初始化 ────────────────────────────────────────────
+loadKwLib();
+
+// 检查是否从首页历史记录恢复方案
+if(new URLSearchParams(location.search).get('restored')==='1'){
+  const saved = sessionStorage.getItem('restored_plan');
+  if(saved){
+    sessionStorage.removeItem('restored_plan');
+    try {
+      const d = JSON.parse(saved);
+      generatedVols = d.vols;
+      window._lastStats   = d.stats;
+      window._lastProfile = d.profile;
+      renderResult({vols:d.vols, mc:d.mc, stats:d.stats, profile:d.profile});
+      document.getElementById('statusBadge').textContent='已恢复历史方案 ✓';
+      document.getElementById('statusBadge').className='badge b-green';
+      document.getElementById('btnExport').style.display='';
+      document.getElementById('btnMC').style.display='';
+      document.getElementById('btnOpt').style.display='';
+      document.getElementById('resultWrap').classList.add('show');
+      document.getElementById('formWrap').style.display='none';
+    } catch(e){ console.warn('恢复方案失败', e); }
+  }
+}
+// 返回表单按钮
+document.getElementById('btnGen').addEventListener('click',()=>{
+  if(document.getElementById('resultWrap').classList.contains('show')){
+    document.getElementById('resultWrap').classList.remove('show');
+    document.getElementById('formWrap').style.display='';
+    document.getElementById('btnExport').style.display='none';
+    document.getElementById('btnMC').style.display='none';
+    document.getElementById('btnOpt').style.display='none';
+    document.getElementById('optHistory').style.display='none';
+  }
+});
+</script>
+
+<!-- ══════════ 专业选择器弹窗 ══════════ -->
+<!-- ══════════ 深度报告悬浮窗 ══════════ -->
+<div id="rfMask" onclick="closeReportFloat()"></div>
+<div id="reportFloat">
+  <div class="rf-header">
+    <div class="rf-title-wrap">
+      <span class="rf-icon">📋</span>
+      <div>
+        <div class="rf-name" id="rfTitle">专业深度报告</div>
+        <div class="rf-sub">学习 · 就业 · 薪资深度分析</div>
+      </div>
+    </div>
+    <div class="rf-btns">
+      <button class="rf-btn-detail" onclick="openReportPage()">📄 详细报告页</button>
+      <button class="rf-close" onclick="closeReportFloat()">×</button>
+    </div>
+  </div>
+  <iframe id="rfFrame" src="about:blank"></iframe>
+  <div class="rf-footer">
+    <span class="rf-footer-tip">📁 来源：reports/ 目录 · 可拖动边角调整大小</span>
+    <span class="rf-footer-tip" id="rfFilename"></span>
+  </div>
+</div>
+
+<div id="mpOverlay">
+  <div class="mp-modal">
+    <div class="mp-hdr">
+      <div class="mp-hdr-top">
+        <div class="mp-title">🎓 专业选择器</div>
+        <button class="mp-close" onclick="closeMajorPicker()">×</button>
+      </div>
+      <div class="mp-search">
+        <input type="text" id="mpSearch" placeholder="搜索专业名称、就业方向、关键词..." oninput="renderMpCards()">
+      </div>
+    </div>
+    <div class="mp-cats" id="mpCats"></div>
+    <div class="mp-filters">
+      <span class="mp-flt-lbl">热度</span>
+      <button class="mp-flt-btn on" id="mfh_全部" onclick="setMpFilter('hot','全部')">全部</button>
+      <button class="mp-flt-btn" id="mfh_高热" onclick="setMpFilter('hot','高热')">🔥高热</button>
+      <button class="mp-flt-btn" id="mfh_较热" onclick="setMpFilter('hot','较热')">✨较热</button>
+      <button class="mp-flt-btn" id="mfh_冷门" onclick="setMpFilter('hot','冷门')">❄️冷门</button>
+      <span class="mp-flt-lbl" style="margin-left:8px">选科</span>
+      <button class="mp-flt-btn on" id="mfk_全部" onclick="setMpFilter('ke','全部')">全部</button>
+      <button class="mp-flt-btn" id="mfk_物理" onclick="setMpFilter('ke','物理')">物理</button>
+      <button class="mp-flt-btn" id="mfk_历史" onclick="setMpFilter('ke','历史')">历史</button>
+    </div>
+    <div class="mp-body" id="mpBody"></div>
+    <div class="mp-footer">
+      <div class="mp-footer-info">已选 <span id="mpSelCount">0</span> 个专业</div>
+      <button class="mp-confirm" onclick="confirmMajorPicker()">✓ 确认选择</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// 专业数据库（来源：高考志愿填报指南专业解读）
+// ══════════════════════════════════════════════
+const MP_MAJORS = [
+  {id:1,门类:"农学",类别:"动物生产类",专业:"动物科学",选科:"物理",热度级别:"较热",院校数:27,均分:473},
+  {id:2,门类:"农学",类别:"动物医学类",专业:"动物医学",选科:"物理",热度级别:"较热",院校数:24,均分:478},
+  {id:3,门类:"农学",类别:"植物生产类",专业:"园艺",选科:"物理",热度级别:"较热",院校数:22,均分:480},
+  {id:4,门类:"农学",类别:"植物生产类",专业:"农学",选科:"物理",热度级别:"较热",院校数:21,均分:503},
+  {id:5,门类:"农学",类别:"林学类",专业:"园林",选科:"物理",热度级别:"较热",院校数:17,均分:452},
+  {id:6,门类:"农学",类别:"植物生产类",专业:"植物保护",选科:"物理",热度级别:"较热",院校数:17,均分:490},
+  {id:7,门类:"农学",类别:"林学类",专业:"林学",选科:"物理",热度级别:"冷门",院校数:11,均分:458},
+  {id:8,门类:"农学",类别:"植物生产类",专业:"设施农业科学与工程",选科:"物理",热度级别:"冷门",院校数:10,均分:460},
+  {id:9,门类:"农学",类别:"植物生产类",专业:"植物生产类",选科:"物理",热度级别:"冷门",院校数:9,均分:510},
+  {id:10,门类:"农学",类别:"水产类",专业:"水产养殖学",选科:"物理",热度级别:"冷门",院校数:9,均分:483},
+  {id:11,门类:"农学",类别:"自然保护与环境生态类",专业:"水土保持与荒漠化防治",选科:"物理",热度级别:"冷门",院校数:8,均分:503},
+  {id:12,门类:"农学",类别:"草学类",专业:"草业科学",选科:"物理",热度级别:"冷门",院校数:7,均分:488},
+  {id:13,门类:"农学",类别:"动物医学类",专业:"动植物检疫",选科:"物理",热度级别:"冷门",院校数:6,均分:438},
+  {id:14,门类:"农学",类别:"植物生产类",专业:"智慧农业",选科:"物理",热度级别:"冷门",院校数:6,均分:491},
+  {id:15,门类:"农学",类别:"植物生产类",专业:"种子科学与工程",选科:"物理",热度级别:"冷门",院校数:6,均分:451},
+  {id:16,门类:"农学",类别:"林学类",专业:"林学类",选科:"物理",热度级别:"冷门",院校数:5,均分:554},
+  {id:17,门类:"农学",类别:"自然保护与环境生态类",专业:"农业资源与环境",选科:"物理",热度级别:"冷门",院校数:5,均分:424},
+  {id:18,门类:"农学",类别:"林学类",专业:"智慧林业",选科:"物理",热度级别:"冷门",院校数:4,均分:533},
+  {id:19,门类:"农学",类别:"植物生产类",专业:"植物科学与技术",选科:"物理",热度级别:"冷门",院校数:4,均分:457},
+  {id:20,门类:"农学",类别:"植物生产类",专业:"生物育种科学",选科:"物理",热度级别:"冷门",院校数:4,均分:508},
+  {id:21,门类:"农学",类别:"植物生产类",专业:"茶学",选科:"物理",热度级别:"冷门",院校数:4,均分:474},
+  {id:22,门类:"农学",类别:"水产类",专业:"水生动物医学",选科:"物理",热度级别:"冷门",院校数:4,均分:478},
+  {id:23,门类:"农学",类别:"动物医学类",专业:"动物医学类",选科:"物理",热度级别:"冷门",院校数:3,均分:588},
+  {id:24,门类:"农学",类别:"动物医学类",专业:"动物药学",选科:"物理",热度级别:"冷门",院校数:3,均分:506},
+  {id:25,门类:"农学",类别:"动物生产类",专业:"动物生产类",选科:"物理",热度级别:"冷门",院校数:3,均分:478},
+  {id:26,门类:"农学",类别:"动物生产类",专业:"饲料工程",选科:"物理",热度级别:"冷门",院校数:3,均分:457},
+  {id:27,门类:"农学",类别:"植物生产类",专业:"生物育种技术",选科:"物理",热度级别:"冷门",院校数:3,均分:433},
+  {id:28,门类:"农学",类别:"植物生产类",专业:"菌物科学与工程",选科:"物理",热度级别:"冷门",院校数:3,均分:472},
+  {id:29,门类:"农学",类别:"水产类",专业:"海洋渔业科学与技术",选科:"物理",热度级别:"冷门",院校数:3,均分:431},
+  {id:30,门类:"农学",类别:"自然保护与环境生态类",专业:"土地科学与技术",选科:"物理",热度级别:"冷门",院校数:3,均分:479},
+  {id:31,门类:"农学",类别:"自然保护与环境生态类",专业:"自然保护与环境生态类",选科:"物理",热度级别:"冷门",院校数:3,均分:520},
+  {id:32,门类:"农学",类别:"自然保护与环境生态类",专业:"野生动物与自然保护区管理",选科:"物理",热度级别:"冷门",院校数:3,均分:471},
+  {id:33,门类:"医学",类别:"临床医学类",专业:"临床医学",选科:"物理",热度级别:"高热",院校数:101,均分:570},
+  {id:34,门类:"医学",类别:"护理学类",专业:"护理学",选科:"物理",热度级别:"高热",院校数:94,均分:458},
+  {id:35,门类:"医学",类别:"药学类",专业:"药学",选科:"物理",热度级别:"高热",院校数:78,均分:498},
+  {id:36,门类:"医学",类别:"医学技术类",专业:"康复治疗学",选科:"物理",热度级别:"高热",院校数:52,均分:457},
+  {id:37,门类:"医学",类别:"公共卫生与预防医学类",专业:"预防医学",选科:"物理",热度级别:"较热",院校数:46,均分:515},
+  {id:38,门类:"医学",类别:"医学技术类",专业:"医学检验技术",选科:"物理",热度级别:"较热",院校数:46,均分:464},
+  {id:39,门类:"医学",类别:"中药学类",专业:"中药学",选科:"物理",热度级别:"较热",院校数:41,均分:475},
+  {id:40,门类:"医学",类别:"口腔医学类",专业:"口腔医学",选科:"物理",热度级别:"较热",院校数:38,均分:556},
+  {id:41,门类:"医学",类别:"临床医学类",专业:"医学影像学",选科:"物理",热度级别:"较热",院校数:31,均分:534},
+  {id:42,门类:"医学",类别:"中医学类",专业:"中医学",选科:"物理",热度级别:"较热",院校数:30,均分:541},
+  {id:43,门类:"医学",类别:"医学技术类",专业:"医学影像技术",选科:"物理",热度级别:"较热",院校数:29,均分:444},
+  {id:44,门类:"医学",类别:"中医学类",专业:"针灸推拿学",选科:"物理",热度级别:"较热",院校数:25,均分:509},
+  {id:45,门类:"医学",类别:"临床医学类",专业:"麻醉学",选科:"物理",热度级别:"较热",院校数:23,均分:543},
+  {id:46,门类:"医学",类别:"中西医结合类",专业:"中西医临床医学",选科:"物理",热度级别:"较热",院校数:21,均分:511},
+  {id:47,门类:"医学",类别:"护理学类",专业:"护理学",选科:"历史",热度级别:"较热",院校数:20,均分:493},
+  {id:48,门类:"医学",类别:"医学技术类",专业:"智能医学工程",选科:"物理",热度级别:"较热",院校数:16,均分:496},
+  {id:49,门类:"医学",类别:"药学类",专业:"临床药学",选科:"物理",热度级别:"冷门",院校数:14,均分:528},
+  {id:50,门类:"医学",类别:"医学技术类",专业:"卫生检验与检疫",选科:"物理",热度级别:"冷门",院校数:12,均分:460},
+  {id:51,门类:"医学",类别:"药学类",专业:"药物制剂",选科:"物理",热度级别:"冷门",院校数:12,均分:466},
+  {id:52,门类:"医学",类别:"药学类",专业:"药学类",选科:"物理",热度级别:"冷门",院校数:11,均分:552},
+  {id:53,门类:"医学",类别:"中医学类",专业:"中医学",选科:"历史",热度级别:"冷门",院校数:10,均分:541},
+  {id:54,门类:"医学",类别:"护理学类",专业:"助产学",选科:"物理",热度级别:"冷门",院校数:10,均分:447},
+  {id:55,门类:"医学",类别:"临床医学类",专业:"精神医学",选科:"物理",热度级别:"冷门",院校数:9,均分:541},
+  {id:56,门类:"医学",类别:"医学技术类",专业:"眼视光学",选科:"物理",热度级别:"冷门",院校数:9,均分:443},
+  {id:57,门类:"医学",类别:"基础医学类",专业:"基础医学",选科:"物理",热度级别:"冷门",院校数:9,均分:589},
+  {id:58,门类:"医学",类别:"药学类",专业:"药事管理",选科:"物理",热度级别:"冷门",院校数:9,均分:490},
+  {id:59,门类:"医学",类别:"中药学类",专业:"中药资源与开发",选科:"物理",热度级别:"冷门",院校数:8,均分:457},
+  {id:60,门类:"医学",类别:"临床医学类",专业:"儿科学",选科:"物理",热度级别:"冷门",院校数:8,均分:559},
+  {id:61,门类:"医学",类别:"中医学类",专业:"针灸推拿学",选科:"历史",热度级别:"冷门",院校数:7,均分:554},
+  {id:62,门类:"医学",类别:"中药学类",专业:"中药制药",选科:"物理",热度级别:"冷门",院校数:7,均分:480},
+  {id:63,门类:"医学",类别:"医学技术类",专业:"口腔医学技术",选科:"物理",热度级别:"冷门",院校数:7,均分:421},
+  {id:64,门类:"医学",类别:"法医学类",专业:"法医学",选科:"物理",热度级别:"冷门",院校数:7,均分:539},
+  {id:65,门类:"医学",类别:"临床医学类",专业:"眼视光医学",选科:"物理",热度级别:"冷门",院校数:6,均分:561},
+  {id:66,门类:"医学",类别:"医学技术类",专业:"医学实验技术",选科:"物理",热度级别:"冷门",院校数:6,均分:484},
+  {id:67,门类:"医学",类别:"中医学类",专业:"中医骨伤科学",选科:"物理",热度级别:"冷门",院校数:5,均分:549},
+  {id:68,门类:"医学",类别:"中药学类",专业:"中药学类",选科:"物理",热度级别:"冷门",院校数:5,均分:524},
+  {id:69,门类:"医学",类别:"公共卫生与预防医学类",专业:"食品卫生与营养学",选科:"物理",热度级别:"冷门",院校数:5,均分:441},
+  {id:70,门类:"医学",类别:"临床医学类",专业:"放射医学",选科:"物理",热度级别:"冷门",院校数:4,均分:591},
+  {id:71,门类:"医学",类别:"中医学类",专业:"中医康复学",选科:"物理",热度级别:"冷门",院校数:3,均分:495},
+  {id:72,门类:"医学",类别:"医学技术类",专业:"康复物理治疗",选科:"物理",热度级别:"冷门",院校数:3,均分:480},
+  {id:73,门类:"历史学",类别:"历史学类",专业:"历史学",选科:"历史",热度级别:"高热",院校数:58,均分:526},
+  {id:74,门类:"历史学",类别:"历史学类",专业:"历史学类",选科:"历史",热度级别:"冷门",院校数:10,均分:610},
+  {id:75,门类:"历史学",类别:"历史学类",专业:"文物与博物馆学",选科:"历史",热度级别:"冷门",院校数:7,均分:527},
+  {id:76,门类:"历史学",类别:"历史学类",专业:"考古学",选科:"历史",热度级别:"冷门",院校数:5,均分:605},
+  {id:77,门类:"哲学",类别:"哲学类",专业:"哲学",选科:"历史",热度级别:"冷门",院校数:13,均分:593},
+  {id:78,门类:"哲学",类别:"哲学类",专业:"哲学类",选科:"历史",热度级别:"冷门",院校数:7,均分:620},
+  {id:79,门类:"工学",类别:"计算机类",专业:"计算机科学与技术",选科:"物理",热度级别:"高热",院校数:276,均分:494},
+  {id:80,门类:"工学",类别:"电气类",专业:"电气工程及其自动化",选科:"物理",热度级别:"高热",院校数:194,均分:502},
+  {id:81,门类:"工学",类别:"机械类",专业:"机械设计制造及其自动化",选科:"物理",热度级别:"高热",院校数:173,均分:486},
+  {id:82,门类:"工学",类别:"计算机类",专业:"数据科学与大数据技术",选科:"物理",热度级别:"高热",院校数:163,均分:473},
+  {id:83,门类:"工学",类别:"计算机类",专业:"软件工程",选科:"物理",热度级别:"高热",院校数:163,均分:495},
+  {id:84,门类:"工学",类别:"土木类",专业:"土木工程",选科:"物理",热度级别:"高热",院校数:154,均分:462},
+  {id:85,门类:"工学",类别:"电子信息类",专业:"电子信息工程",选科:"物理",热度级别:"高热",院校数:145,均分:501},
+  {id:86,门类:"工学",类别:"自动化类",专业:"自动化",选科:"物理",热度级别:"高热",院校数:140,均分:508},
+  {id:87,门类:"工学",类别:"电子信息类",专业:"人工智能",选科:"物理",热度级别:"高热",院校数:139,均分:500},
+  {id:88,门类:"工学",类别:"电子信息类",专业:"通信工程",选科:"物理",热度级别:"高热",院校数:124,均分:509},
+  {id:89,门类:"工学",类别:"机械类",专业:"车辆工程",选科:"物理",热度级别:"高热",院校数:89,均分:501},
+  {id:90,门类:"工学",类别:"化工与制药类",专业:"化学工程与工艺",选科:"物理",热度级别:"高热",院校数:87,均分:483},
+  {id:91,门类:"工学",类别:"自动化类",专业:"机器人工程",选科:"物理",热度级别:"高热",院校数:83,均分:486},
+  {id:92,门类:"工学",类别:"机械类",专业:"智能制造工程",选科:"物理",热度级别:"高热",院校数:82,均分:489},
+  {id:93,门类:"工学",类别:"计算机类",专业:"物联网工程",选科:"物理",热度级别:"高热",院校数:80,均分:462},
+  {id:94,门类:"工学",类别:"环境科学与工程类",专业:"环境工程",选科:"物理",热度级别:"高热",院校数:77,均分:484},
+  {id:95,门类:"工学",类别:"计算机类",专业:"计算机类",选科:"物理",热度级别:"高热",院校数:77,均分:569},
+  {id:96,门类:"工学",类别:"化工与制药类",专业:"制药工程",选科:"物理",热度级别:"高热",院校数:74,均分:470},
+  {id:97,门类:"工学",类别:"机械类",专业:"机械电子工程",选科:"物理",热度级别:"高热",院校数:74,均分:484},
+  {id:98,门类:"工学",类别:"材料类",专业:"材料科学与工程",选科:"物理",热度级别:"高热",院校数:66,均分:519},
+  {id:99,门类:"工学",类别:"生物工程类",专业:"生物工程",选科:"物理",热度级别:"高热",院校数:65,均分:483},
+  {id:100,门类:"工学",类别:"电子信息类",专业:"电子信息类",选科:"物理",热度级别:"高热",院校数:64,均分:593},
+  {id:101,门类:"工学",类别:"食品科学与工程类",专业:"食品科学与工程",选科:"物理",热度级别:"高热",院校数:62,均分:466},
+  {id:102,门类:"工学",类别:"能源动力类",专业:"能源与动力工程",选科:"物理",热度级别:"高热",院校数:61,均分:533},
+  {id:103,门类:"工学",类别:"机械类",专业:"材料成型及控制工程",选科:"物理",热度级别:"高热",院校数:57,均分:485},
+  {id:104,门类:"工学",类别:"建筑类",专业:"建筑学",选科:"物理",热度级别:"高热",院校数:56,均分:456},
+  {id:105,门类:"工学",类别:"仪器类",专业:"测控技术与仪器",选科:"物理",热度级别:"高热",院校数:52,均分:524},
+  {id:106,门类:"工学",类别:"电子信息类",专业:"光电信息科学与工程",选科:"物理",热度级别:"高热",院校数:50,均分:552},
+  {id:107,门类:"工学",类别:"计算机类",专业:"网络工程",选科:"物理",热度级别:"较热",院校数:48,均分:479},
+  {id:108,门类:"工学",类别:"安全科学与工程类",专业:"安全工程",选科:"物理",热度级别:"较热",院校数:45,均分:503},
+  {id:109,门类:"工学",类别:"机械类",专业:"机械工程",选科:"物理",热度级别:"较热",院校数:45,均分:526},
+  {id:110,门类:"工学",类别:"机械类",专业:"机械类",选科:"物理",热度级别:"较热",院校数:44,均分:558},
+  {id:111,门类:"工学",类别:"计算机类",专业:"数字媒体技术",选科:"物理",热度级别:"较热",院校数:43,均分:456},
+  {id:112,门类:"工学",类别:"测绘类",专业:"测绘工程",选科:"物理",热度级别:"较热",院校数:42,均分:474},
+  {id:113,门类:"工学",类别:"土木类",专业:"智能建造",选科:"物理",热度级别:"较热",院校数:41,均分:460},
+  {id:114,门类:"工学",类别:"土木类",专业:"给排水科学与工程",选科:"物理",热度级别:"较热",院校数:41,均分:461},
+  {id:115,门类:"工学",类别:"材料类",专业:"材料类",选科:"物理",热度级别:"较热",院校数:41,均分:561},
+  {id:116,门类:"工学",类别:"材料类",专业:"高分子材料与工程",选科:"物理",热度级别:"较热",院校数:40,均分:503},
+  {id:117,门类:"工学",类别:"计算机类",专业:"智能科学与技术",选科:"物理",热度级别:"较热",院校数:39,均分:474},
+  {id:118,门类:"工学",类别:"土木类",专业:"建筑环境与能源应用工程",选科:"物理",热度级别:"较热",院校数:38,均分:476},
+  {id:119,门类:"工学",类别:"能源动力类",专业:"新能源科学与工程",选科:"物理",热度级别:"较热",院校数:38,均分:509},
+  {id:120,门类:"工学",类别:"机械类",专业:"工业设计",选科:"物理",热度级别:"较热",院校数:36,均分:508},
+  {id:121,门类:"工学",类别:"电子信息类",专业:"电子科学与技术",选科:"物理",热度级别:"较热",院校数:36,均分:537},
+  {id:122,门类:"工学",类别:"计算机类",专业:"网络空间安全",选科:"物理",热度级别:"较热",院校数:35,均分:543},
+  {id:123,门类:"工学",类别:"食品科学与工程类",专业:"食品质量与安全",选科:"物理",热度级别:"较热",院校数:34,均分:446},
+  {id:124,门类:"工学",类别:"交通运输类",专业:"交通运输",选科:"物理",热度级别:"较热",院校数:33,均分:488},
+  {id:125,门类:"工学",类别:"环境科学与工程类",专业:"环境科学",选科:"物理",热度级别:"较热",院校数:33,均分:496},
+  {id:126,门类:"工学",类别:"机械类",专业:"过程装备与控制工程",选科:"物理",热度级别:"较热",院校数:30,均分:529},
+  {id:127,门类:"工学",类别:"计算机类",专业:"信息安全",选科:"物理",热度级别:"较热",院校数:30,均分:538},
+  {id:128,门类:"工学",类别:"材料类",专业:"新能源材料与器件",选科:"物理",热度级别:"较热",院校数:28,均分:486},
+  {id:129,门类:"工学",类别:"水利类",专业:"水利水电工程",选科:"物理",热度级别:"较热",院校数:28,均分:475},
+  {id:130,门类:"工学",类别:"电子信息类",专业:"电子信息科学与技术",选科:"物理",热度级别:"较热",院校数:27,均分:476},
+  {id:131,门类:"工学",类别:"交通运输类",专业:"交通工程",选科:"物理",热度级别:"较热",院校数:26,均分:480},
+  {id:132,门类:"工学",类别:"建筑类",专业:"风景园林",选科:"物理",热度级别:"较热",院校数:25,均分:453},
+  {id:133,门类:"工学",类别:"电子信息类",专业:"微电子科学与工程",选科:"物理",热度级别:"较热",院校数:25,均分:579},
+  {id:134,门类:"工学",类别:"力学类",专业:"工程力学",选科:"物理",热度级别:"较热",院校数:24,均分:559},
+  {id:135,门类:"工学",类别:"材料类",专业:"金属材料工程",选科:"物理",热度级别:"较热",院校数:24,均分:494},
+  {id:136,门类:"工学",类别:"环境科学与工程类",专业:"环境科学与工程类",选科:"物理",热度级别:"较热",院校数:24,均分:560},
+  {id:137,门类:"工学",类别:"生物工程类",专业:"生物制药",选科:"物理",热度级别:"较热",院校数:24,均分:466},
+  {id:138,门类:"工学",类别:"电子信息类",专业:"集成电路设计与集成系统",选科:"物理",热度级别:"较热",院校数:24,均分:539},
+  {id:139,门类:"工学",类别:"生物医学工程类",专业:"生物医学工程",选科:"物理",热度级别:"较热",院校数:23,均分:514},
+  {id:140,门类:"工学",类别:"土木类",专业:"道路桥梁与渡河工程",选科:"物理",热度级别:"较热",院校数:22,均分:466},
+  {id:141,门类:"工学",类别:"材料类",专业:"无机非金属材料工程",选科:"物理",热度级别:"较热",院校数:22,均分:485},
+  {id:142,门类:"工学",类别:"材料类",专业:"材料化学",选科:"物理",热度级别:"较热",院校数:22,均分:484},
+  {id:143,门类:"工学",类别:"机械类",专业:"新能源汽车工程",选科:"物理",热度级别:"较热",院校数:21,均分:431},
+  {id:144,门类:"工学",类别:"食品科学与工程类",专业:"食品科学与工程类",选科:"物理",热度级别:"较热",院校数:21,均分:510},
+  {id:145,门类:"工学",类别:"自动化类",专业:"自动化类",选科:"物理",热度级别:"较热",院校数:20,均分:614},
+  {id:146,门类:"工学",类别:"化工与制药类",专业:"能源化学工程",选科:"物理",热度级别:"较热",院校数:19,均分:496},
+  {id:147,门类:"工学",类别:"地质类",专业:"地质工程",选科:"物理",热度级别:"较热",院校数:19,均分:502},
+  {id:148,门类:"工学",类别:"矿业类",专业:"油气储运工程",选科:"物理",热度级别:"较热",院校数:18,均分:507},
+  {id:149,门类:"工学",类别:"化工与制药类",专业:"化工与制药类",选科:"物理",热度级别:"较热",院校数:17,均分:542},
+  {id:150,门类:"工学",类别:"建筑类",专业:"城乡规划",选科:"物理",热度级别:"较热",院校数:17,均分:451},
+  {id:151,门类:"工学",类别:"土木类",专业:"土木类",选科:"物理",热度级别:"较热",院校数:16,均分:527},
+  {id:152,门类:"工学",类别:"土木类",专业:"建筑电气与智能化",选科:"物理",热度级别:"较热",院校数:16,均分:432},
+  {id:153,门类:"工学",类别:"矿业类",专业:"石油工程",选科:"物理",热度级别:"较热",院校数:16,均分:520},
+  {id:154,门类:"工学",类别:"测绘类",专业:"遥感科学与技术",选科:"物理",热度级别:"较热",院校数:15,均分:513},
+  {id:155,门类:"工学",类别:"电气类",专业:"电气工程与智能控制",选科:"物理",热度级别:"较热",院校数:15,均分:472},
+  {id:156,门类:"工学",类别:"交通运输类",专业:"轮机工程",选科:"物理",热度级别:"冷门",院校数:13,均分:522},
+  {id:157,门类:"工学",类别:"材料类",专业:"焊接技术与工程",选科:"物理",热度级别:"冷门",院校数:13,均分:484},
+  {id:158,门类:"工学",类别:"电子信息类",专业:"医学信息工程",选科:"物理",热度级别:"冷门",院校数:13,均分:468},
+  {id:159,门类:"工学",类别:"能源动力类",专业:"储能科学与工程",选科:"物理",热度级别:"冷门",院校数:13,均分:522},
+  {id:160,门类:"工学",类别:"能源动力类",专业:"能源动力类",选科:"物理",热度级别:"冷门",院校数:13,均分:577},
+  {id:161,门类:"工学",类别:"航空航天类",专业:"飞行器制造工程",选科:"物理",热度级别:"冷门",院校数:13,均分:497},
+  {id:162,门类:"工学",类别:"轻工类",专业:"轻化工程",选科:"物理",热度级别:"冷门",院校数:13,均分:503},
+  {id:163,门类:"工学",类别:"食品科学与工程类",专业:"食品营养与健康",选科:"物理",热度级别:"冷门",院校数:13,均分:456},
+  {id:164,门类:"工学",类别:"土木类",专业:"城市地下空间工程",选科:"物理",热度级别:"冷门",院校数:12,均分:508},
+  {id:165,门类:"工学",类别:"建筑类",专业:"风景园林",选科:"历史",热度级别:"冷门",院校数:12,均分:478},
+  {id:166,门类:"工学",类别:"计算机类",专业:"虚拟现实技术",选科:"物理",热度级别:"冷门",院校数:12,均分:442},
+  {id:167,门类:"工学",类别:"交通运输类",专业:"航海技术",选科:"物理",热度级别:"冷门",院校数:11,均分:516},
+  {id:168,门类:"工学",类别:"仪器类",专业:"智能感知工程",选科:"物理",热度级别:"冷门",院校数:11,均分:543},
+  {id:169,门类:"工学",类别:"地质类",专业:"勘查技术与工程",选科:"物理",热度级别:"冷门",院校数:11,均分:526},
+  {id:170,门类:"工学",类别:"地质类",专业:"资源勘查工程",选科:"物理",热度级别:"冷门",院校数:11,均分:497},
+  {id:171,门类:"工学",类别:"建筑类",专业:"城乡规划",选科:"历史",热度级别:"冷门",院校数:11,均分:495},
+  {id:172,门类:"工学",类别:"材料类",专业:"材料物理",选科:"物理",热度级别:"冷门",院校数:11,均分:503},
+  {id:173,门类:"工学",类别:"水利类",专业:"水文与水资源工程",选科:"物理",热度级别:"冷门",院校数:11,均分:494},
+  {id:174,门类:"工学",类别:"纺织类",专业:"纺织工程",选科:"物理",热度级别:"冷门",院校数:11,均分:489},
+  {id:175,门类:"工学",类别:"航空航天类",专业:"飞行器设计与工程",选科:"物理",热度级别:"冷门",院校数:11,均分:539},
+  {id:176,门类:"工学",类别:"安全科学与工程类",专业:"应急技术与管理",选科:"物理",热度级别:"冷门",院校数:10,均分:466},
+  {id:177,门类:"工学",类别:"机械类",专业:"汽车服务工程",选科:"物理",热度级别:"冷门",院校数:10,均分:425},
+  {id:178,门类:"工学",类别:"核工程类",专业:"核工程与核技术",选科:"物理",热度级别:"冷门",院校数:10,均分:556},
+  {id:179,门类:"工学",类别:"环境科学与工程类",专业:"环境生态工程",选科:"物理",热度级别:"冷门",院校数:10,均分:459},
+  {id:180,门类:"工学",类别:"环境科学与工程类",专业:"环境科学与工程",选科:"物理",热度级别:"冷门",院校数:10,均分:459},
+  {id:181,门类:"工学",类别:"电气类",专业:"智能电网信息工程",选科:"物理",热度级别:"冷门",院校数:10,均分:537},
+  {id:182,门类:"工学",类别:"矿业类",专业:"采矿工程",选科:"物理",热度级别:"冷门",院校数:10,均分:463},
+  {id:183,门类:"工学",类别:"自动化类",专业:"轨道交通信号与控制",选科:"物理",热度级别:"冷门",院校数:10,均分:461},
+  {id:184,门类:"工学",类别:"航空航天类",专业:"飞行器动力工程",选科:"物理",热度级别:"冷门",院校数:10,均分:524},
+  {id:185,门类:"工学",类别:"交通运输类",专业:"智慧交通",选科:"物理",热度级别:"冷门",院校数:9,均分:442},
+  {id:186,门类:"工学",类别:"农业工程类",专业:"农业机械化及其自动化",选科:"物理",热度级别:"冷门",院校数:9,均分:500},
+  {id:187,门类:"工学",类别:"农业工程类",专业:"农业水利工程",选科:"物理",热度级别:"冷门",院校数:9,均分:499},
+  {id:188,门类:"工学",类别:"建筑类",专业:"建筑学",选科:"历史",热度级别:"冷门",院校数:9,均分:473},
+  {id:189,门类:"工学",类别:"机械类",专业:"智能车辆工程",选科:"物理",热度级别:"冷门",院校数:9,均分:456},
+  {id:190,门类:"工学",类别:"材料类",专业:"功能材料",选科:"物理",热度级别:"冷门",院校数:9,均分:472},
+  {id:191,门类:"工学",类别:"水利类",专业:"水利类",选科:"物理",热度级别:"冷门",院校数:9,均分:552},
+  {id:192,门类:"工学",类别:"海洋工程类",专业:"船舶与海洋工程",选科:"物理",热度级别:"冷门",院校数:9,均分:577},
+  {id:193,门类:"工学",类别:"交通运输类",专业:"交通运输类",选科:"物理",热度级别:"冷门",院校数:8,均分:568},
+  {id:194,门类:"工学",类别:"兵器类",专业:"信息对抗技术",选科:"物理",热度级别:"冷门",院校数:8,均分:564},
+  {id:195,门类:"工学",类别:"地质类",专业:"地质类",选科:"物理",热度级别:"冷门",院校数:8,均分:532},
+  {id:196,门类:"工学",类别:"纺织类",专业:"服装设计与工程",选科:"物理",热度级别:"冷门",院校数:8,均分:496},
+  {id:197,门类:"工学",类别:"航空航天类",专业:"无人驾驶航空器系统工程",选科:"物理",热度级别:"冷门",院校数:8,均分:472},
+  {id:198,门类:"工学",类别:"公安技术类",专业:"消防工程",选科:"物理",热度级别:"冷门",院校数:7,均分:487},
+  {id:199,门类:"工学",类别:"兵器类",专业:"探测制导与控制技术",选科:"物理",热度级别:"冷门",院校数:7,均分:581},
+  {id:200,门类:"工学",类别:"材料类",专业:"冶金工程",选科:"物理",热度级别:"冷门",院校数:7,均分:478},
+  {id:201,门类:"工学",类别:"电子信息类",专业:"信息工程",选科:"物理",热度级别:"冷门",院校数:7,均分:540},
+  {id:202,门类:"工学",类别:"矿业类",专业:"智能采矿工程",选科:"物理",热度级别:"冷门",院校数:7,均分:522},
+  {id:203,门类:"工学",类别:"矿业类",专业:"矿物加工工程",选科:"物理",热度级别:"冷门",院校数:7,均分:491},
+  {id:204,门类:"工学",类别:"公安技术类",专业:"刑事科学技术",选科:"物理",热度级别:"冷门",院校数:6,均分:590},
+  {id:205,门类:"工学",类别:"公安技术类",专业:"网络安全与执法",选科:"物理",热度级别:"冷门",院校数:6,均分:600},
+  {id:206,门类:"工学",类别:"土木类",专业:"铁道工程",选科:"物理",热度级别:"冷门",院校数:6,均分:512},
+  {id:207,门类:"工学",类别:"建筑类",专业:"建筑类",选科:"物理",热度级别:"冷门",院校数:6,均分:517},
+  {id:208,门类:"工学",类别:"林业工程类",专业:"家具设计与工程",选科:"物理",热度级别:"冷门",院校数:6,均分:460},
+  {id:209,门类:"工学",类别:"林业工程类",专业:"木材科学与工程",选科:"物理",热度级别:"冷门",院校数:6,均分:491},
+  {id:210,门类:"工学",类别:"测绘类",专业:"测绘类",选科:"物理",热度级别:"冷门",院校数:6,均分:580},
+  {id:211,门类:"工学",类别:"电气类",专业:"电气类",选科:"物理",热度级别:"冷门",院校数:6,均分:588},
+  {id:212,门类:"工学",类别:"纺织类",专业:"非织造材料与工程",选科:"物理",热度级别:"冷门",院校数:6,均分:488},
+  {id:213,门类:"工学",类别:"食品科学与工程类",专业:"烹饪与营养教育",选科:"物理",热度级别:"冷门",院校数:6,均分:432},
+  {id:214,门类:"工学",类别:"交通运输类",专业:"船舶电子电气工程",选科:"物理",热度级别:"冷门",院校数:5,均分:512},
+  {id:215,门类:"工学",类别:"交通运输类",专业:"飞行技术",选科:"物理",热度级别:"冷门",院校数:5,均分:549},
+  {id:216,门类:"工学",类别:"农业工程类",专业:"农业智能装备工程",选科:"物理",热度级别:"冷门",院校数:5,均分:514},
+  {id:217,门类:"工学",类别:"化工与制药类",专业:"化学工程与工业生物工程",选科:"物理",热度级别:"冷门",院校数:5,均分:427},
+  {id:218,门类:"工学",类别:"机械类",专业:"智能交互设计",选科:"物理",热度级别:"冷门",院校数:5,均分:496},
+  {id:219,门类:"工学",类别:"材料类",专业:"光电信息材料与器件",选科:"物理",热度级别:"冷门",院校数:5,均分:468},
+  {id:220,门类:"工学",类别:"材料类",专业:"复合材料与工程",选科:"物理",热度级别:"冷门",院校数:5,均分:506},
+  {id:221,门类:"工学",类别:"材料类",专业:"智能材料与结构",选科:"物理",热度级别:"冷门",院校数:5,均分:504},
+  {id:222,门类:"工学",类别:"测绘类",专业:"地理空间信息工程",选科:"物理",热度级别:"冷门",院校数:5,均分:463},
+  {id:223,门类:"工学",类别:"电子信息类",专业:"电子封装技术",选科:"物理",热度级别:"冷门",院校数:5,均分:545},
+  {id:224,门类:"工学",类别:"航空航天类",专业:"飞行器质量与可靠性",选科:"物理",热度级别:"冷门",院校数:5,均分:518},
+  {id:225,门类:"工学",类别:"计算机类",专业:"新媒体技术",选科:"物理",热度级别:"冷门",院校数:5,均分:420},
+  {id:226,门类:"工学",类别:"食品科学与工程类",专业:"粮食工程",选科:"物理",热度级别:"冷门",院校数:5,均分:444},
+  {id:227,门类:"工学",类别:"食品科学与工程类",专业:"葡萄与葡萄酒工程",选科:"物理",热度级别:"冷门",院校数:5,均分:532},
+  {id:228,门类:"工学",类别:"交通运输类",专业:"交通设备与控制工程",选科:"物理",热度级别:"冷门",院校数:4,均分:586},
+  {id:229,门类:"工学",类别:"公安技术类",专业:"数据警务技术",选科:"物理",热度级别:"冷门",院校数:4,均分:569},
+  {id:230,门类:"工学",类别:"兵器类",专业:"弹药工程与爆炸技术",选科:"物理",热度级别:"冷门",院校数:4,均分:576},
+  {id:231,门类:"工学",类别:"兵器类",专业:"武器系统与工程",选科:"物理",热度级别:"冷门",院校数:4,均分:578},
+  {id:232,门类:"工学",类别:"农业工程类",专业:"农业电气化",选科:"物理",热度级别:"冷门",院校数:4,均分:473},
+  {id:233,门类:"工学",类别:"农业工程类",专业:"土地整治工程",选科:"物理",热度级别:"冷门",院校数:4,均分:490},
+  {id:234,门类:"工学",类别:"建筑类",专业:"建筑类",选科:"历史",热度级别:"冷门",院校数:4,均分:589},
+  {id:235,门类:"工学",类别:"水利类",专业:"智慧水利",选科:"物理",热度级别:"冷门",院校数:4,均分:505},
+  {id:236,门类:"工学",类别:"测绘类",专业:"导航工程",选科:"物理",热度级别:"冷门",院校数:4,均分:588},
+  {id:237,门类:"工学",类别:"电子信息类",专业:"智能测控工程",选科:"物理",热度级别:"冷门",院校数:4,均分:508},
+  {id:238,门类:"工学",类别:"电子信息类",专业:"海洋信息工程",选科:"物理",热度级别:"冷门",院校数:4,均分:545},
+  {id:239,门类:"工学",类别:"矿业类",专业:"海洋油气工程",选科:"物理",热度级别:"冷门",院校数:4,均分:560},
+  {id:240,门类:"工学",类别:"自动化类",专业:"智能装备与系统",选科:"物理",热度级别:"冷门",院校数:4,均分:534},
+  {id:241,门类:"工学",类别:"航空航天类",专业:"航空航天工程",选科:"物理",热度级别:"冷门",院校数:4,均分:597},
+  {id:242,门类:"工学",类别:"航空航天类",专业:"航空航天类",选科:"物理",热度级别:"冷门",院校数:4,均分:646},
+  {id:243,门类:"工学",类别:"计算机类",专业:"密码科学与技术",选科:"物理",热度级别:"冷门",院校数:4,均分:598},
+  {id:244,门类:"工学",类别:"食品科学与工程类",专业:"食品营养与检验教育",选科:"物理",热度级别:"冷门",院校数:4,均分:416},
+  {id:245,门类:"工学",类别:"公安技术类",专业:"公安视听技术",选科:"物理",热度级别:"冷门",院校数:3,均分:588},
+  {id:246,门类:"工学",类别:"兵器类",专业:"特种能源技术与工程",选科:"物理",热度级别:"冷门",院校数:3,均分:575},
+  {id:247,门类:"工学",类别:"土木类",专业:"智能建造与智慧交通",选科:"物理",热度级别:"冷门",院校数:3,均分:522},
+  {id:248,门类:"工学",类别:"地质类",专业:"地下水科学与工程",选科:"物理",热度级别:"冷门",院校数:3,均分:559},
+  {id:249,门类:"工学",类别:"材料类",专业:"宝石及材料工艺学",选科:"物理",热度级别:"冷门",院校数:3,均分:452},
+  {id:250,门类:"工学",类别:"材料类",专业:"纳米材料与技术",选科:"物理",热度级别:"冷门",院校数:3,均分:595},
+  {id:251,门类:"工学",类别:"林业工程类",专业:"林业工程类",选科:"物理",热度级别:"冷门",院校数:3,均分:563},
+  {id:252,门类:"工学",类别:"林业工程类",专业:"林产化工",选科:"物理",热度级别:"冷门",院校数:3,均分:503},
+  {id:253,门类:"工学",类别:"核工程类",专业:"辐射防护与核安全",选科:"物理",热度级别:"冷门",院校数:3,均分:576},
+  {id:254,门类:"工学",类别:"水利类",专业:"港口航道与海岸工程",选科:"物理",热度级别:"冷门",院校数:3,均分:501},
+  {id:255,门类:"工学",类别:"环境科学与工程类",专业:"环保设备工程",选科:"物理",热度级别:"冷门",院校数:3,均分:467},
+  {id:256,门类:"工学",类别:"生物医学工程类",专业:"康复工程",选科:"物理",热度级别:"冷门",院校数:3,均分:447},
+  {id:257,门类:"工学",类别:"生物医学工程类",专业:"生物医学工程类",选科:"物理",热度级别:"冷门",院校数:3,均分:606},
+  {id:258,门类:"工学",类别:"生物工程类",专业:"合成生物学",选科:"物理",热度级别:"冷门",院校数:3,均分:541},
+  {id:259,门类:"工学",类别:"生物工程类",专业:"生物工程类",选科:"物理",热度级别:"冷门",院校数:3,均分:543},
+  {id:260,门类:"工学",类别:"电子信息类",专业:"水声工程",选科:"物理",热度级别:"冷门",院校数:3,均分:596},
+  {id:261,门类:"工学",类别:"电气类",专业:"能源互联网工程",选科:"物理",热度级别:"冷门",院校数:3,均分:546},
+  {id:262,门类:"工学",类别:"航空航天类",专业:"飞行器控制与信息工程",选科:"物理",热度级别:"冷门",院校数:3,均分:454},
+  {id:263,门类:"工学",类别:"航空航天类",专业:"飞行器适航技术",选科:"物理",热度级别:"冷门",院校数:3,均分:561},
+  {id:264,门类:"工学",类别:"计算机类",专业:"区块链工程",选科:"物理",热度级别:"冷门",院校数:3,均分:407},
+  {id:265,门类:"工学",类别:"计算机类",专业:"空间信息与数字技术",选科:"物理",热度级别:"冷门",院校数:3,均分:569},
+  {id:266,门类:"工学",类别:"轻工类",专业:"包装工程",选科:"物理",热度级别:"冷门",院校数:3,均分:512},
+  {id:267,门类:"工学",类别:"轻工类",专业:"化妆品技术与工程",选科:"物理",热度级别:"冷门",院校数:3,均分:511},
+  {id:268,门类:"教育学",类别:"教育学类",专业:"学前教育",选科:"历史",热度级别:"高热",院校数:52,均分:461},
+  {id:269,门类:"教育学",类别:"教育学类",专业:"小学教育",选科:"历史",热度级别:"较热",院校数:43,均分:476},
+  {id:270,门类:"教育学",类别:"教育学类",专业:"学前教育",选科:"物理",热度级别:"较热",院校数:26,均分:405},
+  {id:271,门类:"教育学",类别:"体育学类",专业:"体育教育",选科:"历史",热度级别:"较热",院校数:24,均分:352},
+  {id:272,门类:"教育学",类别:"体育学类",专业:"体育教育",选科:"物理",热度级别:"较热",院校数:24,均分:382},
+  {id:273,门类:"教育学",类别:"教育学类",专业:"小学教育",选科:"物理",热度级别:"较热",院校数:23,均分:428},
+  {id:274,门类:"教育学",类别:"教育学类",专业:"教育技术学",选科:"物理",热度级别:"较热",院校数:22,均分:451},
+  {id:275,门类:"教育学",类别:"教育学类",专业:"教育学",选科:"历史",热度级别:"较热",院校数:15,均分:519},
+  {id:276,门类:"教育学",类别:"体育学类",专业:"社会体育指导与管理",选科:"历史",热度级别:"冷门",院校数:9,均分:342},
+  {id:277,门类:"教育学",类别:"体育学类",专业:"社会体育指导与管理",选科:"物理",热度级别:"冷门",院校数:9,均分:372},
+  {id:278,门类:"教育学",类别:"体育学类",专业:"运动康复",选科:"物理",热度级别:"冷门",院校数:8,均分:479},
+  {id:279,门类:"教育学",类别:"教育学类",专业:"教育学",选科:"物理",热度级别:"冷门",院校数:8,均分:441},
+  {id:280,门类:"教育学",类别:"教育学类",专业:"教育学类",选科:"历史",热度级别:"冷门",院校数:8,均分:554},
+  {id:281,门类:"教育学",类别:"教育学类",专业:"科学教育",选科:"物理",热度级别:"冷门",院校数:6,均分:469},
+  {id:282,门类:"教育学",类别:"教育学类",专业:"特殊教育",选科:"历史",热度级别:"冷门",院校数:5,均分:502},
+  {id:283,门类:"教育学",类别:"体育学类",专业:"运动训练",选科:"历史",热度级别:"冷门",院校数:4,均分:348},
+  {id:284,门类:"教育学",类别:"体育学类",专业:"运动训练",选科:"物理",热度级别:"冷门",院校数:4,均分:374},
+  {id:285,门类:"教育学",类别:"教育学类",专业:"特殊教育",选科:"物理",热度级别:"冷门",院校数:4,均分:477},
+  {id:286,门类:"教育学",类别:"教育学类",专业:"艺术教育",选科:"历史",热度级别:"冷门",院校数:4,均分:467},
+  {id:287,门类:"教育学",类别:"体育学类",专业:"运动人体科学",选科:"物理",热度级别:"冷门",院校数:3,均分:485},
+  {id:288,门类:"教育学",类别:"教育学类",专业:"教育学类",选科:"物理",热度级别:"冷门",院校数:3,均分:439},
+  {id:289,门类:"文学",类别:"外国语言文学类",专业:"英语",选科:"历史",热度级别:"高热",院校数:206,均分:509},
+  {id:290,门类:"文学",类别:"中国语言文学类",专业:"汉语言文学",选科:"历史",热度级别:"高热",院校数:180,均分:519},
+  {id:291,门类:"文学",类别:"外国语言文学类",专业:"日语",选科:"历史",热度级别:"高热",院校数:118,均分:506},
+  {id:292,门类:"文学",类别:"外国语言文学类",专业:"英语",选科:"物理",热度级别:"高热",院校数:89,均分:460},
+  {id:293,门类:"文学",类别:"外国语言文学类",专业:"俄语",选科:"历史",热度级别:"高热",院校数:76,均分:504},
+  {id:294,门类:"文学",类别:"新闻传播学类",专业:"网络与新媒体",选科:"历史",热度级别:"高热",院校数:67,均分:490},
+  {id:295,门类:"文学",类别:"中国语言文学类",专业:"汉语国际教育",选科:"历史",热度级别:"高热",院校数:51,均分:499},
+  {id:296,门类:"文学",类别:"新闻传播学类",专业:"新闻学",选科:"历史",热度级别:"高热",院校数:50,均分:509},
+  {id:297,门类:"文学",类别:"外国语言文学类",专业:"商务英语",选科:"历史",热度级别:"较热",院校数:48,均分:496},
+  {id:298,门类:"文学",类别:"外国语言文学类",专业:"日语",选科:"物理",热度级别:"较热",院校数:46,均分:434},
+  {id:299,门类:"文学",类别:"外国语言文学类",专业:"朝鲜语",选科:"历史",热度级别:"较热",院校数:37,均分:503},
+  {id:300,门类:"文学",类别:"新闻传播学类",专业:"网络与新媒体",选科:"物理",热度级别:"较热",院校数:36,均分:424},
+  {id:301,门类:"文学",类别:"新闻传播学类",专业:"新闻传播学类",选科:"历史",热度级别:"较热",院校数:34,均分:583},
+  {id:302,门类:"文学",类别:"外国语言文学类",专业:"外国语言文学类",选科:"历史",热度级别:"较热",院校数:32,均分:576},
+  {id:303,门类:"文学",类别:"外国语言文学类",专业:"俄语",选科:"物理",热度级别:"较热",院校数:31,均分:427},
+  {id:304,门类:"文学",类别:"中国语言文学类",专业:"汉语言文学",选科:"物理",热度级别:"较热",院校数:28,均分:411},
+  {id:305,门类:"文学",类别:"外国语言文学类",专业:"翻译",选科:"历史",热度级别:"较热",院校数:28,均分:508},
+  {id:306,门类:"文学",类别:"新闻传播学类",专业:"广告学",选科:"历史",热度级别:"较热",院校数:28,均分:486},
+  {id:307,门类:"文学",类别:"中国语言文学类",专业:"中国语言文学类",选科:"历史",热度级别:"较热",院校数:25,均分:570},
+  {id:308,门类:"文学",类别:"外国语言文学类",专业:"法语",选科:"历史",热度级别:"较热",院校数:22,均分:545},
+  {id:309,门类:"文学",类别:"外国语言文学类",专业:"朝鲜语",选科:"物理",热度级别:"较热",院校数:20,均分:426},
+  {id:310,门类:"文学",类别:"外国语言文学类",专业:"西班牙语",选科:"历史",热度级别:"较热",院校数:19,均分:517},
+  {id:311,门类:"文学",类别:"外国语言文学类",专业:"商务英语",选科:"物理",热度级别:"较热",院校数:18,均分:430},
+  {id:312,门类:"文学",类别:"新闻传播学类",专业:"新闻学",选科:"物理",热度级别:"较热",院校数:18,均分:461},
+  {id:313,门类:"文学",类别:"外国语言文学类",专业:"德语",选科:"历史",热度级别:"较热",院校数:17,均分:521},
+  {id:314,门类:"文学",类别:"新闻传播学类",专业:"广告学",选科:"物理",热度级别:"冷门",院校数:14,均分:428},
+  {id:315,门类:"文学",类别:"新闻传播学类",专业:"传播学",选科:"历史",热度级别:"冷门",院校数:13,均分:544},
+  {id:316,门类:"文学",类别:"新闻传播学类",专业:"广播电视学",选科:"历史",热度级别:"冷门",院校数:12,均分:515},
+  {id:317,门类:"文学",类别:"中国语言文学类",专业:"汉语国际教育",选科:"物理",热度级别:"冷门",院校数:11,均分:391},
+  {id:318,门类:"文学",类别:"外国语言文学类",专业:"外国语言文学类",选科:"物理",热度级别:"冷门",院校数:11,均分:524},
+  {id:319,门类:"文学",类别:"外国语言文学类",专业:"翻译",选科:"物理",热度级别:"冷门",院校数:10,均分:429},
+  {id:320,门类:"文学",类别:"中国语言文学类",专业:"中国少数民族语言文学",选科:"历史",热度级别:"冷门",院校数:9,均分:474},
+  {id:321,门类:"文学",类别:"外国语言文学类",专业:"德语",选科:"物理",热度级别:"冷门",院校数:8,均分:439},
+  {id:322,门类:"文学",类别:"外国语言文学类",专业:"法语",选科:"物理",热度级别:"冷门",院校数:8,均分:469},
+  {id:323,门类:"文学",类别:"外国语言文学类",专业:"西班牙语",选科:"物理",热度级别:"冷门",院校数:8,均分:444},
+  {id:324,门类:"文学",类别:"外国语言文学类",专业:"阿拉伯语",选科:"历史",热度级别:"冷门",院校数:7,均分:532},
+  {id:325,门类:"文学",类别:"外国语言文学类",专业:"阿拉伯语",选科:"物理",热度级别:"冷门",院校数:6,均分:468},
+  {id:326,门类:"文学",类别:"新闻传播学类",专业:"编辑出版学",选科:"历史",热度级别:"冷门",院校数:6,均分:519},
+  {id:327,门类:"文学",类别:"中国语言文学类",专业:"秘书学",选科:"历史",热度级别:"冷门",院校数:5,均分:457},
+  {id:328,门类:"文学",类别:"新闻传播学类",专业:"新闻传播学类",选科:"物理",热度级别:"冷门",院校数:5,均分:494},
+  {id:329,门类:"文学",类别:"中国语言文学类",专业:"中国语言文学类",选科:"物理",热度级别:"冷门",院校数:4,均分:467},
+  {id:330,门类:"文学",类别:"中国语言文学类",专业:"中国少数民族语言文学",选科:"物理",热度级别:"冷门",院校数:3,均分:467},
+  {id:331,门类:"文学",类别:"中国语言文学类",专业:"数字人文",选科:"历史",热度级别:"冷门",院校数:3,均分:465},
+  {id:332,门类:"文学",类别:"中国语言文学类",专业:"汉语言",选科:"历史",热度级别:"冷门",院校数:3,均分:514},
+  {id:333,门类:"文学",类别:"新闻传播学类",专业:"传播学",选科:"物理",热度级别:"冷门",院校数:3,均分:496},
+  {id:334,门类:"文学",类别:"新闻传播学类",专业:"广播电视学",选科:"物理",热度级别:"冷门",院校数:3,均分:410},
+  {id:335,门类:"文学",类别:"新闻传播学类",专业:"数字出版",选科:"物理",热度级别:"冷门",院校数:3,均分:498},
+  {id:336,门类:"法学",类别:"法学类",专业:"法学",选科:"历史",热度级别:"高热",院校数:186,均分:554},
+  {id:337,门类:"法学",类别:"法学类",专业:"法学",选科:"物理",热度级别:"高热",院校数:68,均分:524},
+  {id:338,门类:"法学",类别:"马克思主义理论类",专业:"思想政治教育",选科:"历史",热度级别:"高热",院校数:65,均分:540},
+  {id:339,门类:"法学",类别:"社会学类",专业:"社会工作",选科:"历史",热度级别:"较热",院校数:39,均分:499},
+  {id:340,门类:"法学",类别:"马克思主义理论类",专业:"马克思主义理论",选科:"历史",热度级别:"较热",院校数:16,均分:596},
+  {id:341,门类:"法学",类别:"法学类",专业:"法学类",选科:"历史",热度级别:"冷门",院校数:12,均分:603},
+  {id:342,门类:"法学",类别:"社会学类",专业:"社会工作",选科:"物理",热度级别:"冷门",院校数:12,均分:433},
+  {id:343,门类:"法学",类别:"政治学类",专业:"政治学与行政学",选科:"历史",热度级别:"冷门",院校数:11,均分:580},
+  {id:344,门类:"法学",类别:"社会学类",专业:"社会学",选科:"历史",热度级别:"冷门",院校数:11,均分:515},
+  {id:345,门类:"法学",类别:"政治学类",专业:"国际政治",选科:"历史",热度级别:"冷门",院校数:9,均分:585},
+  {id:346,门类:"法学",类别:"社会学类",专业:"社会学类",选科:"历史",热度级别:"冷门",院校数:9,均分:590},
+  {id:347,门类:"法学",类别:"公安学类",专业:"侦查学",选科:"历史",热度级别:"冷门",院校数:8,均分:568},
+  {id:348,门类:"法学",类别:"法学类",专业:"知识产权",选科:"历史",热度级别:"冷门",院校数:8,均分:542},
+  {id:349,门类:"法学",类别:"法学类",专业:"知识产权",选科:"物理",热度级别:"冷门",院校数:8,均分:490},
+  {id:350,门类:"法学",类别:"公安学类",专业:"侦查学",选科:"物理",热度级别:"冷门",院校数:7,均分:535},
+  {id:351,门类:"法学",类别:"民族学类",专业:"民族学",选科:"历史",热度级别:"冷门",院校数:7,均分:538},
+  {id:352,门类:"法学",类别:"马克思主义理论类",专业:"思想政治教育",选科:"物理",热度级别:"冷门",院校数:6,均分:489},
+  {id:353,门类:"法学",类别:"政治学类",专业:"国际事务与国际关系",选科:"历史",热度级别:"冷门",院校数:5,均分:565},
+  {id:354,门类:"法学",类别:"政治学类",专业:"政治学类",选科:"历史",热度级别:"冷门",院校数:5,均分:603},
+  {id:355,门类:"法学",类别:"公安学类",专业:"公安情报学",选科:"物理",热度级别:"冷门",院校数:4,均分:529},
+  {id:356,门类:"法学",类别:"公安学类",专业:"治安学",选科:"历史",热度级别:"冷门",院校数:4,均分:567},
+  {id:357,门类:"法学",类别:"公安学类",专业:"治安学",选科:"物理",热度级别:"冷门",院校数:4,均分:510},
+  {id:358,门类:"法学",类别:"公安学类",专业:"涉外警务",选科:"历史",热度级别:"冷门",院校数:4,均分:591},
+  {id:359,门类:"法学",类别:"法学类",专业:"信用风险管理与法律防控",选科:"历史",热度级别:"冷门",院校数:4,均分:495},
+  {id:360,门类:"法学",类别:"法学类",专业:"信用风险管理与法律防控",选科:"物理",热度级别:"冷门",院校数:4,均分:470},
+  {id:361,门类:"法学",类别:"公安学类",专业:"公安情报学",选科:"历史",热度级别:"冷门",院校数:3,均分:577},
+  {id:362,门类:"法学",类别:"公安学类",专业:"公安管理学",选科:"物理",热度级别:"冷门",院校数:3,均分:517},
+  {id:363,门类:"法学",类别:"公安学类",专业:"禁毒学",选科:"物理",热度级别:"冷门",院校数:3,均分:518},
+  {id:364,门类:"法学",类别:"公安学类",专业:"警务指挥与战术",选科:"历史",热度级别:"冷门",院校数:3,均分:551},
+  {id:365,门类:"法学",类别:"政治学类",专业:"外交学",选科:"历史",热度级别:"冷门",院校数:3,均分:619},
+  {id:366,门类:"法学",类别:"政治学类",专业:"政治学、经济学与哲学",选科:"历史",热度级别:"冷门",院校数:3,均分:606},
+  {id:367,门类:"法学",类别:"法学类",专业:"法学类",选科:"物理",热度级别:"冷门",院校数:3,均分:589},
+  {id:368,门类:"法学",类别:"马克思主义理论类",专业:"马克思主义理论类",选科:"历史",热度级别:"冷门",院校数:3,均分:623},
+  {id:369,门类:"理学",类别:"数学类",专业:"数学与应用数学",选科:"物理",热度级别:"高热",院校数:115,均分:513},
+  {id:370,门类:"理学",类别:"化学类",专业:"应用化学",选科:"物理",热度级别:"高热",院校数:84,均分:486},
+  {id:371,门类:"理学",类别:"化学类",专业:"化学",选科:"物理",热度级别:"高热",院校数:79,均分:508},
+  {id:372,门类:"理学",类别:"物理学类",专业:"物理学",选科:"物理",热度级别:"高热",院校数:65,均分:502},
+  {id:373,门类:"理学",类别:"生物科学类",专业:"生物技术",选科:"物理",热度级别:"高热",院校数:64,均分:473},
+  {id:374,门类:"理学",类别:"生物科学类",专业:"生物科学",选科:"物理",热度级别:"高热",院校数:53,均分:489},
+  {id:375,门类:"理学",类别:"数学类",专业:"数学类",选科:"物理",热度级别:"较热",院校数:46,均分:587},
+  {id:376,门类:"理学",类别:"数学类",专业:"信息与计算科学",选科:"物理",热度级别:"较热",院校数:41,均分:521},
+  {id:377,门类:"理学",类别:"统计学类",专业:"统计学",选科:"物理",热度级别:"较热",院校数:40,均分:515},
+  {id:378,门类:"理学",类别:"物理学类",专业:"应用物理学",选科:"物理",热度级别:"较热",院校数:39,均分:529},
+  {id:379,门类:"理学",类别:"地理科学类",专业:"地理信息科学",选科:"物理",热度级别:"较热",院校数:32,均分:482},
+  {id:380,门类:"理学",类别:"生物科学类",专业:"生物科学类",选科:"物理",热度级别:"较热",院校数:32,均分:557},
+  {id:381,门类:"理学",类别:"统计学类",专业:"应用统计学",选科:"物理",热度级别:"较热",院校数:30,均分:509},
+  {id:382,门类:"理学",类别:"心理学类",专业:"应用心理学",选科:"物理",热度级别:"较热",院校数:29,均分:454},
+  {id:383,门类:"理学",类别:"地理科学类",专业:"地理科学",选科:"物理",热度级别:"较热",院校数:24,均分:483},
+  {id:384,门类:"理学",类别:"心理学类",专业:"应用心理学",选科:"历史",热度级别:"较热",院校数:20,均分:492},
+  {id:385,门类:"理学",类别:"化学类",专业:"化学类",选科:"物理",热度级别:"较热",院校数:19,均分:587},
+  {id:386,门类:"理学",类别:"物理学类",专业:"物理学类",选科:"物理",热度级别:"较热",院校数:18,均分:615},
+  {id:387,门类:"理学",类别:"地理科学类",专业:"地理科学",选科:"历史",热度级别:"冷门",院校数:13,均分:516},
+  {id:388,门类:"理学",类别:"地理科学类",专业:"地理科学类",选科:"物理",热度级别:"冷门",院校数:13,均分:549},
+  {id:389,门类:"理学",类别:"大气科学类",专业:"大气科学",选科:"物理",热度级别:"冷门",院校数:12,均分:551},
+  {id:390,门类:"理学",类别:"心理学类",专业:"心理学",选科:"物理",热度级别:"冷门",院校数:11,均分:524},
+  {id:391,门类:"理学",类别:"生物科学类",专业:"生物信息学",选科:"物理",热度级别:"冷门",院校数:11,均分:511},
+  {id:392,门类:"理学",类别:"生物科学类",专业:"生态学",选科:"物理",热度级别:"冷门",院校数:10,均分:506},
+  {id:393,门类:"理学",类别:"地理科学类",专业:"人文地理与城乡规划",选科:"物理",热度级别:"冷门",院校数:8,均分:449},
+  {id:394,门类:"理学",类别:"地质学类",专业:"地质学",选科:"物理",热度级别:"冷门",院校数:8,均分:567},
+  {id:395,门类:"理学",类别:"海洋科学类",专业:"海洋科学",选科:"物理",热度级别:"冷门",院校数:8,均分:538},
+  {id:396,门类:"理学",类别:"大气科学类",专业:"应用气象学",选科:"物理",热度级别:"冷门",院校数:7,均分:560},
+  {id:397,门类:"理学",类别:"数学类",专业:"数据计算及应用",选科:"物理",热度级别:"冷门",院校数:7,均分:485},
+  {id:398,门类:"理学",类别:"地球物理学类",专业:"地球物理学",选科:"物理",热度级别:"冷门",院校数:6,均分:539},
+  {id:399,门类:"理学",类别:"地理科学类",专业:"人文地理与城乡规划",选科:"历史",热度级别:"冷门",院校数:6,均分:504},
+  {id:400,门类:"理学",类别:"统计学类",专业:"统计学类",选科:"物理",热度级别:"冷门",院校数:6,均分:632},
+  {id:401,门类:"理学",类别:"地质学类",专业:"地球信息科学与技术",选科:"物理",热度级别:"冷门",院校数:5,均分:520},
+  {id:402,门类:"理学",类别:"心理学类",专业:"心理学",选科:"历史",热度级别:"冷门",院校数:5,均分:540},
+  {id:403,门类:"理学",类别:"统计学类",专业:"数据科学",选科:"物理",热度级别:"冷门",院校数:4,均分:501},
+  {id:404,门类:"理学",类别:"化学类",专业:"能源化学",选科:"物理",热度级别:"冷门",院校数:3,均分:430},
+  {id:405,门类:"理学",类别:"地球物理学类",专业:"地球物理学类",选科:"物理",热度级别:"冷门",院校数:3,均分:535},
+  {id:406,门类:"理学",类别:"地理科学类",专业:"地理信息科学",选科:"历史",热度级别:"冷门",院校数:3,均分:495},
+  {id:407,门类:"理学",类别:"地理科学类",专业:"自然地理与资源环境",选科:"物理",热度级别:"冷门",院校数:3,均分:482},
+  {id:408,门类:"理学",类别:"地质学类",专业:"地质学类",选科:"物理",热度级别:"冷门",院校数:3,均分:561},
+  {id:409,门类:"理学",类别:"天文学类",专业:"天文学",选科:"物理",热度级别:"冷门",院校数:3,均分:491},
+  {id:410,门类:"理学",类别:"心理学类",专业:"心理学类",选科:"物理",热度级别:"冷门",院校数:3,均分:585},
+  {id:411,门类:"理学",类别:"海洋科学类",专业:"海洋技术",选科:"物理",热度级别:"冷门",院校数:3,均分:534},
+  {id:412,门类:"理学",类别:"海洋科学类",专业:"海洋资源与环境",选科:"物理",热度级别:"冷门",院校数:3,均分:491},
+  {id:413,门类:"理学",类别:"物理学类",专业:"量子信息科学",选科:"物理",热度级别:"冷门",院校数:3,均分:620},
+  {id:414,门类:"管理学",类别:"工商管理类",专业:"会计学",选科:"历史",热度级别:"高热",院校数:156,均分:506},
+  {id:415,门类:"管理学",类别:"工商管理类",专业:"会计学",选科:"物理",热度级别:"高热",院校数:133,均分:482},
+  {id:416,门类:"管理学",类别:"工商管理类",专业:"财务管理",选科:"历史",热度级别:"高热",院校数:111,均分:481},
+  {id:417,门类:"管理学",类别:"工商管理类",专业:"财务管理",选科:"物理",热度级别:"高热",院校数:84,均分:447},
+  {id:418,门类:"管理学",类别:"工商管理类",专业:"工商管理",选科:"历史",热度级别:"高热",院校数:71,均分:502},
+  {id:419,门类:"管理学",类别:"管理科学与工程类",专业:"工程管理",选科:"物理",热度级别:"高热",院校数:62,均分:446},
+  {id:420,门类:"管理学",类别:"工商管理类",专业:"工商管理类",选科:"历史",热度级别:"高热",院校数:61,均分:563},
+  {id:421,门类:"管理学",类别:"工商管理类",专业:"工商管理",选科:"物理",热度级别:"高热",院校数:59,均分:472},
+  {id:422,门类:"管理学",类别:"工商管理类",专业:"市场营销",选科:"历史",热度级别:"高热",院校数:58,均分:470},
+  {id:423,门类:"管理学",类别:"旅游管理类",专业:"旅游管理",选科:"历史",热度级别:"高热",院校数:56,均分:473},
+  {id:424,门类:"管理学",类别:"管理科学与工程类",专业:"信息管理与信息系统",选科:"物理",热度级别:"高热",院校数:56,均分:497},
+  {id:425,门类:"管理学",类别:"管理科学与工程类",专业:"大数据管理与应用",选科:"物理",热度级别:"高热",院校数:53,均分:494},
+  {id:426,门类:"管理学",类别:"工商管理类",专业:"人力资源管理",选科:"历史",热度级别:"高热",院校数:52,均分:491},
+  {id:427,门类:"管理学",类别:"电子商务类",专业:"电子商务",选科:"物理",热度级别:"较热",院校数:49,均分:440},
+  {id:428,门类:"管理学",类别:"公共管理类",专业:"行政管理",选科:"历史",热度级别:"较热",院校数:47,均分:544},
+  {id:429,门类:"管理学",类别:"物流管理与工程类",专业:"物流管理",选科:"物理",热度级别:"较热",院校数:47,均分:449},
+  {id:430,门类:"管理学",类别:"工商管理类",专业:"工商管理类",选科:"物理",热度级别:"较热",院校数:45,均分:530},
+  {id:431,门类:"管理学",类别:"工商管理类",专业:"市场营销",选科:"物理",热度级别:"较热",院校数:44,均分:438},
+  {id:432,门类:"管理学",类别:"物流管理与工程类",专业:"物流管理",选科:"历史",热度级别:"较热",院校数:39,均分:482},
+  {id:433,门类:"管理学",类别:"管理科学与工程类",专业:"工程造价",选科:"物理",热度级别:"较热",院校数:38,均分:409},
+  {id:434,门类:"管理学",类别:"旅游管理类",专业:"旅游管理",选科:"物理",热度级别:"较热",院校数:35,均分:417},
+  {id:435,门类:"管理学",类别:"电子商务类",专业:"电子商务",选科:"历史",热度级别:"较热",院校数:33,均分:464},
+  {id:436,门类:"管理学",类别:"工商管理类",专业:"人力资源管理",选科:"物理",热度级别:"较热",院校数:32,均分:429},
+  {id:437,门类:"管理学",类别:"工商管理类",专业:"审计学",选科:"历史",热度级别:"较热",院校数:30,均分:481},
+  {id:438,门类:"管理学",类别:"工商管理类",专业:"审计学",选科:"物理",热度级别:"较热",院校数:26,均分:468},
+  {id:439,门类:"管理学",类别:"工业工程类",专业:"工业工程",选科:"物理",热度级别:"较热",院校数:25,均分:507},
+  {id:440,门类:"管理学",类别:"公共管理类",专业:"公共管理类",选科:"历史",热度级别:"较热",院校数:24,均分:592},
+  {id:441,门类:"管理学",类别:"物流管理与工程类",专业:"物流工程",选科:"物理",热度级别:"较热",院校数:22,均分:445},
+  {id:442,门类:"管理学",类别:"公共管理类",专业:"公共事业管理",选科:"历史",热度级别:"较热",院校数:21,均分:519},
+  {id:443,门类:"管理学",类别:"旅游管理类",专业:"酒店管理",选科:"历史",热度级别:"较热",院校数:21,均分:475},
+  {id:444,门类:"管理学",类别:"公共管理类",专业:"健康服务与管理",选科:"历史",热度级别:"较热",院校数:19,均分:470},
+  {id:445,门类:"管理学",类别:"管理科学与工程类",专业:"管理科学与工程类",选科:"物理",热度级别:"较热",院校数:18,均分:569},
+  {id:446,门类:"管理学",类别:"公共管理类",专业:"健康服务与管理",选科:"物理",热度级别:"较热",院校数:16,均分:399},
+  {id:447,门类:"管理学",类别:"公共管理类",专业:"劳动与社会保障",选科:"历史",热度级别:"较热",院校数:15,均分:520},
+  {id:448,门类:"管理学",类别:"公共管理类",专业:"行政管理",选科:"物理",热度级别:"冷门",院校数:13,均分:483},
+  {id:449,门类:"管理学",类别:"电子商务类",专业:"跨境电子商务",选科:"历史",热度级别:"冷门",院校数:13,均分:469},
+  {id:450,门类:"管理学",类别:"公共管理类",专业:"公共事业管理",选科:"物理",热度级别:"冷门",院校数:12,均分:458},
+  {id:451,门类:"管理学",类别:"工商管理类",专业:"国际商务",选科:"历史",热度级别:"冷门",院校数:12,均分:505},
+  {id:452,门类:"管理学",类别:"旅游管理类",专业:"酒店管理",选科:"物理",热度级别:"冷门",院校数:12,均分:411},
+  {id:453,门类:"管理学",类别:"电子商务类",专业:"跨境电子商务",选科:"物理",热度级别:"冷门",院校数:12,均分:388},
+  {id:454,门类:"管理学",类别:"管理科学与工程类",专业:"应急管理",选科:"物理",热度级别:"冷门",院校数:12,均分:477},
+  {id:455,门类:"管理学",类别:"公共管理类",专业:"公共管理类",选科:"物理",热度级别:"冷门",院校数:11,均分:539},
+  {id:456,门类:"管理学",类别:"工商管理类",专业:"国际商务",选科:"物理",热度级别:"冷门",院校数:11,均分:463},
+  {id:457,门类:"管理学",类别:"工商管理类",专业:"文化产业管理",选科:"历史",热度级别:"冷门",院校数:10,均分:500},
+  {id:458,门类:"管理学",类别:"工商管理类",专业:"资产评估",选科:"物理",热度级别:"冷门",院校数:10,均分:431},
+  {id:459,门类:"管理学",类别:"公共管理类",专业:"劳动与社会保障",选科:"物理",热度级别:"冷门",院校数:9,均分:461},
+  {id:460,门类:"管理学",类别:"公共管理类",专业:"土地资源管理",选科:"物理",热度级别:"冷门",院校数:9,均分:502},
+  {id:461,门类:"管理学",类别:"工业工程类",专业:"质量管理工程",选科:"物理",热度级别:"冷门",院校数:9,均分:456},
+  {id:462,门类:"管理学",类别:"旅游管理类",专业:"会展经济与管理",选科:"历史",热度级别:"冷门",院校数:9,均分:462},
+  {id:463,门类:"管理学",类别:"物流管理与工程类",专业:"供应链管理",选科:"物理",热度级别:"冷门",院校数:8,均分:417},
+  {id:464,门类:"管理学",类别:"公共管理类",专业:"养老服务管理",选科:"历史",热度级别:"冷门",院校数:7,均分:464},
+  {id:465,门类:"管理学",类别:"工商管理类",专业:"资产评估",选科:"历史",热度级别:"冷门",院校数:7,均分:462},
+  {id:466,门类:"管理学",类别:"管理科学与工程类",专业:"管理科学",选科:"物理",热度级别:"冷门",院校数:7,均分:568},
+  {id:467,门类:"管理学",类别:"农业经济管理类",专业:"农林经济管理",选科:"历史",热度级别:"冷门",院校数:6,均分:537},
+  {id:468,门类:"管理学",类别:"旅游管理类",专业:"会展经济与管理",选科:"物理",热度级别:"冷门",院校数:6,均分:430},
+  {id:469,门类:"管理学",类别:"公共管理类",专业:"养老服务管理",选科:"物理",热度级别:"冷门",院校数:5,均分:386},
+  {id:470,门类:"管理学",类别:"农业经济管理类",专业:"农林经济管理",选科:"物理",热度级别:"冷门",院校数:5,均分:494},
+  {id:471,门类:"管理学",类别:"物流管理与工程类",专业:"供应链管理",选科:"历史",热度级别:"冷门",院校数:5,均分:473},
+  {id:472,门类:"管理学",类别:"公共管理类",专业:"城市管理",选科:"历史",热度级别:"冷门",院校数:4,均分:498},
+  {id:473,门类:"管理学",类别:"旅游管理类",专业:"旅游管理类",选科:"历史",热度级别:"冷门",院校数:4,均分:525},
+  {id:474,门类:"管理学",类别:"管理科学与工程类",专业:"工程审计",选科:"物理",热度级别:"冷门",院校数:4,均分:388},
+  {id:475,门类:"管理学",类别:"公共管理类",专业:"交通管理",选科:"物理",热度级别:"冷门",院校数:3,均分:550},
+  {id:476,门类:"管理学",类别:"公共管理类",专业:"城市管理",选科:"物理",热度级别:"冷门",院校数:3,均分:451},
+  {id:477,门类:"管理学",类别:"公共管理类",专业:"海事管理",选科:"物理",热度级别:"冷门",院校数:3,均分:553},
+  {id:478,门类:"管理学",类别:"图书情报与档案管理类",专业:"信息资源管理",选科:"物理",热度级别:"冷门",院校数:3,均分:558},
+  {id:479,门类:"管理学",类别:"图书情报与档案管理类",专业:"图书馆学",选科:"历史",热度级别:"冷门",院校数:3,均分:571},
+  {id:480,门类:"管理学",类别:"管理科学与工程类",专业:"房地产开发与管理",选科:"物理",热度级别:"冷门",院校数:3,均分:391},
+  {id:481,门类:"经济学",类别:"经济与贸易类",专业:"国际经济与贸易",选科:"历史",热度级别:"高热",院校数:110,均分:489},
+  {id:482,门类:"经济学",类别:"金融学类",专业:"金融学",选科:"物理",热度级别:"高热",院校数:96,均分:474},
+  {id:483,门类:"经济学",类别:"经济与贸易类",专业:"国际经济与贸易",选科:"物理",热度级别:"高热",院校数:78,均分:460},
+  {id:484,门类:"经济学",类别:"金融学类",专业:"金融学",选科:"历史",热度级别:"高热",院校数:77,均分:504},
+  {id:485,门类:"经济学",类别:"经济学类",专业:"经济学",选科:"物理",热度级别:"高热",院校数:53,均分:504},
+  {id:486,门类:"经济学",类别:"经济学类",专业:"数字经济",选科:"物理",热度级别:"高热",院校数:51,均分:470},
+  {id:487,门类:"经济学",类别:"金融学类",专业:"金融工程",选科:"物理",热度级别:"较热",院校数:42,均分:466},
+  {id:488,门类:"经济学",类别:"经济学类",专业:"经济学",选科:"历史",热度级别:"较热",院校数:38,均分:533},
+  {id:489,门类:"经济学",类别:"经济学类",专业:"经济学类",选科:"历史",热度级别:"较热",院校数:32,均分:589},
+  {id:490,门类:"经济学",类别:"经济学类",专业:"经济学类",选科:"物理",热度级别:"较热",院校数:31,均分:565},
+  {id:491,门类:"经济学",类别:"经济学类",专业:"经济统计学",选科:"物理",热度级别:"较热",院校数:30,均分:480},
+  {id:492,门类:"经济学",类别:"金融学类",专业:"金融科技",选科:"物理",热度级别:"较热",院校数:24,均分:463},
+  {id:493,门类:"经济学",类别:"金融学类",专业:"金融学类",选科:"历史",热度级别:"较热",院校数:15,均分:571},
+  {id:494,门类:"经济学",类别:"财政学类",专业:"税收学",选科:"历史",热度级别:"冷门",院校数:14,均分:518},
+  {id:495,门类:"经济学",类别:"财政学类",专业:"税收学",选科:"物理",热度级别:"冷门",院校数:14,均分:506},
+  {id:496,门类:"经济学",类别:"财政学类",专业:"财政学",选科:"历史",热度级别:"冷门",院校数:14,均分:523},
+  {id:497,门类:"经济学",类别:"金融学类",专业:"投资学",选科:"物理",热度级别:"冷门",院校数:14,均分:466},
+  {id:498,门类:"经济学",类别:"金融学类",专业:"金融学类",选科:"物理",热度级别:"冷门",院校数:14,均分:544},
+  {id:499,门类:"经济学",类别:"金融学类",专业:"投资学",选科:"历史",热度级别:"冷门",院校数:13,均分:464},
+  {id:500,门类:"经济学",类别:"财政学类",专业:"财政学",选科:"物理",热度级别:"冷门",院校数:11,均分:478},
+  {id:501,门类:"经济学",类别:"金融学类",专业:"保险学",选科:"物理",热度级别:"冷门",院校数:11,均分:461},
+  {id:502,门类:"经济学",类别:"金融学类",专业:"金融数学",选科:"物理",热度级别:"冷门",院校数:11,均分:504},
+  {id:503,门类:"经济学",类别:"财政学类",专业:"财政学类",选科:"历史",热度级别:"冷门",院校数:9,均分:603},
+  {id:504,门类:"经济学",类别:"财政学类",专业:"财政学类",选科:"物理",热度级别:"冷门",院校数:8,均分:572},
+  {id:505,门类:"经济学",类别:"金融学类",专业:"保险学",选科:"历史",热度级别:"冷门",院校数:8,均分:508},
+  {id:506,门类:"经济学",类别:"金融学类",专业:"经济与金融",选科:"历史",热度级别:"冷门",院校数:8,均分:470},
+  {id:507,门类:"经济学",类别:"经济与贸易类",专业:"经济与贸易类",选科:"历史",热度级别:"冷门",院校数:6,均分:564},
+  {id:508,门类:"经济学",类别:"金融学类",专业:"互联网金融",选科:"历史",热度级别:"冷门",院校数:6,均分:452},
+  {id:509,门类:"经济学",类别:"金融学类",专业:"互联网金融",选科:"物理",热度级别:"冷门",院校数:5,均分:410},
+  {id:510,门类:"经济学",类别:"金融学类",专业:"精算学",选科:"物理",热度级别:"冷门",院校数:5,均分:592},
+  {id:511,门类:"经济学",类别:"经济与贸易类",专业:"经济与贸易类",选科:"物理",热度级别:"冷门",院校数:4,均分:546},
+  {id:512,门类:"经济学",类别:"金融学类",专业:"经济与金融",选科:"物理",热度级别:"冷门",院校数:4,均分:448},
+  {id:513,门类:"经济学",类别:"经济与贸易类",专业:"贸易经济",选科:"历史",热度级别:"冷门",院校数:3,均分:487},
+  {id:514,门类:"艺术学",类别:"戏剧与影视学类",专业:"广播电视编导",选科:"历史",热度级别:"较热",院校数:29,均分:483},
+  {id:515,门类:"艺术学",类别:"戏剧与影视学类",专业:"广播电视编导",选科:"物理",热度级别:"较热",院校数:19,均分:436},
+  {id:516,门类:"艺术学",类别:"戏剧与影视学类",专业:"戏剧影视文学",选科:"历史",热度级别:"冷门",院校数:14,均分:517},
+  {id:517,门类:"艺术学",类别:"艺术学理论类",专业:"艺术管理",选科:"历史",热度级别:"冷门",院校数:6,均分:500},
+  {id:518,门类:"艺术学",类别:"戏剧与影视学类",专业:"戏剧影视文学",选科:"物理",热度级别:"冷门",院校数:4,均分:447},
+  {id:519,门类:"艺术学",类别:"戏剧与影视学类",专业:"影视摄影与制作",选科:"历史",热度级别:"冷门",院校数:3,均分:477},
+  {id:520,门类:"艺术学",类别:"艺术学理论类",专业:"艺术史论",选科:"历史",热度级别:"冷门",院校数:3,均分:502}
+];
+
+// 热度颜色
+const MP_HOT_COLOR = {高热:'#FF453A',较热:'#FF9F0A',冷门:'#6E7EAB'};
+const MP_HOT_ICON  = {高热:'🔥',较热:'✨',冷门:'❄️'};
+const MP_KE_COLOR  = {物理:'#4A9EFF',历史:'#BF5AF2'};
+
+// 状态
+let mpSelections = new Map();   // key=专业_选科, value=专业名称
+let mpCatFilter = '全部';
+let mpHotFilter = '全部';
+let mpKeFilter  = '全部';
+
+// 初始化分类标签
+(function initMpCats(){
+  const cats = ['全部', ...new Set(MP_MAJORS.map(m=>m.门类))];
+  const el = document.getElementById('mpCats');
+  el.innerHTML = cats.map(c=>
+    `<button class="mp-cat${c==='全部'?' on':''}" id="mpc_${c}" onclick="setMpCat('${c}')">${c}</button>`
+  ).join('');
+})();
+
+function setMpCat(cat){
+  mpCatFilter = cat;
+  document.querySelectorAll('.mp-cat').forEach(b=>b.classList.remove('on'));
+  document.getElementById('mpc_'+cat).classList.add('on');
+  renderMpCards();
+}
+
+function setMpFilter(type, val){
+  if(type==='hot') mpHotFilter = val;
+  else mpKeFilter = val;
+  const prefix = type==='hot'?'mfh_':'mfk_';
+  ['全部','高热','较热','冷门'].forEach(v=>{ const el=document.getElementById(prefix+v); if(el) el.classList.remove('on'); });
+  ['全部','物理','历史'].forEach(v=>{  const el=document.getElementById(prefix+v); if(el) el.classList.remove('on'); });
+  const btn = document.getElementById(prefix+val);
+  if(btn){ btn.classList.add('on'); btn.style.background=(val==='全部'?'#4A9EFF':(MP_HOT_COLOR[val]||MP_KE_COLOR[val]||'#4A9EFF')); btn.style.color='#fff'; }
+  // 恢复其他按钮样式
+  const group = type==='hot'?['全部','高热','较热','冷门']:['全部','物理','历史'];
+  group.filter(v=>v!==val).forEach(v=>{
+    const el=document.getElementById(prefix+v);
+    if(el){ el.style.background='rgba(255,255,255,.05)'; el.style.color='rgba(255,255,255,.35)'; }
+  });
+  renderMpCards();
+}
+
+function renderMpCards(){
+  const q = (document.getElementById('mpSearch').value||'').trim().toLowerCase();
+  const list = MP_MAJORS.filter(m=>{
+    if(mpCatFilter!=='全部' && m.门类!==mpCatFilter) return false;
+    if(mpHotFilter!=='全部' && m.热度级别!==mpHotFilter) return false;
+    if(mpKeFilter!=='全部' && m.选科!==mpKeFilter) return false;
+    if(q) return m.专业.includes(q)||m.类别.includes(q)||m.门类.includes(q);
+    return true;
+  });
+  const body = document.getElementById('mpBody');
+  if(!list.length){ body.innerHTML='<div class="mp-empty">暂无匹配专业，请调整筛选条件</div>'; return; }
+  body.innerHTML = list.map(m=>{
+    const isSel = mpSelections.has(m.专业+'_'+m.选科);
+    const hc = MP_HOT_COLOR[m.热度级别]||'#6E7EAB';
+    const kc = MP_KE_COLOR[m.选科]||'#6E7EAB';
+    // 深度报告：检查是否有对应文件（已在页面初始化时加载到 window.MP_REPORTS）
+    const hasReport = (window.MP_REPORTS||new Set()).has(m.专业);
+    const reportStrip = hasReport ? `
+      <div class="report-strip" onclick="event.stopPropagation();openReportFloat('${m.专业.replace(/'/g,"\\'")}','${m.选科}')">
+        <div class="rs-left">
+          <span class="rs-icon">📋</span>
+          <span class="rs-text">深度报告</span>
+          <span class="rs-sub">学习 · 就业 · 薪资</span>
+        </div>
+        <span class="rs-arrow">›</span>
+      </div>` : '';
+    return `<div class="mp-card${isSel?' selected':''}${hasReport?' has-report':''}" onclick="toggleMpCard('${m.专业}_${m.选科}',this)">
+      <div class="mp-card-top">
+        <div>
+          <div class="mp-card-cat">${m.门类} · ${m.类别}</div>
+          <div class="mp-card-name">${m.专业}</div>
+        </div>
+        <div class="mp-hot-icon" title="${m.热度级别}">${MP_HOT_ICON[m.热度级别]}</div>
+      </div>
+      <div class="mp-tags">
+        <span class="mp-tag" style="background:${kc}22;color:${kc}">${m.选科}选科</span>
+        <span class="mp-tag" style="background:${hc}22;color:${hc}">${m.热度级别}</span>
+      </div>
+      ${reportStrip}
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <div style="flex:1;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 8px;text-align:center">
+          <div style="font-size:16px;font-weight:900;color:#4A9EFF">${m.均分}</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:1px">吉林录取分</div>
+        </div>
+        <div style="flex:1;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 8px;text-align:center">
+          <div style="font-size:16px;font-weight:900;color:#34C759">${m.院校数}</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:1px">招生院校数</div>
+        </div>
+      </div>
+      <div class="mp-sel-mark">✓ 已选择</div>
+    </div>`;
+  }).join('');
+  document.getElementById('mpSelCount').textContent = mpSelections.size;
+}
+
+function toggleMpCard(key, el){
+  const name = key.replace(/_[^_]+$/,''); // 去掉 _选科 后缀取专业名
+  if(mpSelections.has(key)) mpSelections.delete(key);
+  else mpSelections.set(key, name);
+  el.classList.toggle('selected', mpSelections.has(key));
+  el.querySelector('.mp-sel-mark').style.display = mpSelections.has(key)?'block':'none';
+  document.getElementById('mpSelCount').textContent = mpSelections.size;
+}
+
+// ── 深度报告悬浮窗 ────────────────────────────────────────
+let _rfCurrentMajor = '', _rfCurrentKe = '';
+
+function openReportFloat(major, ke){
+  _rfCurrentMajor = major;
+  _rfCurrentKe    = ke || '物理';
+  // 优先匹配 专业_科类.html，回退 专业.html
+  const candidates = [
+    `/reports/${encodeURIComponent(major)}_${_rfCurrentKe}.html`,
+    `/reports/${encodeURIComponent(major)}.html`
+  ];
+  document.getElementById('rfTitle').textContent   = major;
+  document.getElementById('rfFilename').textContent = `${major}_${_rfCurrentKe}.html`;
+  // 用第一个候选路径加载，404时自动降级
+  loadReportFrame(candidates, 0);
+  document.getElementById('rfMask').classList.add('open');
+  document.getElementById('reportFloat').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function loadReportFrame(candidates, idx){
+  if(idx >= candidates.length){ document.getElementById('rfFrame').src = 'about:blank'; return; }
+  const frame = document.getElementById('rfFrame');
+  frame.onload = function(){
+    // 如果 iframe 内容是 404 页，尝试下一个候选
+    try{
+      const txt = frame.contentDocument && frame.contentDocument.body && frame.contentDocument.body.innerText;
+      if(txt && txt.includes('报告文件不存在')) loadReportFrame(candidates, idx+1);
+    }catch(e){}
+  };
+  frame.src = candidates[idx];
+}
+
+function closeReportFloat(){
+  document.getElementById('rfMask').classList.remove('open');
+  document.getElementById('reportFloat').classList.remove('open');
+  document.getElementById('rfFrame').src = 'about:blank';
+  document.body.style.overflow = '';
+}
+
+function openReportPage(){
+  const ke  = _rfCurrentKe || '物理';
+  const url = `/reports/${encodeURIComponent(_rfCurrentMajor)}_${ke}.html`;
+  window.open(url, '_blank');
+}
+
+// 页面加载时预取报告列表，存入 Set 供卡片渲染使用
+window.MP_REPORTS = new Set();
+fetch('/api/reports').then(r=>r.json()).then(d=>{
+  (d.reports||[]).forEach(name => window.MP_REPORTS.add(name));
+}).catch(()=>{});
+// ──────────────────────────────────────────────────────────
+
+function openMajorPicker(){
+  document.getElementById('mpOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+  renderMpCards();
+}
+
+function closeMajorPicker(){
+  document.getElementById('mpOverlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+function confirmMajorPicker(){
+  closeMajorPicker();
+  renderMpChips();
+  rebuildKws();
+}
+
+function renderMpChips(){
+  const wrap = document.getElementById('mpSelectedChips');
+  wrap.innerHTML = [...mpSelections.entries()].map(([key,name])=>
+    `<span class="mp-chip">${name}<span class="mp-rm" onclick="removeMpChip('${key}')">×</span></span>`
+  ).join('');
+  document.getElementById('mpCountBadge').textContent = `已选 ${mpSelections.size} 个`;
+}
+
+function removeMpChip(key){
+  mpSelections.delete(key);
+  renderMpChips();
+  rebuildKws();
+}
+
+// 重写 rebuildKws，合并专业选择器结果
+rebuildKws = function(){
+  targetKws = [];
+  selTargetLibs.forEach(k=>{ if(kwLib[k]) targetKws.push(...kwLib[k]); });
+  targetKws.push(...customTargets);
+  // 加入专业选择器结果（专业名本身作为关键词）
+  mpSelections.forEach((name, key) => { if(!targetKws.includes(name)) targetKws.push(name); });
+  excludeKws = [];
+  selExcludePresets.forEach(k=>{ if(exPresets[k]) excludeKws.push(...exPresets[k]); });
+  excludeKws.push(...customExcludes);
+};
+
+// 关闭弹窗时点击遮罩
+document.getElementById('mpOverlay').addEventListener('click', function(e){
+  if(e.target === this) closeMajorPicker();
+});
+
+// ── 专业名称简化：去掉括号内说明文字，全名保留在 title ────────────
+function toggleSyban(row){
+  // 用相对定位找紧邻的 detail div，避免全局 ID 冲突
+  const el = row.nextElementSibling;
+  if(!el || !el.classList.contains('mj-syban-detail')) return;
+  const opening = el.style.display === 'none' || el.style.display === '';
+  el.style.display = opening ? 'flex' : 'none';
+  if(opening){ el.style.flexWrap='wrap'; el.style.alignItems='center'; }
+  row.classList.toggle('open', opening);
+}
+
+function simplifyMajorName(name){
+  if(!name) return name;
+  // 去掉中文括号（...）和英文括号(...)内的说明内容
+  return name.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '').trim();
+}
+
+// ── 分数→位次估算 ────────────────────────────────────────
+function onScoreInput(){
+  const score = parseInt(document.getElementById('score').value) || 0;
+  const el = document.getElementById('rankEstimate');
+  if(!el) return;
+  if(score < 300 || score > 750){ el.textContent=''; return; }
+  // 吉林物理2025估算（基准：585分≈位次7806，斜率150/分）
+  const rank = Math.max(1, Math.round(7806 + (585 - score) * 150));
+  const rankStr = rank.toLocaleString();
+  el.textContent = `估算位次约 ${rankStr} 名（仅供参考）`;
+}
+
+// ── 历史方案面板 ────────────────────────────────────────
+function openHistory(){
+  document.getElementById('historyPanel').style.display='flex';
+  loadHistory();
+}
+function closeHistory(){
+  document.getElementById('historyPanel').style.display='none';
+}
+async function loadHistory(){
+  const list = document.getElementById('historyList');
+  list.innerHTML='<div style="text-align:center;padding:24px;color:rgba(255,255,255,.3);font-size:12px">加载中…</div>';
+  try{
+    const r = await fetch('/api/history');
+    const d = await r.json();
+    const items = d.history||[];
+    if(!items.length){
+      list.innerHTML='<div style="text-align:center;padding:24px;color:rgba(255,255,255,.3);font-size:12px">暂无历史方案</div>';
+      return;
+    }
+    list.innerHTML = items.map((h,idx)=>`
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 13px;cursor:pointer;transition:.12s"
+           onclick="restoreHistory(${h.idx})"
+           onmouseover="this.style.borderColor='rgba(74,158,255,.4)'"
+           onmouseout="this.style.borderColor='rgba(255,255,255,.07)'">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:900;color:#fff">${h.score}分·${h.ke}</span>
+          <span style="font-size:10px;padding:2px 7px;border-radius:5px;background:rgba(52,199,89,.1);color:#34C759">${h.n_vols}志愿</span>
+          <span style="font-size:10px;padding:2px 7px;border-radius:5px;background:rgba(255,159,10,.1);color:#FF9F0A">冲${h.rush_rate}%</span>
+          <span style="font-size:10px;color:rgba(255,255,255,.3);margin-left:auto">${h.ts}</span>
+        </div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4)">${h.tgt||'未指定专业方向'}</div>
+      </div>
+    `).join('');
+  }catch{
+    list.innerHTML='<div style="text-align:center;padding:24px;color:#FF453A;font-size:12px">加载失败</div>';
+  }
+}
+async function restoreHistory(idx){
+  try{
+    const r = await fetch('/api/history/'+idx, {method:'POST'});
+    const d = await r.json();
+    if(d.error){ alert('恢复失败：'+d.error); return; }
+    closeHistory();
+    generatedVols = d.vols;
+    window._lastStats   = d.stats;
+    window._lastProfile = d.profile;
+    // 构造mc结构（历史记录中已存mc）
+    renderResult({vols:d.vols, mc:d.mc, stats:d.stats, profile:d.profile, opt_rounds:undefined});
+    document.getElementById('statusBadge').textContent=`已恢复历史方案 ✓`;
+    document.getElementById('statusBadge').className='badge b-green';
+    document.getElementById('btnExport').style.display='';
+    document.getElementById('btnMC').style.display='';
+    document.getElementById('btnOpt').style.display='';
+    document.getElementById('resultWrap').classList.add('show');
+    document.getElementById('formWrap').style.display='none';
+    window.scrollTo(0,0);
+  }catch(e){ alert('恢复失败：'+e.message); }
+}
+
+// ── 志愿卡片 hover 浮窗 ────────────────────────────────────
+const vtCache = {};
+let vtTimer = null, vtVisible = false;
+function vtEl() { return document.getElementById('volTooltip'); }
+
+function bindVolCardHover(){
+  document.querySelectorAll('#volList .vol-card').forEach(card=>{
+    card.addEventListener('mouseenter', e=>{
+      clearTimeout(vtTimer);
+      vtTimer = setTimeout(()=> showVolTooltip(e, card), 180);
+    });
+    card.addEventListener('mouseleave', ()=>{
+      clearTimeout(vtTimer);
+      setTimeout(()=>{
+        if(!vtEl().matches(':hover')){
+          vtEl().classList.remove('show');
+          vtVisible = false;
+        }
+      }, 80);
+    });
+    card.addEventListener('mousemove', e=>{ if(vtVisible) positionVolTooltip(e); });
+  });
+  const tip = vtEl();
+  if(tip) tip.addEventListener('mouseleave', ()=>{
+    vtEl().classList.remove('show');
+    vtVisible = false;
+  });
+}
+
+function positionVolTooltip(e){
+  const W=window.innerWidth, H=window.innerHeight, TW=394, TH=460;
+  let x=e.clientX+18, y=e.clientY-20;
+  if(x+TW>W-8) x=e.clientX-TW-14;
+  if(y+TH>H-8) y=H-TH-8;
+  if(y<8) y=8;
+  vtEl().style.left=x+'px'; vtEl().style.top=y+'px';
+}
+
+async function showVolTooltip(e, card){
+  const school  = card.dataset.school;
+  const gcode   = card.dataset.gcode;
+  const ke      = card.dataset.ke || selKeLei;
+  const tip     = vtEl();
+  vtVisible = true;
+  tip.querySelector('.vtt-title').textContent = school;
+  tip.querySelector('.vtt-sub').textContent   = `${ke}选科 · 专业组全部专业（2025录取分）`;
+  tip.querySelector('.vtt-list').innerHTML    = '<div class="vtt-loading">加载中…</div>';
+  tip.classList.add('show');
+  positionVolTooltip(e);
+
+  // 已填入 intent6 的专业名（用于高亮）
+  const vol = (generatedVols||[]).find(v=>String(v.gcode)===String(gcode));
+  const selNames = new Set((vol&&vol.intent6||[]).map(m=>m.name));
+
+  const cacheKey = gcode+'_'+ke;
+  if(vtCache[cacheKey]){ renderVolList(vtCache[cacheKey], selNames); return; }
+  try{
+    const r = await fetch(`/api/school_majors?gcode=${encodeURIComponent(gcode)}&ke=${encodeURIComponent(ke)}`);
+    const d = await r.json();
+    if(d.error){ tip.querySelector('.vtt-list').innerHTML='<div class="vtt-empty">暂无数据</div>'; return; }
+    vtCache[cacheKey] = d.majors;
+    if(vtVisible) renderVolList(d.majors, selNames);
+  }catch{
+    tip.querySelector('.vtt-list').innerHTML='<div class="vtt-empty">请求失败</div>';
+  }
+}
+
+function renderVolList(majors, selNames){
+  if(!majors||!majors.length){
+    vtEl().querySelector('.vtt-list').innerHTML='<div class="vtt-empty">暂无2025年招生数据</div>'; return;
+  }
+  // 已填报的排在最前，其余按分数降序
+  const sel=[],rest=[];
+  majors.forEach(m=>{ (selNames.has(m.name)?sel:rest).push(m); });
+  const sorted=[...sel,...rest];
+  vtEl().querySelector('.vtt-list').innerHTML = sorted.map((m,i)=>{
+    const isSel = selNames.has(m.name);
+    const rankTxt = m.rank ? `位次 ${m.rank.toLocaleString()}` : '';
+    return `<div class="vtt-row${isSel?' vtt-sel':''}">
+      <span class="vtt-check">${isSel?'✓':''}</span>
+      <span class="vtt-idx">${i+1}</span>
+      <span class="vtt-name" title="${m.name}">${simplifyMajorName(m.name)}</span>
+      <span class="vtt-score">${m.score}分</span>
+      <span class="vtt-rank">${rankTxt}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── 专业 hover 浮窗 ────────────────────────────────────
+const mptCache = {};  // key = "专业_选科"
+let mptTimer = null;
+let mptVisible = false;
+
+// 懒加载：tooltip 元素在 script 之后定义，须在函数内获取
+function mptEl()  { return document.getElementById('mpTooltip'); }
+function mptTit() { return document.getElementById('mptTitle'); }
+function mptSub() { return document.getElementById('mptSub'); }
+function mptLst() { return document.getElementById('mptList'); }
+function mptAllBtn() { return document.getElementById('mptAllBtn'); }
+
+let mptCurrentKey = '';  // 当前悬停的专业缓存key
+
+function mpCardMouseEnter(e, majorName, ke){
+  // 延迟150ms显示，防止快速掠过触发
+  mptTimer = setTimeout(()=>{ showMpTooltip(e, majorName, ke); }, 150);
+}
+function mpCardMouseLeave(){
+  clearTimeout(mptTimer);
+  // tooltip 本身是 pointer-events:auto，鼠标移入tooltip时不隐藏
+  setTimeout(()=>{
+    if(!mptEl().matches(':hover')){
+      mptEl().classList.remove('show');
+      mptVisible = false;
+    }
+  }, 80);
+}
+function mpCardMouseMove(e){
+  if(!mptVisible) return;
+  positionTooltip(e);
+}
+
+// tooltip 自身鼠标离开时隐藏
+document.addEventListener('DOMContentLoaded', ()=>{
+  const tip = document.getElementById('mpTooltip');
+  if(tip) tip.addEventListener('mouseleave', ()=>{
+    mptEl().classList.remove('show');
+    mptVisible = false;
+  });
+});
+
+function positionTooltip(e){
+  const W = window.innerWidth, H = window.innerHeight;
+  const TW = 330, TH = 420;
+  let x = e.clientX + 16;
+  let y = e.clientY + 10;
+  if(x + TW > W - 8) x = e.clientX - TW - 12;
+  if(y + TH > H - 8) y = H - TH - 8;
+  mptEl().style.left = x + 'px';
+  mptEl().style.top  = y + 'px';
+}
+
+async function showMpTooltip(e, majorName, ke){
+  mptVisible = true;
+  mptCurrentKey = majorName + '_' + ke;
+  mptTit().textContent = majorName;
+  mptSub().textContent = `${ke}选科 · 2025年吉林省招生院校`;
+  mptLst().innerHTML = '<div class="mpt-loading">加载中…</div>';
+  const btn = mptAllBtn();
+  if(btn) btn.style.display = 'none';
+  mptEl().classList.add('show');
+  positionTooltip(e);
+
+  if(mptCache[mptCurrentKey]){
+    renderTooltipList(mptCache[mptCurrentKey]);
+    return;
+  }
+  try{
+    const r = await fetch(`/api/major_schools?name=${encodeURIComponent(majorName)}&ke=${encodeURIComponent(ke)}`);
+    const d = await r.json();
+    if(d.error){ mptLst().innerHTML=`<div class="mpt-empty">暂无数据</div>`; return; }
+    mptCache[mptCurrentKey] = d.schools;
+    if(mptVisible) renderTooltipList(d.schools);
+  }catch(err){
+    mptLst().innerHTML=`<div class="mpt-empty">请求失败</div>`;
+  }
+}
+
+const lvClass = {985:'mpt-lv-985',211:'mpt-lv-211','省重点':'mpt-lv-prov','':''};
+function discClass(d){
+  if(!d) return 'mpt-disc';
+  if(d.startsWith('A')) return 'mpt-disc mpt-disc-A';
+  if(d.startsWith('B')) return 'mpt-disc mpt-disc-B';
+  return 'mpt-disc';
+}
+function makeRows(schools){
+  return schools.map((s,i)=>{
+    const lvTag  = s.lv  ? `<span class="mpt-lv ${lvClass[s.lv]||''}">${s.lv}</span>` : '<span></span>';
+    const discTag= s.disc_eval ? `<span class="${discClass(s.disc_eval)}" title="教育部学科评估">${s.disc_eval}</span>` : '<span></span>';
+    let rankTxt = '';
+    if(s.prov_rank) rankTxt = `省内#${s.prov_rank}`;
+    else if(s.nat_rank) rankTxt = `全国#${s.nat_rank}`;
+    const rankTag    = rankTxt ? `<span class="mpt-natrank">${rankTxt}</span>` : '<span></span>';
+    const admRankTag = s.rank ? `<span class="mpt-admrank">${s.rank.toLocaleString()}名</span>` : '<span></span>';
+    // 实验班标注：分数为实验班组最低分，展示时说明来源
+    const sybanTag = s.via_syban
+      ? `<span class="mpt-syban" title="该校通过「${s.via_syban}」招生，入学后可分流至本专业，分数为实验班最低分">实验班</span>`
+      : '';
+    const schTitle = s.via_syban
+      ? `${s.name}·${s.province}（经${s.via_syban}分流）`
+      : `${s.name}·${s.province}`;
+    return `<div class="mpt-row${s.via_syban?' mpt-row-syban':''}">
+      <span class="mpt-rank">${i+1}</span>
+      <span class="mpt-sch" title="${schTitle}">${s.name}${sybanTag}</span>
+      ${lvTag}${discTag}${rankTag}
+      <span class="mpt-score">${s.score}</span>
+      ${admRankTag}
+    </div>`;
+  }).join('');
+}
+
+// ── 分数区间筛选 ──────────────────────────────────────
+function getMptFilter(){
+  const lo = parseInt(document.getElementById('mptFMin').value) || 0;
+  const hi = parseInt(document.getElementById('mptFMax').value) || 999;
+  return {lo, hi};
+}
+function filterSchools(schools){
+  const {lo, hi} = getMptFilter();
+  if(lo <= 0 && hi >= 999) return schools;
+  return schools.filter(s => s.score >= lo && s.score <= hi);
+}
+function applyMptFilter(){
+  // 同步浮窗和模态框的输入值
+  const fmin = document.getElementById('mptFMin').value;
+  const fmax = document.getElementById('mptFMax').value;
+  const mfmin = document.getElementById('mptMFMin');
+  const mfmax = document.getElementById('mptMFMax');
+  if(mfmin) mfmin.value = fmin;
+  if(mfmax) mfmax.value = fmax;
+  // 重新渲染浮窗
+  const schools = mptCache[mptCurrentKey];
+  if(schools) renderTooltipList(schools);
+  // 若模态框开着，重新渲染
+  const modal = document.getElementById('mptModal');
+  if(modal && modal.classList.contains('show')) refreshMptModal();
+}
+function applyMptFilterFromModal(){
+  const fmin = document.getElementById('mptMFMin').value;
+  const fmax = document.getElementById('mptMFMax').value;
+  document.getElementById('mptFMin').value = fmin;
+  document.getElementById('mptFMax').value = fmax;
+  applyMptFilter();
+}
+function clearMptFilter(){
+  ['mptFMin','mptFMax','mptMFMin','mptMFMax'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  applyMptFilter();
+}
+
+function renderTooltipList(schools){
+  if(!schools||!schools.length){
+    mptLst().innerHTML='<div class="mpt-empty">暂无2025年招生数据</div>';
+    return;
+  }
+  const filtered = filterSchools(schools);
+  const countEl = document.getElementById('mptFCount');
+  if(countEl){
+    const {lo, hi} = getMptFilter();
+    countEl.textContent = (lo>0||hi<999) ? `${filtered.length}/${schools.length}所` : '';
+  }
+  if(!filtered.length){
+    mptLst().innerHTML='<div class="mpt-empty">该分数段暂无院校</div>';
+    mptAllBtn() && (mptAllBtn().style.display='none');
+    return;
+  }
+  const PREVIEW = 15;
+  mptLst().innerHTML = makeRows(filtered.slice(0, PREVIEW));
+  const btn = mptAllBtn();
+  if(btn){
+    if(filtered.length > PREVIEW){
+      btn.textContent = `查看全部 ${filtered.length} 所院校 →`;
+      btn.style.display = '';
+    } else {
+      btn.style.display = 'none';
+    }
+  }
+}
+
+// ── 全部院校模态框 ────────────────────────────────────
+function refreshMptModal(){
+  const schools = mptCache[mptCurrentKey];
+  if(!schools) return;
+  const filtered = filterSchools(schools);
+  const subEl  = document.getElementById('mptModalSub');
+  const listEl = document.getElementById('mptModalList');
+  const countEl= document.getElementById('mptMFCount');
+  const {lo, hi} = getMptFilter();
+  if(subEl){
+    const [majorName, ke] = mptCurrentKey.split('_');
+    const filterNote = (lo>0||hi<999) ? ` · 筛选 ${filtered.length}/${schools.length} 所` : ` · 共 ${schools.length} 所`;
+    subEl.textContent = `${ke}选科 · 2025年吉林省招生院校${filterNote}`;
+  }
+  if(countEl) countEl.textContent = (lo>0||hi<999) ? `${filtered.length}/${schools.length}所` : '';
+  if(listEl) listEl.innerHTML = filtered.length ? makeRows(filtered) : '<div class="mpt-empty">该分数段暂无院校</div>';
+}
+function openMptModal(){
+  const schools = mptCache[mptCurrentKey];
+  const titleEl = document.getElementById('mptModalTitle');
+  if(!schools||!titleEl) return;
+  const [majorName, ke] = mptCurrentKey.split('_');
+  titleEl.textContent = majorName;
+  // 同步筛选输入值到模态框
+  document.getElementById('mptMFMin').value = document.getElementById('mptFMin').value;
+  document.getElementById('mptMFMax').value = document.getElementById('mptFMax').value;
+  refreshMptModal();
+  document.getElementById('mptModal').classList.add('show');
+  mptEl().classList.remove('show');
+  mptVisible = false;
+}
+function closeMptModal(){
+  document.getElementById('mptModal').classList.remove('show');
+}
+// 点击遮罩关闭模态框
+document.addEventListener('click', e=>{
+  const modal = document.getElementById('mptModal');
+  if(modal && e.target === modal) closeMptModal();
+});
+
+// ── 重写 renderMpCards，绑定 hover 事件 ───────────────
+const _origRenderMpCards = renderMpCards;
+renderMpCards = function(){
+  _origRenderMpCards();
+  // 给每张卡片绑定 hover 事件
+  document.querySelectorAll('#mpBody .mp-card').forEach(card=>{
+    const nameEl = card.querySelector('.mp-card-name');
+    const catEl  = card.querySelector('.mp-card-cat');
+    if(!nameEl) return;
+    const majorName = nameEl.textContent.trim();
+    // 从 cat 文字里提取选科（格式: "门类 · 类别"，选科在 mp-tags 里）
+    const tagEl = card.querySelector('.mp-tag');
+    const ke = tagEl ? tagEl.textContent.replace('选科','').trim() : selKeLei;
+    card.addEventListener('mouseenter', e=>mpCardMouseEnter(e, majorName, ke));
+    card.addEventListener('mouseleave', mpCardMouseLeave);
+    card.addEventListener('mousemove',  mpCardMouseMove);
+  });
+};
+</script>
+
+<!-- 专业 hover 浮窗 -->
+<div id="mpTooltip">
+  <div class="mpt-title" id="mptTitle"></div>
+  <div class="mpt-sub"   id="mptSub"></div>
+  <div class="mpt-filter">
+    <span class="mpt-filter-lbl">分数</span>
+    <input type="number" id="mptFMin" placeholder="最低" min="300" max="750" oninput="applyMptFilter()">
+    <span class="mpt-filter-sep">~</span>
+    <input type="number" id="mptFMax" placeholder="最高" min="300" max="750" oninput="applyMptFilter()">
+    <button class="mpt-filter-clear" onclick="clearMptFilter()" title="清除筛选">✕</button>
+    <span class="mpt-filter-count" id="mptFCount"></span>
+  </div>
+  <div class="mpt-list"  id="mptList"><div class="mpt-loading">加载中…</div></div>
+  <div class="mpt-footer"><button class="mpt-all-btn" id="mptAllBtn" onclick="openMptModal()">查看全部院校 →</button></div>
+</div>
+
+<!-- 志愿卡片 hover 浮窗 -->
+<div id="volTooltip">
+  <div class="vtt-title"></div>
+  <div class="vtt-sub"></div>
+  <div class="vtt-list"><div class="vtt-loading">加载中…</div></div>
+</div>
+
+<!-- 全部院校模态框 -->
+<div id="mptModal">
+  <div id="mptModalBox">
+    <div id="mptModalHead">
+      <span id="mptModalClose" onclick="closeMptModal()">✕</span>
+      <div id="mptModalTitle"></div>
+      <div id="mptModalSub"></div>
+      <div class="mpt-filter" style="margin-top:8px;margin-bottom:0">
+        <span class="mpt-filter-lbl">分数区间</span>
+        <input type="number" id="mptMFMin" placeholder="最低" min="300" max="750" oninput="applyMptFilterFromModal()">
+        <span class="mpt-filter-sep">~</span>
+        <input type="number" id="mptMFMax" placeholder="最高" min="300" max="750" oninput="applyMptFilterFromModal()">
+        <button class="mpt-filter-clear" onclick="clearMptFilter()" title="清除筛选">✕</button>
+        <span class="mpt-filter-count" id="mptMFCount"></span>
+      </div>
+    </div>
+    <div id="mptModalList"></div>
+  </div>
+</div>
+
+<!-- 志愿组专业编辑 overlay -->
+<div id="editOverlay" onclick="if(event.target===this)closeVolEdit()">
+  <div id="editBox">
+    <div class="ed-hdr">
+      <div class="ed-title" id="edTitle">编辑专业</div>
+      <span class="ed-close" onclick="closeVolEdit()">✕</span>
+    </div>
+    <div class="ed-body" id="edBody"></div>
+    <div class="ed-footer">
+      <button class="ed-cancel" onclick="closeVolEdit()">取消</button>
+      <button class="ed-save"   onclick="saveVolEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 插入志愿组 overlay -->
+<div id="insertPanel" onclick="if(event.target===this)closeInsertPanel()">
+  <div id="insertBox">
+    <div class="ins-hdr">
+      <div class="ins-title">插入院校专业组</div>
+      <span class="ins-close" onclick="closeInsertPanel()">✕</span>
+    </div>
+    <div class="ins-tp-row">
+      <span class="ins-tp-lbl">类型：</span>
+      <button class="ins-tp-btn" id="instp_rush" onclick="setInsTp('冲')">⚡ 冲</button>
+      <button class="ins-tp-btn on safe" id="instp_safe" onclick="setInsTp('稳')">✅ 稳</button>
+      <button class="ins-tp-btn" id="instp_bao"  onclick="setInsTp('保')">🛡 保</button>
+    </div>
+    <div class="ins-search-row">
+      <input id="insSearch" placeholder="院校名称，如：吉林大学" onkeydown="if(event.key==='Enter')doInsertSearch()">
+      <button class="ins-srch-btn" onclick="doInsertSearch()">搜索</button>
+    </div>
+    <div id="insResults"><div class="ins-hint">输入院校名称后点击搜索</div></div>
+  </div>
+</div>
+</body>
+</html>
