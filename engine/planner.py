@@ -559,18 +559,11 @@ def build_plan(profile: dict) -> dict:
         v['diaoji'] = True          # 服从调剂，强制 True，保证永不退档
         n_maj = len(top6_v)
 
-        # 专业数量不足（稳/保须告警；冲至少需2个以防调剂到未填专业）
-        if v['tp'] in ('稳', '保'):
-            if n_maj == 1:
-                v['warn_critical']   = True
-                v['warn_few_majors'] = True
-                v['warn_msg'] = f"仅1个专业！若分数线涨将触发调剂，可能被分配到未填报专业，强烈建议补充"
-            elif n_maj < 3:
-                v['warn_few_majors'] = True
-                v['warn_msg'] = f"当前仅{n_maj}个专业，建议填满6个以控制调剂方向"
-        elif v['tp'] == '冲' and n_maj < 2:
-            v['warn_critical'] = True
-            v['warn_msg'] = "冲志愿仅1个专业：好年份被提档后易触发调剂，建议增加⑤⑥保底专业"
+        # 专业数量不足：
+        # 平行志愿规则——分数未达组线则不投档，调剂根本不会触发。
+        # 只有在分数达线且目标专业满额时才可能调剂，此时组内专业少反而调剂范围更窄，
+        # 因此"专业不足"本身并不构成额外风险，不再发出告警。
+        pass
 
         # BUG-05：⑤⑥位冷门锚点检查（调剂到冷门比调剂到未填报更可控，但仍需提示）
         cold_anchors = [m['name'] for m in top6_v[4:6] if m.get('kind') == 'cold']
