@@ -106,8 +106,18 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .vc-rate{text-align:right;flex-shrink:0}
 .vc-pct{font-size:16px;font-weight:900}
 /* 专业列表 */
-.vc-majors{border-top:1px solid rgba(255,255,255,.05);padding:8px 12px;display:flex;flex-direction:column;gap:3px}
+.vc-maj-toggle{display:flex;align-items:center;gap:6px;padding:5px 12px;border-top:1px solid rgba(255,255,255,.05);cursor:pointer;user-select:none;transition:.12s}
+.vc-maj-toggle:hover{background:rgba(255,255,255,.03)}
+.vc-maj-summary{font-size:10px;color:rgba(255,255,255,.4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vc-maj-arrow{font-size:10px;color:rgba(255,255,255,.25);flex-shrink:0;transition:transform .2s}
+.vc-maj-toggle.open .vc-maj-arrow{transform:rotate(180deg)}
+.vc-majors{border-top:1px solid rgba(255,255,255,.04);padding:8px 12px;display:none;flex-direction:column;gap:3px}
+.vc-majors.open{display:flex}
 .mj-row{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;background:rgba(255,255,255,.02)}
+/* 上下移动按钮 */
+.vc-btn-move{background:rgba(255,255,255,.07);color:rgba(255,255,255,.5);font-size:11px;line-height:1}
+.vc-btn-move:hover{background:rgba(255,255,255,.15);color:#fff}
+.vc-btn-move:disabled{opacity:.2;cursor:default}
 .mj-idx{font-size:9px;color:rgba(255,255,255,.3);min-width:14px;text-align:center}
 .mj-name{font-size:11px;font-weight:600;flex:1;color:rgba(255,255,255,.75)}
 .mj-s{font-size:10px;color:rgba(255,255,255,.45);min-width:36px;text-align:right}
@@ -161,8 +171,8 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .vc-btn{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;border:none;cursor:pointer;transition:.12s;white-space:nowrap;line-height:1.6}
 .vc-btn-edit{background:rgba(74,158,255,.15);color:#4A9EFF}
 .vc-btn-edit:hover{background:rgba(74,158,255,.28)}
-.vc-btn-del{background:rgba(255,69,58,.1);color:#FF453A}
-.vc-btn-del:hover{background:rgba(255,69,58,.22)}
+.vc-btn-del{background:rgba(255,69,58,.75);color:#fff;font-weight:900;font-size:13px;padding:2px 9px}
+.vc-btn-del:hover{background:#FF453A}
 .insert-bar{text-align:center;padding:2px 0;margin:0}
 .insert-bar button{font-size:10px;padding:1px 12px;border-radius:8px;border:1px dashed rgba(74,158,255,.25);background:transparent;color:rgba(74,158,255,.45);cursor:pointer;transition:.12s}
 .insert-bar button:hover{border-color:#4A9EFF;color:#4A9EFF;background:rgba(74,158,255,.07)}
@@ -1145,9 +1155,21 @@ function buildVolListHTML(vols, profile){
 
     const selNames = JSON.stringify((v.intent6||[]).map(m=>m.name)).replace(/'/g,'&#39;');
     const gcode = String(v.gcode||'').replace(/"/g,'&quot;');
+    // 专业折叠摘要：显示前3个专业名
+    const maj6 = v.intent6 || [];
+    const majSummary = maj6.length
+      ? maj6.slice(0,3).map((m,mi)=>`${['①','②','③'][mi]}${simplifyMajorName(m.name)}`).join('  ') + (maj6.length>3?'  …':'')
+      : '暂无专业';
+    const isFirst = i === 0;
+    const isLast  = i === generatedVols.length - 1;
+
     const card = `<div class="vol-card" data-gcode="${gcode}" data-school="${v.school.replace(/"/g,'&quot;')}" data-ke="${selKeLei}" data-selected='${selNames}'>
       <div class="vc-hdr">
-        <div class="vc-num" style="color:${c}">${i+1}</div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0">
+          <div class="vc-num" style="color:${c}">${i+1}</div>
+          <button class="vc-btn vc-btn-move" onclick="moveVol('${gcode}',-1)" ${isFirst?'disabled':''} title="上移">▲</button>
+          <button class="vc-btn vc-btn-move" onclick="moveVol('${gcode}', 1)" ${isLast ?'disabled':''} title="下移">▼</button>
+        </div>
         <div class="vc-body">
           <div class="vc-school">${v.school}</div>
           <div class="vc-meta">
@@ -1167,9 +1189,13 @@ function buildVolListHTML(vols, profile){
           ${warnBadge}
           <div style="display:flex;gap:4px">
             <button class="vc-btn vc-btn-edit" onclick="openVolEdit('${gcode}')">编辑</button>
-            <button class="vc-btn vc-btn-del"  onclick="deleteVol('${gcode}')">✕</button>
+            <button class="vc-btn vc-btn-del"  onclick="deleteVol('${gcode}')">删除</button>
           </div>
         </div>
+      </div>
+      <div class="vc-maj-toggle" onclick="toggleMajors(this)">
+        <span class="vc-maj-summary">${majSummary}</span>
+        <span class="vc-maj-arrow">▾</span>
       </div>
       <div class="vc-majors">${mjRows}</div>
       ${warnBar}
@@ -1387,6 +1413,29 @@ function saveVolEdit(){
   if(idx<0){ closeVolEdit(); return; }
   generatedVols[idx].intent6 = editMajors.map(m=>({...m}));
   closeVolEdit();
+  rerenderVolList();
+  syncPlanToServer();
+}
+
+// ── 专业列表折叠/展开 ──────────────────────────────────
+function toggleMajors(toggleEl){
+  toggleEl.classList.toggle('open');
+  const majorsEl = toggleEl.nextElementSibling;
+  if(majorsEl && majorsEl.classList.contains('vc-majors')){
+    majorsEl.classList.toggle('open');
+  }
+}
+
+// ── 上下移动志愿 ────────────────────────────────────────
+function moveVol(gcode, dir){
+  const idx = generatedVols.findIndex(v=>String(v.gcode)===String(gcode));
+  if(idx < 0) return;
+  const newIdx = idx + dir;
+  if(newIdx < 0 || newIdx >= generatedVols.length) return;
+  // 交换
+  [generatedVols[idx], generatedVols[newIdx]] = [generatedVols[newIdx], generatedVols[idx]];
+  // 更新 vol_idx
+  generatedVols.forEach((v,i)=>{ v.vol_idx = i+1; });
   rerenderVolList();
   syncPlanToServer();
 }
