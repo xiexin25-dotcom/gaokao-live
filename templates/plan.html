@@ -118,7 +118,7 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .mj-rate{font-size:10px;font-weight:800;min-width:36px;text-align:right;color:rgba(255,255,255,.3)}
 /* 警告角标 */
 .vol-card{position:relative}
-.warn-badge{position:absolute;top:7px;right:7px;font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px;pointer-events:none;z-index:2;line-height:1.4;text-align:center}
+.warn-badge{font-size:9px;font-weight:800;padding:2px 6px;border-radius:5px;line-height:1.4;text-align:center;white-space:nowrap}
 .warn-critical{background:rgba(255,69,58,.25);color:#FF453A;border:1px solid rgba(255,69,58,.4)}
 .warn-few{background:rgba(255,159,10,.2);color:#FF9F0A;border:1px solid rgba(255,159,10,.3)}
 .warn-cold{background:rgba(255,159,10,.15);color:#FF9F0A;border:1px solid rgba(255,159,10,.25)}
@@ -157,7 +157,7 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .vtt-loading{font-size:11px;color:rgba(255,255,255,.3);text-align:center;padding:16px}
 
 /* ── 志愿编辑功能 ── */
-.vc-edit-ctrl{display:flex;gap:4px;flex-shrink:0;margin-left:6px;align-self:flex-start;padding-top:2px}
+.vc-edit-ctrl{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;margin-left:6px;align-self:flex-start;padding-top:2px}
 .vc-btn{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;border:none;cursor:pointer;transition:.12s;white-space:nowrap;line-height:1.6}
 .vc-btn-edit{background:rgba(74,158,255,.15);color:#4A9EFF}
 .vc-btn-edit:hover{background:rgba(74,158,255,.28)}
@@ -1146,7 +1146,6 @@ function buildVolListHTML(vols, profile){
     const selNames = JSON.stringify((v.intent6||[]).map(m=>m.name)).replace(/'/g,'&#39;');
     const gcode = String(v.gcode||'').replace(/"/g,'&quot;');
     const card = `<div class="vol-card" data-gcode="${gcode}" data-school="${v.school.replace(/"/g,'&quot;')}" data-ke="${selKeLei}" data-selected='${selNames}'>
-      ${warnBadge}
       <div class="vc-hdr">
         <div class="vc-num" style="color:${c}">${i+1}</div>
         <div class="vc-body">
@@ -1165,8 +1164,11 @@ function buildVolListHTML(vols, profile){
           <div style="font-size:10px;color:rgba(255,255,255,.3)">${topM?topM.name.slice(0,6):'无命中'}</div>
         </div>
         <div class="vc-edit-ctrl">
-          <button class="vc-btn vc-btn-edit" onclick="openVolEdit('${gcode}')">编辑</button>
-          <button class="vc-btn vc-btn-del"  onclick="deleteVol('${gcode}')">✕</button>
+          ${warnBadge}
+          <div style="display:flex;gap:4px">
+            <button class="vc-btn vc-btn-edit" onclick="openVolEdit('${gcode}')">编辑</button>
+            <button class="vc-btn vc-btn-del"  onclick="deleteVol('${gcode}')">✕</button>
+          </div>
         </div>
       </div>
       <div class="vc-majors">${mjRows}</div>
