@@ -2370,14 +2370,45 @@ function simplifyMajorName(name){
   return name.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '').trim();
 }
 
-// ── 分数→位次估算 ────────────────────────────────────────
+// ── 分数→位次估算（吉林物理2025实际录取数据分段插值）────────────────
+// 数据来源：2025年吉林物理类各专业组最低分/位次中位数，每5分一档
+const SCORE_RANK_TABLE = [
+  [680, 147],  [675, 268],  [670, 319],  [665, 575],  [660, 699],
+  [655, 921],  [650, 1341], [645, 1291], [640, 1649], [635, 2273],
+  [630, 3264], [625, 3264], [620, 3895], [615, 5051], [610, 5428],
+  [605, 5818], [600, 7039], [595, 7771], [590, 8399], [585, 9550],
+  [580, 9950], [575, 10739],[570, 11666],[565, 12955],[560, 13750],
+  [555, 15532],[550, 16154],[545, 17641],[540, 18709],[535, 18709],
+  [530, 20705],[525, 22395],[520, 22889],[515, 24393],[510, 27502],
+  [505, 27791],[500, 29278],[495, 29955],[490, 31071],
+];
+
+function scoreToRank(score){
+  const tbl = SCORE_RANK_TABLE;
+  // 高于最高档
+  if(score >= tbl[0][0]) return Math.max(1, Math.round(tbl[0][1] * (tbl[0][0] / score)));
+  // 低于最低档：外推
+  if(score <= tbl[tbl.length-1][0]){
+    const [s0,r0] = tbl[tbl.length-2], [s1,r1] = tbl[tbl.length-1];
+    return Math.round(r1 + (s1 - score) * (r1 - r0) / (s1 - s0));
+  }
+  // 区间内分段线性插值
+  for(let i=0; i<tbl.length-1; i++){
+    const [s_hi, r_hi] = tbl[i], [s_lo, r_lo] = tbl[i+1];
+    if(score <= s_hi && score >= s_lo){
+      const t = (s_hi - score) / (s_hi - s_lo);
+      return Math.max(1, Math.round(r_hi + t * (r_lo - r_hi)));
+    }
+  }
+  return 99999;
+}
+
 function onScoreInput(){
   const score = parseInt(document.getElementById('score').value) || 0;
   const el = document.getElementById('rankEstimate');
   if(!el) return;
   if(score < 300 || score > 750){ el.textContent=''; return; }
-  // 吉林物理2025估算（基准：585分≈位次7806，斜率150/分）
-  const rank = Math.max(1, Math.round(7806 + (585 - score) * 150));
+  const rank = scoreToRank(score);
   const rankStr = rank.toLocaleString();
   el.textContent = `估算位次约 ${rankStr} 名（仅供参考）`;
 }
