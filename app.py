@@ -267,6 +267,7 @@ def api_generate():
                 'gmin_rank': v.get('gmin_rank'),
                 'intent6':   [{'name':m['name'],'s25':m.get('s25'),
                                'diff':m.get('diff'),'kind':m.get('kind','other'),
+                               'fee': m.get('fee'), 'r25': m.get('r25'), 'r24': m.get('r24'),
                                'syban_majors':m.get('syban_majors',[]),
                                'syban_all':   m.get('syban_all',[])} for m in intent6],
                 'all_majors_count': len(v.get('majors',[])),
@@ -444,7 +445,8 @@ def api_optimize():
                 'safe':      v.get('safe', False),
                 'gmin_rank': v.get('gmin_rank'),
                 'intent6':   [{'name': m['name'], 's25': m.get('s25'),
-                               'diff': m.get('diff'), 'kind': m.get('kind','other')} for m in intent6],
+                               'diff': m.get('diff'), 'kind': m.get('kind','other'),
+                               'fee': m.get('fee'), 'r25': m.get('r25'), 'r24': m.get('r24')} for m in intent6],
                 'diaoji':           v.get('diaoji', True),
                 'dedup_count':      v.get('dedup_count', 0),
                 'warn_few_majors':  v.get('warn_few_majors', False),
@@ -560,7 +562,8 @@ def api_optimize_constrained():
                 'is_new':    v['gcode'] not in after_gcodes,       # 新加入的志愿
                 'is_locked': v['gcode'] in locked_codes,            # 用户锁定的
                 'intent6':   [{'name': m['name'], 's25': m.get('s25'),
-                               'diff': m.get('diff')} for m in intent6],
+                               'diff': m.get('diff'), 'fee': m.get('fee'),
+                               'r25': m.get('r25'), 'r24': m.get('r24')} for m in intent6],
             })
 
         from engine.planner import LV_LABEL, CR_LABEL

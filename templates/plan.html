@@ -121,7 +121,13 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .vc-btn-move:disabled{opacity:.2;cursor:default}
 .mj-idx{font-size:9px;color:rgba(255,255,255,.3);min-width:14px;text-align:center}
 .mj-name{font-size:11px;font-weight:600;flex:1;color:rgba(255,255,255,.75)}
+.mj-fee{font-size:9px;color:rgba(255,159,10,.7);min-width:44px;text-align:right;white-space:nowrap}
 .mj-s{font-size:10px;color:rgba(255,255,255,.45);min-width:36px;text-align:right}
+.mj-rank{font-size:9px;color:rgba(255,255,255,.35);min-width:52px;text-align:right;white-space:nowrap}
+.mj-rchg{font-size:9px;font-weight:700;padding:0 4px;border-radius:3px;min-width:38px;text-align:center;white-space:nowrap}
+.mj-rchg.rc-up{background:rgba(255,69,58,.1);color:#FF6B6B}     /* 竞争加剧 */
+.mj-rchg.rc-dn{background:rgba(52,199,89,.1);color:#34C759}     /* 竞争减弱 */
+.mj-rchg.rc-flat{background:rgba(255,255,255,.05);color:rgba(255,255,255,.3)}
 .mj-diff{font-size:9px;font-weight:700;padding:0 5px;border-radius:3px;min-width:38px;text-align:center}
 .d-pos{background:rgba(255,69,58,.1);color:#FF453A}
 .d-neg{background:rgba(52,199,89,.1);color:#34C759}
@@ -1120,10 +1126,27 @@ function buildVolListHTML(vols, profile){
             return `<span class="sbd-chip${hit?' sbd-hit':''}">${hit?'★ ':''}${s}</span>`;
           }).join('')}
         </div>` : '';
+      // 学费显示
+      const feeTxt = m.fee && m.fee > 0
+        ? (m.fee >= 10000 ? (m.fee/10000).toFixed(m.fee%10000?1:0)+'万' : m.fee+'元')
+        : '';
+      // 排名 & 变化
+      const r25txt = m.r25 ? m.r25.toLocaleString() : '';
+      let rchgTxt='', rchgCls='rc-flat';
+      if(m.r25 && m.r24){
+        const pct = Math.round((m.r24 - m.r25) / m.r24 * 100); // 正=位次下降=更容易
+        if(Math.abs(pct) >= 3){
+          rchgCls = pct < 0 ? 'rc-up' : 'rc-dn';
+          rchgTxt = (pct>0?'↓':'↑') + Math.abs(pct) + '%';
+        } else { rchgTxt='→'; }
+      }
       return `<div class="mj-row${sybanAll?' has-syban':''}" ${sybanAll?'onclick="event.stopPropagation();toggleSyban(this)"':''}>
         <span class="mj-idx">${mi+1}</span>
         <span class="mj-name" title="${m.name}">${simplifyMajorName(m.name)}${coldTag}${sybanTag}</span>
+        ${feeTxt?`<span class="mj-fee">${feeTxt}</span>`:''}
         <span class="mj-s">${m.s25||'?'}分</span>
+        ${r25txt?`<span class="mj-rank">${r25txt}位</span>`:''}
+        ${(rchgTxt&&rchgTxt!=='→')?`<span class="mj-rchg ${rchgCls}">${rchgTxt}</span>`:rchgTxt==='→'?`<span class="mj-rchg rc-flat">→</span>`:''}
         <span class="mj-diff ${dCls}">${dSign}${diff!=null?diff:''}</span>
         <span class="mj-rate" style="color:${mjRateColor}">${mjRateTxt}</span>
       </div>${sybanDetail}`;

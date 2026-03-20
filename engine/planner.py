@@ -154,6 +154,8 @@ def build_plan(profile: dict) -> dict:
     d['s25']    = pd.to_numeric(d['最低分'],       errors='coerce')
     d['s24']    = pd.to_numeric(d['最低分_1'],     errors='coerce')
     d['s23']    = pd.to_numeric(d['最低分_2'],     errors='coerce')
+    d['r25']    = pd.to_numeric(d['最低位次'],      errors='coerce')   # 2025 专业最低位次
+    d['r24']    = pd.to_numeric(d['最低分位次'],    errors='coerce')   # 2024 专业最低位次
     d['gmin25'] = pd.to_numeric(d['专业组最低分'],  errors='coerce')
     d['fee']    = pd.to_numeric(d['学费'],          errors='coerce').fillna(0)
     d['school_lv'] = d['院校标签'].apply(school_level)
@@ -238,6 +240,8 @@ def build_plan(profile: dict) -> dict:
             'name': _major_name, 's25': row['s25'],
             's24': row['s24'],   's23': row['s23'],
             'fee': row['fee'],   'kind': row['kind'],
+            'r25': (int(row['r25']) if pd.notna(row.get('r25', float('nan'))) else None),
+            'r24': (int(row['r24']) if pd.notna(row.get('r24', float('nan'))) else None),
             'syban_majors': _syban_hits,  # 命中目标专业（高亮）
             'syban_all':    _syban_all,   # 全量分流专业
         })
