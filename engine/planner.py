@@ -174,14 +174,17 @@ def build_plan(profile: dict) -> dict:
     def classify(row):
         major  = str(row['专业名称'])
         school = str(row['院校名称'])
+        # 1) 用户显式排除 —— 最高优先级
         if any(k in major  for k in exclude_kw):   return 'cold'
-        if any(k in major  for k in BUILTIN_COLD): return 'cold'
+        # 2) 用户显式目标 —— 优先于内置冷门（用户指定"环境科学"不应被覆盖）
         if any(k in major  for k in target_kw):    return 'target'
         if any(k in school for k in target_kw):    return 'target'  # 院校名兜底
         # 实验班：检查该(院校,专业名)是否是覆盖目标专业的实验班
         if target_kw and _syban_map and (school, major) in _syban_map:
             if is_syban_target(school, major, target_kw):
                 return 'target'
+        # 3) 内置冷门 —— 仅对用户未指定的专业生效
+        if any(k in major  for k in BUILTIN_COLD): return 'cold'
         return 'other'
     d['kind'] = d.apply(classify, axis=1)
 
@@ -207,7 +210,7 @@ def build_plan(profile: dict) -> dict:
         d = d[d['city_rank'] <= min_cr]
 
     # 学费过滤：专业组内所有专业的学费均 ≤ fee_max（NaN视为0，不过滤）
-    if fee_max:
+    if fee_max is not None:
         # 先算出每个专业组代码的最高学费
         grp_fee_max = (d.groupby('院校专业组代码')['fee']
                         .max().fillna(0).rename('grp_fee_max'))
@@ -414,9 +417,6 @@ def build_plan(profile: dict) -> dict:
 
     all_results = {r['gcode']: r for r in rows}
 
-    MC_NOISE = 0.15
-    min_gmin_rank = student_rank / (1 + MC_NOISE)   # 仅用于 MC 仿真参考，不再用于候选池过滤
-
     if school_pref == 'city':
         def sort_key(r): return (r.get('spread_risk',0), r['city_rank'], r['school_lv'], r['ruanke_lv'], -float(r['gmin25'] or 0))
     else:
@@ -545,8 +545,6 @@ def build_plan(profile: dict) -> dict:
     # 不做全局 sc6 重排，避免稳/保混排（BUG-02旧逻辑已移除）
     all_safe_bao = ([(r, '稳') for r in safe_sel_sorted] +
                     [(r, '保') for r in bao_sel_sorted])
-    reorder_info = {}
-
     # 规则3：冲区排序 —— 质量优先，同质量内 sc6 高→低
     # 平行志愿按①→⑩投档，好年景多所院校同时达标时录取①号志愿；
     # 故应把层次最高（school_lv 最小）的学校排①，好年景优先进最好层次的院校。
@@ -569,12 +567,6 @@ def build_plan(profile: dict) -> dict:
         top6_v = v.get('top6', [])
         v['diaoji'] = True          # 服从调剂，强制 True，保证永不退档
         n_maj = len(top6_v)
-
-        # 专业数量不足：
-        # 平行志愿规则——分数未达组线则不投档，调剂根本不会触发。
-        # 只有在分数达线且目标专业满额时才可能调剂，此时组内专业少反而调剂范围更窄，
-        # 因此"专业不足"本身并不构成额外风险，不再发出告警。
-        pass
 
         # 排除专业告警：组内含用户明确排除的专业，无论调剂是否触发均需告知
         excl = v.get('excl_in_group', [])
@@ -600,7 +592,6 @@ def build_plan(profile: dict) -> dict:
             'total_cands': len(rows), 'rush_cands': len(rush_cands),
             'safe_cands': len(safe_cands), 'bao_cands': len(bao_cands),
             'plan_count': len(plan_vols), 'student_rank': student_rank,
-            **reorder_info,
         },
         'profile': profile,
         # 候选池暴露给优化器使用
@@ -827,7 +818,7 @@ def mc_simulate(plan_vols, N=10000, seed=42, bias_lo=0, bias_hi=0, noise_pct=3.5
 
 
 def optimize_plan(build_result: dict, max_rounds: int = 10,
-                  mc_n: int = 8000, noise_pct: float = 15.0,
+                  mc_n: int = 8000, noise_pct: float = 3.5,
                   seed: int = 42,
                   locked_codes: set = None,
                   excluded_schools: set = None) -> dict:
@@ -1137,7 +1128,7 @@ def export_excel(plan_result: dict, mc_result: dict, out_path: str):
     ws3=wb.create_sheet('退档规则说明')
     ws3.column_dimensions['A'].width=22; ws3.column_dimensions['B'].width=60
     rules=[('【吉林省高考志愿填报核心规则】',''),('',''),
-           ('志愿结构','本科批最多40个专业组，每组最多6个专业'),('本方案','30志愿（冲10+稳10+保10），留余量10个'),('',''),
+           ('志愿结构','本科批最多40个专业组，每组最多6个专业'),('本方案','40志愿（冲10+稳20+保10）'),('',''),
            ('【退档机制（核心！）】',''),
            ('档案提取条件','组最低分 ≤ 考生分 → 提档'),('录取条件','考生分 ≥ 某专业2025分 → 录取'),
            ('退档触发','提档 + 所有填报专业分>考生分 + 不服从调剂 = 退档 → 后续全废！'),
@@ -1183,7 +1174,7 @@ def export_excel(plan_result: dict, mc_result: dict, out_path: str):
         ('【填报建议】', ''),
         ('可以填', '若有意向，大胆填报，录取了比本科批更稳；未录取本科批照常投档'),
         ('退档无损', '提前批退档后，系统自动进入本科批流程，两者互不干扰'),
-        ('分开备案', '本规划表仅覆盖本科批（30个志愿）；提前批另外准备，单独存档'),
+        ('分开备案', '本规划表仅覆盖本科批（40个志愿）；提前批另外准备，单独存档'),
     ]
     for ri, (a, b) in enumerate(adv_rules, 2):
         ca = ws4.cell(ri, 1, a)

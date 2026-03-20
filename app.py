@@ -30,7 +30,7 @@ SETTINGS = {}         # 用户设置（API Key 等）
 _SESSION_LOCK = threading.Lock()
 _HISTORY_LOCK = threading.Lock()
 _CHAT_LAST_TIME = 0.0   # 上次 chat 请求时间戳，用于速率限制
-PLAN_VERSION = 'v3.1'   # 每次规则变更时递增，旧SESSION自动失效
+PLAN_VERSION = 'v3.5'   # 每次规则变更时递增，旧SESSION自动失效
 
 # ── 历史方案持久化 ────────────────────────────────────────
 import json as _json
@@ -75,8 +75,8 @@ def validate_plan(plan_vols, score):
     """验证方案合法性，返回 (ok:bool, warnings:list)"""
     warnings = []
 
-    # ── 吉林省平行志愿核心规则警告（一次性全局） ──────────────────────────
-    warnings.append(
+    # ── 吉林省平行志愿核心规则提示（信息级，不影响 plan_ok 判定） ──────
+    INFO_RULE = (
         "📌【吉林平行志愿铁规】一次投档，不补充投档。"
         "若投档后因体检/单科成绩不达标被退档，本轮所有后续志愿作废，"
         "仅能参加征集志愿或下一批次。请务必确保体检、单科满足每所院校要求。"
@@ -113,7 +113,7 @@ def validate_plan(plan_vols, score):
             if gmin > score:
                 warnings.append(f"❌ 保志愿「{v['school']}」gmin={gmin:.0f} > 考生分{score}，不安全！")
 
-    return (len(warnings) == 0, warnings)
+    return (len(warnings) == 0, [INFO_RULE] + warnings)
 
 # ── 首页 ─────────────────────────────────────────────────
 def _no_cache(resp):
@@ -336,7 +336,7 @@ def api_simulate():
     # 偏移区间：正 = 悲观（分数线上升），负 = 乐观（分数线下降）
     bias_lo   = float(body.get('bias_lo', 0))
     bias_hi   = float(body.get('bias_hi', 0))
-    noise_pct = float(body.get('noise', 3.5))
+    noise_pct = float(body.get('noise_pct', body.get('noise', 3.5)))
 
     plan_vols = SESSION['plan']['plan_vols']
     profile   = SESSION['profile']
@@ -347,7 +347,8 @@ def api_simulate():
     mc = mc_simulate(plan_vols, N=N, seed=seed,
                      bias_lo=bias_lo, bias_hi=bias_hi, noise_pct=noise_pct,
                      student_rank=student_rank, student_score=score)
-    SESSION['mc'] = mc
+    with _SESSION_LOCK:
+        SESSION['mc'] = mc
 
     # 附加各志愿最高命中专业信息
     vols_rates = []
@@ -394,7 +395,7 @@ def api_optimize():
     body       = request.json or {}
     max_rounds = int(body.get('max_rounds', 10))
     mc_n       = min(int(body.get('mc_n', 8000)), 50000)
-    noise_pct  = float(body.get('noise_pct', 15.0))
+    noise_pct  = float(body.get('noise_pct', 3.5))
 
     try:
         t0     = time.time()
@@ -408,8 +409,9 @@ def api_optimize():
         elapsed = round(time.time() - t0, 2)
 
         # 用优化后的方案更新 SESSION
-        SESSION['plan']['plan_vols'] = opt['plan_vols']
-        SESSION['mc']                = opt['mc']
+        with _SESSION_LOCK:
+            SESSION['plan']['plan_vols'] = opt['plan_vols']
+            SESSION['mc']                = opt['mc']
 
         # 序列化历史摘要（每轮 exp_q + 变更列表）
         history_summary = []
@@ -446,7 +448,9 @@ def api_optimize():
                 'gmin_rank': v.get('gmin_rank'),
                 'intent6':   [{'name': m['name'], 's25': m.get('s25'),
                                'diff': m.get('diff'), 'kind': m.get('kind','other'),
-                               'fee': m.get('fee'), 'r25': m.get('r25'), 'r24': m.get('r24')} for m in intent6],
+                               'fee': m.get('fee'), 'r25': m.get('r25'), 'r24': m.get('r24'),
+                               'syban_majors': m.get('syban_majors', []),
+                               'syban_all':    m.get('syban_all', [])} for m in intent6],
                 'diaoji':           v.get('diaoji', True),
                 'dedup_count':      v.get('dedup_count', 0),
                 'warn_few_majors':  v.get('warn_few_majors', False),
@@ -495,7 +499,7 @@ def api_optimize_constrained():
     excluded_schools = set(body.get('excluded_schools', []))
     max_rounds       = int(body.get('max_rounds', 10))
     mc_n             = min(int(body.get('mc_n', 8000)), 50000)
-    noise_pct        = float(body.get('noise_pct', 15.0))
+    noise_pct        = float(body.get('noise_pct', 3.5))
     score            = SESSION['profile']['score']
 
     try:
@@ -517,8 +521,9 @@ def api_optimize_constrained():
         elapsed = round(time.time() - t0, 2)
 
         # 更新 SESSION
-        SESSION['plan']['plan_vols'] = opt['plan_vols']
-        SESSION['mc']                = opt['mc']
+        with _SESSION_LOCK:
+            SESSION['plan']['plan_vols'] = opt['plan_vols']
+            SESSION['mc']                = opt['mc']
 
         # 计算 diff：对比 before/after，找出被替换的位置
         diff = []
@@ -562,8 +567,24 @@ def api_optimize_constrained():
                 'is_new':    v['gcode'] not in after_gcodes,       # 新加入的志愿
                 'is_locked': v['gcode'] in locked_codes,            # 用户锁定的
                 'intent6':   [{'name': m['name'], 's25': m.get('s25'),
-                               'diff': m.get('diff'), 'fee': m.get('fee'),
-                               'r25': m.get('r25'), 'r24': m.get('r24')} for m in intent6],
+                               'diff': m.get('diff'), 'kind': m.get('kind','other'),
+                               'fee': m.get('fee'), 'r25': m.get('r25'), 'r24': m.get('r24'),
+                               'syban_majors': m.get('syban_majors', []),
+                               'syban_all':    m.get('syban_all', [])} for m in intent6],
+                'diaoji':           v.get('diaoji', True),
+                'all_majors_count': v.get('all_majors_count', 0),
+                'n_target':         v.get('n_target', 0),
+                'n_cold':           v.get('n_cold', 0),
+                'dedup_count':      v.get('dedup_count', 0),
+                'warn_few_majors':  v.get('warn_few_majors', False),
+                'warn_critical':    v.get('warn_critical', False),
+                'warn_msg':         v.get('warn_msg', ''),
+                'warn_excl_major':  v.get('warn_excl_major', False),
+                'warn_msg_excl':    v.get('warn_msg_excl', ''),
+                'warn_cold_anchor': v.get('warn_cold_anchor', False),
+                'warn_msg_cold':    v.get('warn_msg_cold', ''),
+                'warn_tuidan':      v.get('warn_tuidan', False),
+                'warn_msg_tuidan':  v.get('warn_msg_tuidan', ''),
             })
 
         from engine.planner import LV_LABEL, CR_LABEL
@@ -1133,7 +1154,7 @@ if __name__ == '__main__':
         def _open(): _t2.sleep(2); _wb.open('http://localhost:5000')
         _th2.Thread(target=_open, daemon=True).start()
     print("\n" + "="*52)
-    print("  🎓 吉林省高考志愿规划系统 · 本地版 v3.4")
+    print("  🎓 吉林省高考志愿规划系统 · 本地版 v3.5")
     print("="*52)
     # 检测缓存
     _cache = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'data', 'df_cache.pkl')

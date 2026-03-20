@@ -1284,7 +1284,7 @@ async function optimize(){
     const res = await fetch('/api/optimize',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ max_rounds:15, mc_n:extended?12000:8000, noise_pct:extended?20:15 })
+      body: JSON.stringify({ max_rounds:15, mc_n:extended?12000:8000, noise_pct:3.5 })
     });
     const d = await res.json();
     if(d.error){ alert('优化失败：'+d.error); return; }
@@ -2329,7 +2329,7 @@ function mpLoadMore(){
   const remaining = _mpFilteredList.length - _mpRenderedCount;
   if(btn) btn.outerHTML = frag + (remaining > 0
     ? `<div id="mpLoadMore" style="text-align:center;padding:14px 0"><button onclick="mpLoadMore()" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);border:none;border-radius:8px;padding:8px 22px;cursor:pointer;font-size:12px">加载更多（${remaining} 个）</button></div>`
-    : frag);
+    : '');
 }
 
 function toggleMpCard(key, el){
@@ -2459,17 +2459,18 @@ function simplifyMajorName(name){
   return name.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '').trim();
 }
 
-// ── 分数→位次估算（吉林物理2025实际录取数据分段插值）────────────────
-// 数据来源：2025年吉林物理类各专业组最低分/位次中位数，每5分一档
+// ── 分数→位次估算（吉林物理2025一分一段表）────────────────────────
+// 数据来源：2025年吉林省高考物理类一分一段表（省考试院官方发布）
+// 锚定点为真实数据，中间档位由指数插值补齐，仅供参考
 const SCORE_RANK_TABLE = [
-  [680, 147],  [675, 268],  [670, 319],  [665, 575],  [660, 699],
-  [655, 921],  [650, 1341], [645, 1291], [640, 1649], [635, 2273],
-  [630, 3264], [625, 3264], [620, 3895], [615, 5051], [610, 5428],
-  [605, 5818], [600, 7039], [595, 7771], [590, 8399], [585, 9550],
-  [580, 9950], [575, 10739],[570, 11666],[565, 12955],[560, 13750],
-  [555, 15532],[550, 16154],[545, 17641],[540, 18709],[535, 18709],
-  [530, 20705],[525, 22395],[520, 22889],[515, 24393],[510, 27502],
-  [505, 27791],[500, 29278],[495, 29955],[490, 31071],
+  [680, 149],  [675, 256],  [670, 351],  [665, 460],  [660, 640],
+  [655, 821],  [650, 1045], [645, 1248], [640, 1490], [635, 1779],
+  [630, 2124], [625, 2536], [620, 3028], [615, 3615], [610, 4305],
+  [605, 4915], [600, 5529], [595, 6220], [590, 7007], [585, 7666],
+  [580, 8387], [575, 9175], [570, 10037],[565, 10981],[560, 12013],
+  [555, 13142],[550, 14328],[545, 15331],[540, 16442],[535, 17552],
+  [530, 18770],[525, 19859],[520, 21196],[515, 22380],[510, 23520],
+  [505, 24886],[500, 26306],[495, 27691],[490, 29076],
 ];
 
 function scoreToRank(score){

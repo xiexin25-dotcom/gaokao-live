@@ -556,7 +556,7 @@ async function runConstrainedOptimize(){
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         locked_codes, excluded_schools,
-        max_rounds: 10, mc_n: 8000, noise_pct: 15,
+        max_rounds: 10, mc_n: 8000, noise_pct: 3.5,
       })
     });
     const d = await res.json();
