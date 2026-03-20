@@ -186,8 +186,8 @@ a.np-btn{display:inline-block;padding:10px 20px;border-radius:12px;background:rg
     </div>
     <div class="param-card" style="display:flex;flex-direction:column;justify-content:center">
       <div class="pc-lbl">噪声幅度</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:4px">固定 <span style="color:#FF9F0A;font-weight:800">±8%</span> 随机扰动</div>
-      <div style="font-size:9px;color:rgba(255,255,255,.2);line-height:1.5">Bias叠加±8%均匀分布<br>模拟年度分数线波动</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:4px">固定 <span style="color:#FF9F0A;font-weight:800">±3.5%</span> 随机扰动</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.2);line-height:1.5">基于10072组真实历史数据标定<br>Bias叠加±3.5%均匀分布</div>
     </div>
   </div>
   <div class="preset-row">
@@ -343,9 +343,19 @@ function onSlN(v){
 }
 function onSlVol(v){
   pVol=+v;
+  // 实际波动区间 = Bias ± noise_pct + YEAR_BIAS
+  // 与 planner.py mc_simulate 保持一致：YEAR_BIAS=-0.8%, noise_pct=3.5%
+  const YEAR_BIAS = -0.8, NOISE = 3.5;
+  const bias_lo = pVol > 0 ? -pVol : 0;
+  const bias_hi = pVol < 0 ? -pVol : 0;
+  const lo = +(bias_lo + YEAR_BIAS - NOISE).toFixed(1);
+  const hi = +(bias_hi + YEAR_BIAS + NOISE).toFixed(1);
+  const loStr = lo.toFixed(1) + '%';
+  const hiStr = (hi >= 0 ? '+' : '') + hi.toFixed(1) + '%';
   // 右 = 降线（乐观，绿色）；左 = 涨线（悲观，红色）
-  const color=pVol>0?'#34C759':pVol<0?'#FF453A':'#FF9F0A';
-  const label=pVol>0?`分数线降 ${pVol}%（偏乐观）`:pVol<0?`分数线涨 +${Math.abs(pVol)}%（偏悲观）`:`历年均值（基准）`;
+  const color = pVol>0?'#34C759':pVol<0?'#FF453A':'#FF9F0A';
+  const tag   = pVol>0?'偏乐观':pVol<0?'偏悲观':'基准';
+  const label = `实际波动 ${loStr} ~ ${hiStr}（${tag}）`;
   document.getElementById('volNum').style.color=color;
   document.getElementById('volNum').textContent=label;
   clearPreset();
