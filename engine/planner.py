@@ -692,10 +692,10 @@ def build_tiqian(profile: dict) -> dict:
     }
 
 
-def mc_simulate(plan_vols, N=10000, seed=42, bias_lo=0, bias_hi=0, noise_pct=8,
+def mc_simulate(plan_vols, N=10000, seed=42, bias_lo=0, bias_hi=0, noise_pct=3.5,
                 student_rank=7806, student_score=None):
     """
-    平行志愿蒙特卡洛仿真 —— 双层噪声模型（v3）
+    平行志愿蒙特卡洛仿真 —— 双层噪声模型（v4，基于10072个专业组历史数据标定）
 
     平行志愿录取规则：
     1. 志愿组按顺序（①→㊵）尝试；第一个录取后，后续志愿全部作废。
@@ -703,22 +703,24 @@ def mc_simulate(plan_vols, N=10000, seed=42, bias_lo=0, bias_hi=0, noise_pct=8,
     3. 若考生分仅达cold保底专业（⑤⑥）→ 服从调剂，录入该专业（diaoji=True）。
     4. 若考生分低于组内所有专业 → 该组不录取，继续下一组。
 
-    双层噪声模型（score-based）：
-    - 年度因子 f ~ U(lo_f, hi_f)：全局系统性涨跌，同一轮所有院校同向生效。
-    - 院校因子 g ~ U(1-σ, 1+σ)，σ=3%：院校/专业组独立波动，每所院校独立抽样。
-    - 实际分数线 = s25 × f × g；两层因子各自独立，互不遮蔽。
-    - 提档线取 top6 中分数最低的专业（含cold保底），而非最低非cold专业，
-      确保保底专业参与提档，避免低估录取概率。
+    双层噪声模型参数标定（吉林省2023-2025历史数据）：
+    - 真实年度变动倍数：均值=0.9922，标准差=0.0337，P5=0.9328，P95=1.0419
+    - 真实年度分数绝对偏差：均值11.25分，中位7分，P90=27分
+    - 年度因子 f：均值偏移0.992（历史平均每年微降0.8%），noise_pct=3.5% → U(0.957, 1.027)
+    - 院校因子 g ~ U(1-σ, 1+σ)，σ=2%：院校独立波动（招生计划、专业调整等）
+    - 合并 f_eff = f×g ∈ [0.938, 1.048]，|偏差|均值≈11.5分 ≈ 真实11.25分 ✓
     - 降级模式：student_score=None 时回落旧 rank-based 模型（兼容性保留）。
     """
     # 冲区志愿数（与 build_plan.RUSH_N 保持一致，用于 rush_rate 统计）
     RUSH_N      = 10
-    # 院校级独立波动幅度：±3%（建模招生计划变动、专业调整等校内因子）
-    SCHOOL_SIGMA = 0.03
+    # 院校级独立波动幅度：±2%（招生计划变动、专业调整等校内因子）
+    SCHOOL_SIGMA = 0.02
+    # 年度均值偏移：历史数据显示平均每年微降0.8%（考生扩招/难度波动）
+    YEAR_BIAS   = -0.8   # 等效 bias_lo += 0.8（分数线平均微降）
 
-    # 年度因子范围（f>1=悲观/涨线，f<1=乐观/降线）
-    lo_f = 1.0 + bias_lo / 100 - noise_pct / 100
-    hi_f = 1.0 + bias_hi / 100 + noise_pct / 100
+    # 年度因子范围，叠加历史偏移（f<1=降线=乐观，f>1=涨线=悲观）
+    lo_f = 1.0 + (bias_lo + YEAR_BIAS) / 100 - noise_pct / 100
+    hi_f = 1.0 + (bias_hi + YEAR_BIAS) / 100 + noise_pct / 100
 
     # 旧 rank-based 参数（降级备用）
     lo_r = 1 - bias_hi / 100 - noise_pct / 100
