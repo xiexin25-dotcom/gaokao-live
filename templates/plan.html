@@ -1130,23 +1130,14 @@ function buildVolListHTML(vols, profile){
       const feeTxt = m.fee && m.fee > 0
         ? (m.fee >= 10000 ? (m.fee/10000).toFixed(m.fee%10000?1:0)+'万' : m.fee+'元')
         : '';
-      // 排名 & 变化
+      // 排名（仅展示'25年位次，不与'24年老高考数据对比）
       const r25txt = m.r25 ? m.r25.toLocaleString() : '';
-      let rchgTxt='', rchgCls='rc-flat';
-      if(m.r25 && m.r24){
-        const pct = Math.round((m.r24 - m.r25) / m.r24 * 100); // 正=位次下降=更容易
-        if(Math.abs(pct) >= 3){
-          rchgCls = pct < 0 ? 'rc-up' : 'rc-dn';
-          rchgTxt = (pct>0?'↓':'↑') + Math.abs(pct) + '%';
-        } else { rchgTxt='→'; }
-      }
       return `<div class="mj-row${sybanAll?' has-syban':''}" ${sybanAll?'onclick="event.stopPropagation();toggleSyban(this)"':''}>
         <span class="mj-idx">${mi+1}</span>
         <span class="mj-name" title="${m.name}">${simplifyMajorName(m.name)}${coldTag}${sybanTag}</span>
         ${feeTxt?`<span class="mj-fee">${feeTxt}</span>`:''}
         <span class="mj-s">${m.s25||'?'}分</span>
         ${r25txt?`<span class="mj-rank">${r25txt}位</span>`:''}
-        ${(rchgTxt&&rchgTxt!=='→')?`<span class="mj-rchg ${rchgCls}">${rchgTxt}</span>`:rchgTxt==='→'?`<span class="mj-rchg rc-flat">→</span>`:''}
         <span class="mj-diff ${dCls}">${dSign}${diff!=null?diff:''}</span>
         <span class="mj-rate" style="color:${mjRateColor}">${mjRateTxt}</span>
       </div>${sybanDetail}`;
