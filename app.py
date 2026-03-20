@@ -234,7 +234,7 @@ def api_generate():
         stats     = result['stats']
 
         # 快速MC（N=5000，基准）—— 使用 build_plan 算好的实际位次
-        mc = mc_simulate(plan_vols, N=5000, seed=42, bias_lo=0, bias_hi=0, noise_pct=8,
+        mc = mc_simulate(plan_vols, N=5000, seed=42, bias_lo=0, bias_hi=0, noise_pct=3.5,
                          student_rank=stats['student_rank'], student_score=score)
 
         with _SESSION_LOCK:
@@ -336,7 +336,7 @@ def api_simulate():
     # 偏移区间：正 = 悲观（分数线上升），负 = 乐观（分数线下降）
     bias_lo   = float(body.get('bias_lo', 0))
     bias_hi   = float(body.get('bias_hi', 0))
-    noise_pct = float(body.get('noise', 8))
+    noise_pct = float(body.get('noise', 3.5))
 
     plan_vols = SESSION['plan']['plan_vols']
     profile   = SESSION['profile']

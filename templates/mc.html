@@ -394,7 +394,7 @@ async function runSim(){
       body:JSON.stringify({N, seed:SEED_VALS[pSeed],
         bias_lo: pVol > 0 ? -pVol : 0,
         bias_hi: pVol < 0 ? -pVol : 0,
-        noise:8})
+        noise:3.5})
     });
     if(res.status===400){
       const d=await res.json();
