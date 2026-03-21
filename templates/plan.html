@@ -385,7 +385,7 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .mp-subcat.on{background:rgba(74,158,255,.2);color:#4A9EFF}
 .mp-subcat .mp-subcat-cnt{font-size:8px;opacity:.6;margin-left:2px}
 /* 自定义标签 */
-.mp-custom-tags{display:flex;gap:4px;overflow-x:auto;padding:4px 16px 6px;flex-shrink:0;scrollbar-width:none;align-items:center}
+.mp-custom-tags{display:flex;gap:4px;overflow-x:auto;padding:6px 16px 8px;flex-shrink:0;scrollbar-width:none;align-items:center;border-bottom:1px solid rgba(255,255,255,.04)}
 .mp-custom-tags::-webkit-scrollbar{display:none}
 .mp-ctag{padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;border:1px dashed rgba(255,159,10,.3);cursor:pointer;flex-shrink:0;white-space:nowrap;background:rgba(255,159,10,.06);color:#FF9F0A;transition:.12s;display:flex;align-items:center;gap:3px}
 .mp-ctag.on{background:rgba(255,159,10,.2);border-style:solid}
@@ -2328,8 +2328,35 @@ function setMpSubCat(sub){
 
 // ── 自定义标签系统 ──
 const MP_CTAG_STORAGE_KEY = 'mp_custom_tags';
-let mpCustomTags = JSON.parse(localStorage.getItem(MP_CTAG_STORAGE_KEY) || '[]');
-// 格式: [{name:'带电工科', keywords:['电子','电气','自动化','计算机']}]
+const MP_CTAG_VERSION_KEY = 'mp_custom_tags_v';
+const MP_CTAG_CUR_VERSION = 2;  // 升版本号可触发默认标签重置
+
+// 默认预设标签
+const MP_DEFAULT_TAGS = [
+  {name:'带电工科',  keywords:['电子信息','电气','自动化','计算机','通信','人工智能','机器人','智能'], preset:true},
+  {name:'金融财经',  keywords:['金融','经济','财政','会计','税收','投资','保险','贸易'], preset:true},
+  {name:'医学临床',  keywords:['临床','口腔','麻醉','医学影像','儿科','精神医学','基础医学'], preset:true},
+  {name:'土建交通',  keywords:['土木','建筑','交通','道路','桥梁','城乡规划','给排水','测绘'], preset:true},
+  {name:'生化环材',  keywords:['生物','化学','环境','材料','化工','制药','高分子'], preset:true},
+  {name:'师范教育',  keywords:['教育','学前','小学','体育','心理'], preset:true},
+  {name:'法学公安',  keywords:['法学','侦查','治安','公安','知识产权','政治'], preset:true},
+  {name:'新闻传媒',  keywords:['新闻','传播','广告','网络与新媒体','编导','影视'], preset:true},
+];
+
+// 首次使用或版本升级时写入默认标签
+const savedVer = parseInt(localStorage.getItem(MP_CTAG_VERSION_KEY)||'0');
+let mpCustomTags;
+if(savedVer < MP_CTAG_CUR_VERSION){
+  // 保留用户自建标签（非preset），合并新默认
+  const old = JSON.parse(localStorage.getItem(MP_CTAG_STORAGE_KEY)||'[]');
+  const userTags = old.filter(t=>!t.preset);
+  mpCustomTags = [...MP_DEFAULT_TAGS, ...userTags];
+  localStorage.setItem(MP_CTAG_STORAGE_KEY, JSON.stringify(mpCustomTags));
+  localStorage.setItem(MP_CTAG_VERSION_KEY, String(MP_CTAG_CUR_VERSION));
+} else {
+  mpCustomTags = JSON.parse(localStorage.getItem(MP_CTAG_STORAGE_KEY)||'[]');
+}
+
 let mpActiveCustomTag = null;
 
 function saveMpCustomTags(){
@@ -2338,12 +2365,17 @@ function saveMpCustomTags(){
 
 function renderMpCustomTags(){
   const el = document.getElementById('mpCustomTags');
-  el.innerHTML = mpCustomTags.map((t,i)=>
-    `<button class="mp-ctag${mpActiveCustomTag===i?' on':''}" onclick="toggleCustomTag(${i})">
-      🏷️${t.name}
+  // 统计每个标签匹配的专业数
+  const counts = mpCustomTags.map(t=>{
+    return MP_MAJORS.filter(m=>t.keywords.some(kw=>m.专业.includes(kw)||m.类别.includes(kw)||m.门类.includes(kw))).length;
+  });
+  el.innerHTML = mpCustomTags.map((t,i)=>{
+    const icon = t.preset ? '📌' : '🏷️';
+    return `<button class="mp-ctag${mpActiveCustomTag===i?' on':''}" onclick="toggleCustomTag(${i})" title="${t.keywords.join('、')}">
+      ${icon}${t.name}<span class="mp-subcat-cnt">${counts[i]}</span>
       <span class="mp-ctag-del" onclick="event.stopPropagation();deleteCustomTag(${i})" title="删除标签">×</span>
-    </button>`
-  ).join('') +
+    </button>`;
+  }).join('') +
   `<button class="mp-ctag-add" onclick="addCustomTag()">+ 新建标签</button>`;
 }
 
@@ -2364,7 +2396,11 @@ function toggleCustomTag(idx){
 }
 
 function deleteCustomTag(idx){
-  if(!confirm('删除标签「'+mpCustomTags[idx].name+'」？')) return;
+  const tag = mpCustomTags[idx];
+  const msg = tag.preset
+    ? '删除预设标签「'+tag.name+'」？（可通过清除浏览器缓存恢复）'
+    : '删除标签「'+tag.name+'」？';
+  if(!confirm(msg)) return;
   mpCustomTags.splice(idx, 1);
   if(mpActiveCustomTag === idx) mpActiveCustomTag = null;
   else if(mpActiveCustomTag !== null && mpActiveCustomTag > idx) mpActiveCustomTag--;
@@ -2376,13 +2412,39 @@ function deleteCustomTag(idx){
 function addCustomTag(){
   const name = prompt('标签名称（例如：带电工科）：');
   if(!name || !name.trim()) return;
-  const kwStr = prompt('包含的关键词，用逗号分隔（例如：电子,电气,自动化,计算机）：');
+  const kwStr = prompt('包含的关键词，用逗号分隔（例如：电子,电气,自动化,计算机）：\n\n关键词会匹配专业名、类别名和门类名');
   if(!kwStr || !kwStr.trim()) return;
   const keywords = kwStr.split(/[,，]/).map(s=>s.trim()).filter(Boolean);
   if(!keywords.length) return;
-  mpCustomTags.push({name: name.trim(), keywords});
+  // 预览匹配结果
+  const matched = MP_MAJORS.filter(m=>keywords.some(kw=>m.专业.includes(kw)||m.类别.includes(kw)||m.门类.includes(kw)));
+  if(!matched.length){
+    alert('未匹配到任何专业，请调整关键词');
+    return;
+  }
+  mpCustomTags.push({name: name.trim(), keywords, preset:false});
   saveMpCustomTags();
   renderMpCustomTags();
+  // 自动激活新标签
+  mpActiveCustomTag = mpCustomTags.length - 1;
+  mpCatFilter = '全部'; mpSubCatFilter = '全部';
+  document.querySelectorAll('.mp-cat').forEach(b=>b.classList.remove('on'));
+  const allBtn = document.getElementById('mpc_全部');
+  if(allBtn) allBtn.classList.add('on');
+  document.getElementById('mpSubCats').classList.remove('show');
+  renderMpCustomTags();
+  renderMpCards();
+}
+
+// 重置为默认预设标签
+function resetCustomTags(){
+  if(!confirm('恢复默认标签？你的自定义标签将被保留。')) return;
+  const userTags = mpCustomTags.filter(t=>!t.preset);
+  mpCustomTags = [...MP_DEFAULT_TAGS, ...userTags];
+  mpActiveCustomTag = null;
+  saveMpCustomTags();
+  renderMpCustomTags();
+  renderMpCards();
 }
 
 renderMpCustomTags();
