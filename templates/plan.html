@@ -159,6 +159,22 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 /* 志愿卡片 hover 浮窗 */
 #volTooltip{position:fixed;z-index:9998;pointer-events:auto;background:#0D1E35;border:1px solid rgba(74,158,255,.35);border-radius:12px;padding:12px 14px;width:380px;box-shadow:0 8px 32px rgba(0,0,0,.6);display:none}
 #volTooltip.show{display:block}
+/* ── 手机端：志愿卡片悬浮窗改为底部抽屉 ── */
+@media(max-width:640px){
+  #volTooltip{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;
+    width:100%!important;max-width:100%!important;border-radius:18px 18px 0 0;
+    max-height:60vh;overflow-y:auto;padding:16px 16px 24px;
+    border:none;border-top:1px solid rgba(74,158,255,.35);
+    transform:translateY(100%);transition:transform .25s ease;
+  }
+  #volTooltip.show{display:block;transform:translateY(0)}
+  #volTooltip::before{content:'';display:block;width:36px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin:0 auto 12px}
+  .vtt-close-mobile{display:flex!important;align-items:center;justify-content:center}
+  .vtt-list{max-height:40vh}
+  .vtt-name{font-size:12px!important}
+  .vtt-score{font-size:13px!important}
+}
 .vtt-title{font-size:13px;font-weight:900;color:#fff;margin-bottom:2px}
 .vtt-sub{font-size:10px;color:#6E7EAB;margin-bottom:8px}
 .vtt-list{max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin;scrollbar-color:rgba(74,158,255,.3) transparent}
@@ -2713,29 +2729,75 @@ function vtEl() { return document.getElementById('volTooltip'); }
 
 function bindVolCardHover(){
   document.querySelectorAll('#volList .vol-card').forEach(card=>{
-    // 仅在专业列表区（.vc-majors）触发悬浮窗
     const majorsEl = card.querySelector('.vc-majors');
     if(!majorsEl) return;
-    majorsEl.addEventListener('mouseenter', e=>{
-      clearTimeout(vtTimer);
-      vtTimer = setTimeout(()=> showVolTooltip(e, card), 180);
-    });
-    majorsEl.addEventListener('mouseleave', ()=>{
-      clearTimeout(vtTimer);
-      setTimeout(()=>{
-        if(!vtEl().matches(':hover')){
-          vtEl().classList.remove('show');
-          vtVisible = false;
-        }
-      }, 80);
-    });
-    majorsEl.addEventListener('mousemove', e=>{ if(vtVisible) positionVolTooltip(e); });
+
+    if(_isMobile){
+      // ── 手机端：点击专业区域显示底部抽屉 ──
+      majorsEl.addEventListener('click', e=>{
+        e.stopPropagation();
+        showVolTooltipMobile(card);
+      });
+    } else {
+      // ── 桌面端：hover 触发 ──
+      majorsEl.addEventListener('mouseenter', e=>{
+        clearTimeout(vtTimer);
+        vtTimer = setTimeout(()=> showVolTooltip(e, card), 180);
+      });
+      majorsEl.addEventListener('mouseleave', ()=>{
+        clearTimeout(vtTimer);
+        setTimeout(()=>{
+          if(!vtEl().matches(':hover')){
+            vtEl().classList.remove('show');
+            vtVisible = false;
+          }
+        }, 80);
+      });
+      majorsEl.addEventListener('mousemove', e=>{ if(vtVisible) positionVolTooltip(e); });
+    }
   });
-  const tip = vtEl();
-  if(tip) tip.addEventListener('mouseleave', ()=>{
-    vtEl().classList.remove('show');
-    vtVisible = false;
-  });
+  if(!_isMobile){
+    const tip = vtEl();
+    if(tip) tip.addEventListener('mouseleave', ()=>{
+      vtEl().classList.remove('show');
+      vtVisible = false;
+    });
+  }
+  // 手机端点击背景关闭
+  if(_isMobile){
+    document.addEventListener('click', e=>{
+      const tip = vtEl();
+      if(vtVisible && !tip.contains(e.target) && !e.target.closest('.vc-majors')){
+        tip.classList.remove('show');
+        vtVisible = false;
+      }
+    });
+  }
+}
+
+// 手机端显示志愿卡片详情（底部抽屉）
+async function showVolTooltipMobile(card){
+  const school = card.dataset.school;
+  const gcode  = card.dataset.gcode;
+  const ke     = card.dataset.ke || selKeLei;
+  const tip    = vtEl();
+  vtVisible = true;
+  tip.querySelector('.vtt-title').textContent = school;
+  tip.querySelector('.vtt-sub').textContent   = `${ke}选科 · 专业组全部专业（2025录取分）`;
+  tip.querySelector('.vtt-list').innerHTML     = '<div class="vtt-loading">加载中…</div>';
+  tip.classList.add('show');
+
+  const vol = (generatedVols||[]).find(v=>String(v.gcode)===String(gcode));
+  const selNames = new Set((vol&&vol.intent6||[]).map(m=>m.name));
+  const cacheKey = gcode+'_'+ke;
+  if(vtCache[cacheKey]){ renderVolList(vtCache[cacheKey], selNames); return; }
+  try{
+    const r = await fetch(`/api/school_majors?gcode=${encodeURIComponent(gcode)}&ke=${encodeURIComponent(ke)}`);
+    const d = await r.json();
+    if(d.error){ tip.querySelector('.vtt-list').innerHTML='<div class="vtt-empty">暂无数据</div>'; return; }
+    vtCache[cacheKey] = d.majors;
+    if(vtVisible) renderVolList(d.majors, selNames);
+  }catch{ tip.querySelector('.vtt-list').innerHTML='<div class="vtt-empty">请求失败</div>'; }
 }
 
 function positionVolTooltip(e){
@@ -3119,7 +3181,10 @@ async function showMpTooltipMobile(majorName, ke){
 
 <!-- 志愿卡片 hover 浮窗 -->
 <div id="volTooltip">
-  <div class="vtt-title"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between">
+    <div class="vtt-title"></div>
+    <button onclick="vtEl().classList.remove('show');vtVisible=false" style="display:none;background:rgba(255,255,255,.1);border:none;color:#fff;border-radius:50%;width:26px;height:26px;font-size:14px;cursor:pointer;flex-shrink:0" class="vtt-close-mobile">✕</button>
+  </div>
   <div class="vtt-sub"></div>
   <div class="vtt-list"><div class="vtt-loading">加载中…</div></div>
 </div>
