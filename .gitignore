@@ -13,7 +13,6 @@ data/*.pickle
 # 输出文件（生成的志愿表不提交）
 outputs/
 output/
-reports/
 *.xlsx
 *.xls
 
