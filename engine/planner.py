@@ -102,6 +102,7 @@ def build_plan(profile: dict) -> dict:
         raise ValueError(f"科类必须为'物理'或'历史'，收到: {ke_lei!r}")
     target_kw  = profile.get('target_kw', [])
     exclude_kw = profile.get('exclude_kw', [])
+    strict_exclude  = profile.get('strict_exclude', False)   # 严格排除：含排除专业的组整体移除
     exclude_ne      = profile.get('exclude_northeast', False)
     pref_provinces  = profile.get('pref_provinces', [])    # 白名单（包含）
     exc_provinces   = profile.get('exclude_provinces', []) # 黑名单（排除）
@@ -414,6 +415,10 @@ def build_plan(profile: dict) -> dict:
             'n_cold_over_ref': n_cold_over_ref,
             'excl_in_group':   excl_in_group,   # 用户排除专业中出现在本组的列表
         })
+
+    # ── 严格排除模式：含排除专业的组整体移除 ──
+    if strict_exclude and exclude_kw:
+        rows = [r for r in rows if not r.get('excl_in_group')]
 
     all_results = {r['gcode']: r for r in rows}
 

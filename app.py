@@ -215,6 +215,7 @@ def api_generate():
             'ke_lei':           ke_lei,
             'target_kw':        body.get('target_kw', []),
             'exclude_kw':       body.get('exclude_kw', []),
+            'strict_exclude':   body.get('strict_exclude', False),
             'exclude_northeast':body.get('exclude_northeast', False),
             'pref_provinces':   body.get('pref_provinces', []),
             'exclude_provinces':body.get('exclude_provinces', []),

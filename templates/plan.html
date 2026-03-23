@@ -353,6 +353,16 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .ys-old-tag{display:inline-block;font-size:8px;font-weight:800;padding:0 3px;border-radius:2px;background:rgba(255,159,10,.25);color:#FF9F0A;margin:0 2px;vertical-align:middle;cursor:help}
 .sec-lbl{font-size:10px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.25);padding:8px 0 4px}
 
+/* ── 严格排除开关 ── */
+.strict-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.strict-toggle input{display:none}
+.strict-slider{position:relative;width:32px;height:18px;background:rgba(255,255,255,.12);border-radius:9px;transition:.2s;flex-shrink:0}
+.strict-slider::after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:.2s}
+.strict-toggle input:checked + .strict-slider{background:#FF453A}
+.strict-toggle input:checked + .strict-slider::after{left:16px}
+.strict-label{font-size:10px;color:rgba(255,255,255,.4);font-weight:400}
+.strict-toggle input:checked ~ .strict-label{color:#FF453A}
+
 /* ── 本科专业体系级联选择器 ── */
 .cas-wrap{display:flex;gap:1px;border:1px solid rgba(255,255,255,.1);border-radius:10px;overflow:hidden;max-height:240px;background:rgba(255,255,255,.03)}
 .cas-col{flex:1;overflow-y:auto;min-width:0;scrollbar-width:thin;scrollbar-color:rgba(74,158,255,.2) transparent;border-right:1px solid rgba(255,255,255,.06)}
@@ -647,9 +657,16 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
     <div class="mp-selected-chips" id="mpSelectedChips"></div>
   </div>
 
-  <!-- 3C: 快速排除预设 -->
+  <!-- 3C: 快速排除预设 + 严格排除开关 -->
   <div class="field">
-    <div class="field-lbl">快速排除预设 <span class="field-sub">可多选</span></div>
+    <div class="field-lbl" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+      <span>快速排除预设 <span class="field-sub">可多选</span></span>
+      <label class="strict-toggle" title="开启后，含排除专业的专业组将整体移除，不出现在志愿表中">
+        <input type="checkbox" id="strictExcludeToggle" onchange="onStrictExcludeChange()">
+        <span class="strict-slider"></span>
+        <span class="strict-label">严格排除：含排除专业的组整体移除</span>
+      </label>
+    </div>
     <div class="tag-grid" id="excludeGrid"></div>
   </div>
 
@@ -789,6 +806,11 @@ const EX_LABELS = {
   law:'🚫 法学类', art:'🚫 艺术类', finance:'🚫 金融/会计',
 };
 let selTargetLibs = new Set(), selExcludePresets = new Set();
+let strictExcludeMode = false;  // 严格排除模式：含排除专业的组整体移除
+
+function onStrictExcludeChange(){
+  strictExcludeMode = document.getElementById('strictExcludeToggle').checked;
+}
 
 // ── 立即渲染按钮（不依赖网络请求）────────────────────
 buildTargetGrid();
@@ -1277,6 +1299,7 @@ async function generate(){
       body: JSON.stringify({
         score, ke_lei: selKeLei,
         target_kw: targetKws, exclude_kw: excludeKws,
+        strict_exclude: strictExcludeMode,   // 严格排除：含排除专业的组整体移除
         pref_provinces:    provMode==='inc' && selProvinces.size>0 ? [...selProvinces] : [],
         exclude_provinces: provMode==='exc' && selProvinces.size>0 ? [...selProvinces] : [],
         include_types: ALL_STYPES.filter(t=>stypeState[t]==='inc'),
@@ -2684,9 +2707,38 @@ function _buildMpCardHTML(m){
   </div>`;
 }
 
+// ── 构建被排除的门类/类别集合（级联排除优先级最高）──
+function _buildCasExcludeSets(){
+  const exCats = new Set();   // 被整体排除的门类
+  const exLeis = new Set();   // 被整体排除的类别
+  // 如果某门类下所有专业都被排除 → 该门类被排除
+  BENKE_TREE.forEach(cat=>{
+    const allMajors = cat.c.flatMap(l=>l.m);
+    if(allMajors.length > 0 && allMajors.every(m=>casExcludes.has(m))){
+      exCats.add(cat.n);
+    }
+    cat.c.forEach(lei=>{
+      if(lei.m.length > 0 && lei.m.every(m=>casExcludes.has(m))){
+        exLeis.add(lei.n);
+      }
+    });
+  });
+  return {exCats, exLeis};
+}
+
 function renderMpCards(){
   const q = (document.getElementById('mpSearch').value||'').trim().toLowerCase();
+  // 获取级联排除集合
+  const {exCats, exLeis} = _buildCasExcludeSets();
+
   _mpFilteredList = MP_MAJORS.filter(m=>{
+    // ★ 级联排除优先级最高：被排除的门类/类别/专业不显示
+    if(casExcludes.has(m.专业)) return false;
+    if(exCats.has(m.门类)) return false;
+    if(exLeis.has(m.类别)) return false;
+    // 单个排除关键词也过滤（来自快速排除预设+自定义排除）
+    if(excludeKws.length && excludeKws.some(kw => m.专业.includes(kw) || m.类别.includes(kw))) return false;
+
     // 自定义标签优先
     if(mpActiveCustomTag !== null){
       const tag = mpCustomTags[mpActiveCustomTag];
