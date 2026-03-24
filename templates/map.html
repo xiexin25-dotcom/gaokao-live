@@ -119,7 +119,7 @@ a.back{color:rgba(255,255,255,.4);font-size:22px;text-decoration:none;line-heigh
 <div class="tip-bar" id="tipBar">点击圆点查看院校详情 &nbsp;· 滚轮缩放地图</div>
 <div class="offline-warn" id="offlineWarn">底图加载失败（离线模式）<br>院校数据点仍可正常显示</div>
 
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="/static/echarts.min.js"></script>
 <script>
 // ── 城市坐标表 [lon, lat] ────────────────────────────────
 const CC = {
@@ -222,9 +222,7 @@ async function init() {
 
   // 加载中国地图 GeoJSON
   try {
-    const geoResp = await fetch(
-      'https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json'
-    );
+    const geoResp = await fetch('/static/china_geo.json');
     const geoJson = await geoResp.json();
     echarts.registerMap('china', geoJson);
     geoLoaded = true;

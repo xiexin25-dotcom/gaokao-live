@@ -106,11 +106,28 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .vc-rate{text-align:right;flex-shrink:0}
 .vc-pct{font-size:16px;font-weight:900}
 /* 专业列表 */
-.vc-majors{border-top:1px solid rgba(255,255,255,.05);padding:8px 12px;display:flex;flex-direction:column;gap:3px}
+.vc-maj-toggle{display:flex;align-items:center;gap:6px;padding:5px 12px;border-top:1px solid rgba(255,255,255,.05);cursor:pointer;user-select:none;transition:.12s}
+.vc-maj-toggle:hover{background:rgba(255,255,255,.03)}
+.vc-maj-summary{font-size:10px;color:rgba(255,255,255,.4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vc-maj-arrow{font-size:10px;color:rgba(255,255,255,.25);flex-shrink:0;transition:transform .2s}
+.vc-maj-toggle .vc-maj-arrow{transform:rotate(180deg)}
+.vc-maj-toggle.closed .vc-maj-arrow{transform:rotate(0deg)}
+.vc-majors{border-top:1px solid rgba(255,255,255,.04);padding:8px 12px;display:flex;flex-direction:column;gap:3px}
+.vc-majors.closed{display:none}
 .mj-row{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;background:rgba(255,255,255,.02)}
+/* 上下移动按钮 */
+.vc-btn-move{background:rgba(255,255,255,.07);color:rgba(255,255,255,.5);font-size:11px;line-height:1}
+.vc-btn-move:hover{background:rgba(255,255,255,.15);color:#fff}
+.vc-btn-move:disabled{opacity:.2;cursor:default}
 .mj-idx{font-size:9px;color:rgba(255,255,255,.3);min-width:14px;text-align:center}
 .mj-name{font-size:11px;font-weight:600;flex:1;color:rgba(255,255,255,.75)}
+.mj-fee{font-size:9px;color:rgba(255,159,10,.7);min-width:44px;text-align:right;white-space:nowrap}
 .mj-s{font-size:10px;color:rgba(255,255,255,.45);min-width:36px;text-align:right}
+.mj-rank{font-size:9px;color:rgba(255,255,255,.35);min-width:52px;text-align:right;white-space:nowrap}
+.mj-rchg{font-size:9px;font-weight:700;padding:0 4px;border-radius:3px;min-width:38px;text-align:center;white-space:nowrap}
+.mj-rchg.rc-up{background:rgba(255,69,58,.1);color:#FF6B6B}     /* 竞争加剧 */
+.mj-rchg.rc-dn{background:rgba(52,199,89,.1);color:#34C759}     /* 竞争减弱 */
+.mj-rchg.rc-flat{background:rgba(255,255,255,.05);color:rgba(255,255,255,.3)}
 .mj-diff{font-size:9px;font-weight:700;padding:0 5px;border-radius:3px;min-width:38px;text-align:center}
 .d-pos{background:rgba(255,69,58,.1);color:#FF453A}
 .d-neg{background:rgba(52,199,89,.1);color:#34C759}
@@ -118,16 +135,25 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .mj-rate{font-size:10px;font-weight:800;min-width:36px;text-align:right;color:rgba(255,255,255,.3)}
 /* 警告角标 */
 .vol-card{position:relative}
-.warn-badge{position:absolute;top:7px;right:7px;font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px;pointer-events:none;z-index:2;line-height:1.4;text-align:center}
+.warn-badge{font-size:9px;font-weight:800;padding:2px 6px;border-radius:5px;line-height:1.4;text-align:center;white-space:nowrap}
 .warn-critical{background:rgba(255,69,58,.25);color:#FF453A;border:1px solid rgba(255,69,58,.4)}
 .warn-few{background:rgba(255,159,10,.2);color:#FF9F0A;border:1px solid rgba(255,159,10,.3)}
 .warn-cold{background:rgba(255,159,10,.15);color:#FF9F0A;border:1px solid rgba(255,159,10,.25)}
+.warn-excl{background:rgba(255,107,107,.2);color:#FF6B6B;border:1px solid rgba(255,107,107,.45)}
 .warn-tuidan{background:rgba(255,69,58,.3);color:#FF453A;border:1px solid rgba(255,69,58,.6);animation:warn-pulse 1.8s ease-in-out infinite}
 @keyframes warn-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,69,58,.4)}50%{box-shadow:0 0 6px 2px rgba(255,69,58,.2)}}
 /* 服从调剂标签 */
 .t-diaoji{background:rgba(52,199,89,.1);color:#34C759;border:1px solid rgba(52,199,89,.25)}
 /* 冷门专业标记 */
 .mj-cold{font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:rgba(255,159,10,.15);color:#FF9F0A;margin-left:3px;white-space:nowrap}
+/* 专项计划徽章 */
+.mj-zx{font-size:8px;font-weight:800;padding:1px 5px;border-radius:3px;background:rgba(255,69,58,.15);color:#FF6B6B;border:1px solid rgba(255,69,58,.3);margin-left:3px;white-space:nowrap;cursor:help}
+.tag.t-zx{background:rgba(255,69,58,.18);color:#FF6B6B;border:1px solid rgba(255,69,58,.35);font-weight:700;animation:zx-pulse 2s ease-in-out infinite}
+@keyframes zx-pulse{0%,100%{opacity:1}50%{opacity:.6}}
+/* 补充志愿按钮（底栏） */
+.btn-replenish{background:rgba(74,158,255,.15);color:#4A9EFF;border:1px solid rgba(74,158,255,.3)}
+.btn-replenish:hover{background:rgba(74,158,255,.25)}
+.btn-replenish:disabled{opacity:.5;cursor:wait}
 /* 实验班徽章 */
 .mj-syban{font-size:8px;font-weight:800;padding:1px 5px;border-radius:3px;background:rgba(94,92,230,.2);color:#8E8CF0;border:1px solid rgba(94,92,230,.35);margin-left:4px;white-space:nowrap;cursor:pointer}
 .mj-row.has-syban{cursor:pointer;border-radius:6px;transition:.1s}
@@ -141,6 +167,22 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 /* 志愿卡片 hover 浮窗 */
 #volTooltip{position:fixed;z-index:9998;pointer-events:auto;background:#0D1E35;border:1px solid rgba(74,158,255,.35);border-radius:12px;padding:12px 14px;width:380px;box-shadow:0 8px 32px rgba(0,0,0,.6);display:none}
 #volTooltip.show{display:block}
+/* ── 手机端：志愿卡片悬浮窗改为底部抽屉 ── */
+@media(max-width:640px){
+  #volTooltip{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;
+    width:100%!important;max-width:100%!important;border-radius:18px 18px 0 0;
+    max-height:60vh;overflow-y:auto;padding:16px 16px 24px;
+    border:none;border-top:1px solid rgba(74,158,255,.35);
+    transform:translateY(100%);transition:transform .25s ease;
+  }
+  #volTooltip.show{display:block;transform:translateY(0)}
+  #volTooltip::before{content:'';display:block;width:36px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin:0 auto 12px}
+  .vtt-close-mobile{display:flex!important;align-items:center;justify-content:center}
+  .vtt-list{max-height:40vh}
+  .vtt-name{font-size:12px!important}
+  .vtt-score{font-size:13px!important}
+}
 .vtt-title{font-size:13px;font-weight:900;color:#fff;margin-bottom:2px}
 .vtt-sub{font-size:10px;color:#6E7EAB;margin-bottom:8px}
 .vtt-list{max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin;scrollbar-color:rgba(74,158,255,.3) transparent}
@@ -156,12 +198,12 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .vtt-loading{font-size:11px;color:rgba(255,255,255,.3);text-align:center;padding:16px}
 
 /* ── 志愿编辑功能 ── */
-.vc-edit-ctrl{display:flex;gap:4px;flex-shrink:0;margin-left:6px;align-self:flex-start;padding-top:2px}
+.vc-edit-ctrl{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;margin-left:6px;align-self:flex-start;padding-top:2px}
 .vc-btn{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;border:none;cursor:pointer;transition:.12s;white-space:nowrap;line-height:1.6}
 .vc-btn-edit{background:rgba(74,158,255,.15);color:#4A9EFF}
 .vc-btn-edit:hover{background:rgba(74,158,255,.28)}
-.vc-btn-del{background:rgba(255,69,58,.1);color:#FF453A}
-.vc-btn-del:hover{background:rgba(255,69,58,.22)}
+.vc-btn-del{background:rgba(255,69,58,.75);color:#fff;font-weight:900;font-size:13px;padding:2px 9px}
+.vc-btn-del:hover{background:#FF453A}
 .insert-bar{text-align:center;padding:2px 0;margin:0}
 .insert-bar button{font-size:10px;padding:1px 12px;border-radius:8px;border:1px dashed rgba(74,158,255,.25);background:transparent;color:rgba(74,158,255,.45);cursor:pointer;transition:.12s}
 .insert-bar button:hover{border-color:#4A9EFF;color:#4A9EFF;background:rgba(74,158,255,.07)}
@@ -235,6 +277,26 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
   display:none;
 }
 #mpTooltip.show{display:block}
+/* ── 手机端：tooltip 改为底部抽屉 ── */
+@media(max-width:640px){
+  #mpTooltip{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;
+    width:100%!important;max-width:100%!important;border-radius:18px 18px 0 0;
+    max-height:70vh;overflow-y:auto;padding:16px 16px 24px;
+    border:none;border-top:1px solid rgba(74,158,255,.35);
+    transform:translateY(100%);transition:transform .25s ease;
+  }
+  #mpTooltip.show{display:block;transform:translateY(0)}
+  #mpTooltip::before{content:'';display:block;width:36px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin:0 auto 12px}
+  .mpt-list{max-height:45vh}
+  .mpt-row{grid-template-columns:18px 1fr auto auto auto auto!important;gap:3px!important}
+  .mpt-sch{font-size:12px!important}
+  .mpt-score{font-size:13px!important}
+  .mpt-close-mobile{display:flex!important;align-items:center;justify-content:center}
+  /* 全部院校模态也适配 */
+  #mptModalBox{width:100%!important;max-width:100%!important;max-height:85vh;border-radius:18px 18px 0 0}
+  #mptModal{align-items:flex-end!important}
+}
 .mpt-title{font-size:12px;font-weight:900;color:#fff;margin-bottom:2px}
 .mpt-sub{font-size:10px;color:#6E7EAB;margin-bottom:8px}
 .mpt-list{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:rgba(74,158,255,.3) transparent}
@@ -299,6 +361,48 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .ys-old-tag{display:inline-block;font-size:8px;font-weight:800;padding:0 3px;border-radius:2px;background:rgba(255,159,10,.25);color:#FF9F0A;margin:0 2px;vertical-align:middle;cursor:help}
 .sec-lbl{font-size:10px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.25);padding:8px 0 4px}
 
+/* ── 严格排除开关 ── */
+.strict-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.strict-toggle input{display:none}
+.strict-slider{position:relative;width:32px;height:18px;background:rgba(255,255,255,.12);border-radius:9px;transition:.2s;flex-shrink:0}
+.strict-slider::after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:.2s}
+.strict-toggle input:checked + .strict-slider{background:#FF453A}
+.strict-toggle input:checked + .strict-slider::after{left:16px}
+.strict-label{font-size:10px;color:rgba(255,255,255,.4);font-weight:400}
+.strict-toggle input:checked ~ .strict-label{color:#FF453A}
+/* 专项计划开关（蓝色） */
+.strict-toggle input:checked + .zx-slider{background:#4A9EFF}
+.strict-toggle input:checked + .zx-slider ~ .strict-label{color:#4A9EFF}
+
+/* ── 本科专业体系级联选择器 ── */
+.cas-wrap{display:flex;gap:1px;border:1px solid rgba(255,255,255,.1);border-radius:10px;overflow:hidden;max-height:240px;background:rgba(255,255,255,.03)}
+.cas-col{flex:1;overflow-y:auto;min-width:0;scrollbar-width:thin;scrollbar-color:rgba(74,158,255,.2) transparent;border-right:1px solid rgba(255,255,255,.06)}
+.cas-col:last-child{border-right:none}
+.cas-item{padding:7px 10px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:4px;transition:.1s;color:rgba(255,255,255,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cas-item:hover{background:rgba(74,158,255,.08);color:#fff}
+.cas-item.active{background:rgba(74,158,255,.12);color:#4A9EFF;font-weight:700}
+.cas-item .cas-arrow{font-size:9px;color:rgba(255,255,255,.2);flex-shrink:0}
+.cas-item .cas-cnt{font-size:8px;color:rgba(255,255,255,.25);flex-shrink:0}
+.cas-btns{display:flex;gap:3px;flex-shrink:0;margin-left:4px}
+.cas-btn-sel,.cas-btn-exc{padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;border:none;cursor:pointer;transition:.1s}
+.cas-btn-sel{background:rgba(52,199,89,.15);color:#34C759}
+.cas-btn-sel:hover{background:rgba(52,199,89,.3)}
+.cas-btn-sel.on{background:#34C759;color:#fff}
+.cas-btn-exc{background:rgba(255,69,58,.1);color:#FF453A}
+.cas-btn-exc:hover{background:rgba(255,69,58,.25)}
+.cas-btn-exc.on{background:#FF453A;color:#fff}
+.cas-selections{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.cas-sel-group{display:flex;flex-wrap:wrap;gap:4px;min-height:0}
+.cas-chip-t{padding:3px 8px 3px 10px;border-radius:7px;font-size:10px;font-weight:700;display:flex;align-items:center;gap:4px;background:rgba(52,199,89,.1);color:#34C759;border:1px solid rgba(52,199,89,.25)}
+.cas-chip-e{padding:3px 8px 3px 10px;border-radius:7px;font-size:10px;font-weight:700;display:flex;align-items:center;gap:4px;background:rgba(255,69,58,.1);color:#FF453A;border:1px solid rgba(255,69,58,.25)}
+.cas-chip-rm{cursor:pointer;opacity:.6;font-size:12px;line-height:1}
+.cas-chip-rm:hover{opacity:1}
+.cas-lbl{font-size:9px;font-weight:800;color:rgba(255,255,255,.3);margin-right:4px;flex-shrink:0}
+@media(max-width:640px){
+  .cas-wrap{flex-direction:column;max-height:320px}
+  .cas-col{border-right:none;border-bottom:1px solid rgba(255,255,255,.06);max-height:120px}
+}
+
 /* ── 专业选择器弹窗 ── */
 .mp-open-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:11px 14px;border-radius:11px;border:1.5px dashed rgba(74,158,255,.35);background:rgba(74,158,255,.05);color:#4A9EFF;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;margin-bottom:8px}
 .mp-open-btn:hover{background:rgba(74,158,255,.1);border-color:#4A9EFF}
@@ -323,6 +427,22 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .mp-cats::-webkit-scrollbar{display:none}
 .mp-cat{padding:4px 12px;border-radius:15px;font-size:11px;font-weight:700;border:none;cursor:pointer;flex-shrink:0;white-space:nowrap;background:rgba(255,255,255,.06);color:rgba(255,255,255,.45);transition:.12s}
 .mp-cat.on{background:#4A9EFF;color:#fff}
+/* 子分类标签行 */
+.mp-subcats{display:none;gap:4px;overflow-x:auto;padding:6px 16px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.04);scrollbar-width:none;flex-wrap:wrap}
+.mp-subcats::-webkit-scrollbar{display:none}
+.mp-subcats.show{display:flex}
+.mp-subcat{padding:3px 10px;border-radius:12px;font-size:10px;font-weight:600;border:none;cursor:pointer;flex-shrink:0;white-space:nowrap;background:rgba(255,255,255,.05);color:rgba(255,255,255,.4);transition:.12s}
+.mp-subcat.on{background:rgba(74,158,255,.2);color:#4A9EFF}
+.mp-subcat .mp-subcat-cnt{font-size:8px;opacity:.6;margin-left:2px}
+/* 自定义标签 */
+.mp-custom-tags{display:flex;gap:4px;overflow-x:auto;padding:6px 16px 8px;flex-shrink:0;scrollbar-width:none;align-items:center;border-bottom:1px solid rgba(255,255,255,.04)}
+.mp-custom-tags::-webkit-scrollbar{display:none}
+.mp-ctag{padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;border:1px dashed rgba(255,159,10,.3);cursor:pointer;flex-shrink:0;white-space:nowrap;background:rgba(255,159,10,.06);color:#FF9F0A;transition:.12s;display:flex;align-items:center;gap:3px}
+.mp-ctag.on{background:rgba(255,159,10,.2);border-style:solid}
+.mp-ctag-del{font-size:8px;opacity:.5;cursor:pointer;margin-left:2px}
+.mp-ctag-del:hover{opacity:1;color:#FF453A}
+.mp-ctag-add{padding:3px 8px;border-radius:12px;font-size:10px;border:1px dashed rgba(255,255,255,.15);background:none;color:rgba(255,255,255,.3);cursor:pointer;flex-shrink:0}
+.mp-ctag-add:hover{border-color:rgba(255,159,10,.4);color:#FF9F0A}
 .mp-filters{display:flex;gap:12px;align-items:center;padding:7px 16px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.04)}
 .mp-flt-lbl{font-size:10px;color:#6E7EAB;margin-right:3px}
 .mp-flt-btn{padding:2px 9px;border-radius:6px;font-size:10px;font-weight:700;border:none;cursor:pointer;transition:.12s;background:rgba(255,255,255,.05);color:rgba(255,255,255,.35)}
@@ -512,45 +632,80 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
   </div>
 </div>
 
-<!-- ③ 专业意向 -->
+<!-- ③ 专业意向与排除 -->
 <div class="section">
-  <div class="sec-title">③ 专业意向（目标方向）</div>
+  <div class="sec-title">③ 专业意向与排除</div>
+
+  <!-- 3A: 专业体系级联选择 -->
   <div class="field">
-    <div class="field-lbl">从专业库选择 <span class="field-sub">含课程/风评/就业全信息</span></div>
+    <div class="field-lbl">本科专业体系 <span class="field-sub">按门类→类别→专业 精确选择或排除（13门类 · 770专业）</span></div>
+    <div class="cas-wrap" id="casWrap">
+      <!-- 门类列 -->
+      <div class="cas-col" id="casCol0"></div>
+      <!-- 类别列 -->
+      <div class="cas-col" id="casCol1" style="display:none"></div>
+      <!-- 专业列 -->
+      <div class="cas-col" id="casCol2" style="display:none"></div>
+    </div>
+    <!-- 已选/已排除 展示 -->
+    <div class="cas-selections">
+      <div class="cas-sel-group" id="casTargetChips"></div>
+      <div class="cas-sel-group" id="casExcludeChips"></div>
+    </div>
+  </div>
+
+  <!-- 3B: 快速方向标签 + 专业选择器 -->
+  <div class="field">
+    <div class="field-lbl">快速方向标签 <span class="field-sub">可叠加</span></div>
+    <div class="tag-grid" id="targetGrid"></div>
+  </div>
+  <div class="field">
+    <div class="field-lbl">专业详情选择 <span class="field-sub">含课程/风评/就业全信息</span></div>
     <button class="mp-open-btn" onclick="openMajorPicker()">
       <span>🎓 打开专业选择器</span>
       <span class="mp-count" id="mpCountBadge">已选 0 个</span>
     </button>
     <div class="mp-selected-chips" id="mpSelectedChips"></div>
   </div>
-  <div class="field">
-    <div class="field-lbl">快速方向标签 <span class="field-sub">可与上方叠加</span></div>
-    <div class="tag-grid" id="targetGrid"></div>
-  </div>
-  <div class="field">
-    <div class="field-lbl">自定义关键词</div>
-    <div class="custom-kw">
-      <input type="text" id="customTarget" placeholder="输入专业关键词，如：金融、师范">
-      <button class="kw-add-btn" onclick="addCustomKw('target')">+ 添加</button>
-    </div>
-    <div class="kw-added" id="targetAdded"></div>
-  </div>
-</div>
 
-<!-- ④ 排除条件 -->
-<div class="section">
-  <div class="sec-title">④ 排除条件</div>
+  <!-- 3C: 快速排除预设 + 严格排除开关 -->
   <div class="field">
-    <div class="field-lbl">快速排除预设 <span class="field-sub">可多选</span></div>
+    <div class="field-lbl" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+      <span>快速排除预设 <span class="field-sub">可多选</span></span>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+        <label class="strict-toggle" title="开启后，含排除专业的专业组将整体移除，不出现在志愿表中">
+          <input type="checkbox" id="strictExcludeToggle" onchange="onStrictExcludeChange()">
+          <span class="strict-slider"></span>
+          <span class="strict-label">严格排除：含排除专业的组整体移除</span>
+        </label>
+        <label class="strict-toggle" title="国家专项/高校专项计划对考生户籍有严格限制，需提前审核资格。开启后将包含专项计划专业组">
+          <input type="checkbox" id="zhuanxiangToggle" onchange="onZhuanxiangChange()">
+          <span class="strict-slider zx-slider"></span>
+          <span class="strict-label">包含专项计划：国家专项/高校专项（需户籍资格）</span>
+        </label>
+      </div>
+    </div>
     <div class="tag-grid" id="excludeGrid"></div>
   </div>
-  <div class="field">
-    <div class="field-lbl">自定义排除</div>
-    <div class="custom-kw">
-      <input type="text" id="customExclude" placeholder="输入要排除的专业关键词">
-      <button class="kw-add-btn" style="background:#FF453A" onclick="addCustomKw('exclude')">+ 添加排除</button>
+
+  <!-- 3D: 自定义关键词（目标 + 排除） -->
+  <div class="field" style="display:flex;gap:10px;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px">
+      <div class="field-lbl">自定义目标关键词</div>
+      <div class="custom-kw">
+        <input type="text" id="customTarget" placeholder="如：金融、师范">
+        <button class="kw-add-btn" onclick="addCustomKw('target')">+ 添加</button>
+      </div>
+      <div class="kw-added" id="targetAdded"></div>
     </div>
-    <div class="kw-added" id="excludeAdded"></div>
+    <div style="flex:1;min-width:200px">
+      <div class="field-lbl">自定义排除关键词</div>
+      <div class="custom-kw">
+        <input type="text" id="customExclude" placeholder="如：护理、采矿">
+        <button class="kw-add-btn" style="background:#FF453A" onclick="addCustomKw('exclude')">+ 排除</button>
+      </div>
+      <div class="kw-added" id="excludeAdded"></div>
+    </div>
   </div>
 </div>
 
@@ -620,6 +775,7 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 <div class="bottom-bar">
   <button class="btn btn-generate" id="btnGen" onclick="generate()">▶ 生成志愿方案</button>
   <button class="btn btn-opt" id="btnOpt" style="display:none" onclick="optimize()">🔁 迭代优化</button>
+  <button class="btn btn-replenish" id="btnReplenish" style="display:none" onclick="doReplenish()">➕ 补充志愿</button>
   <button class="btn btn-export" id="btnExport" style="display:none" onclick="exportExcel()">📥 Excel</button>
   <a class="btn btn-mc" id="btnMC" href="/mc" style="display:none">🎲 仿真</a>
   <button class="btn" id="btnHistory" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);font-size:11px;padding:8px 12px" onclick="openHistory()">📋 历史</button>
@@ -669,10 +825,144 @@ const EX_LABELS = {
   law:'🚫 法学类', art:'🚫 艺术类', finance:'🚫 金融/会计',
 };
 let selTargetLibs = new Set(), selExcludePresets = new Set();
+let strictExcludeMode = false;  // 严格排除模式：含排除专业的组整体移除
+let includeZhuanxiang = false; // 包含专项计划（默认不包含）
+
+function onStrictExcludeChange(){
+  strictExcludeMode = document.getElementById('strictExcludeToggle').checked;
+}
+function onZhuanxiangChange(){
+  includeZhuanxiang = document.getElementById('zhuanxiangToggle').checked;
+}
 
 // ── 立即渲染按钮（不依赖网络请求）────────────────────
 buildTargetGrid();
 buildExcludeGrid();
+
+// ── 本科专业体系级联选择器（13门类 · 92类别 · 770专业）────────
+const BENKE_TREE = [{"n":"哲学","c":[{"n":"哲学类","m":["哲学","逻辑学","宗教学","伦理学"]}]},{"n":"经济学","c":[{"n":"经济学类","m":["经济学","经济统计学","国民经济管理","资源与环境经济学","商务经济学","能源经济","劳动经济学","经济工程","数字经济"]},{"n":"财政学类","m":["财政学","税收学","国际税收"]},{"n":"金融学类","m":["金融学","金融工程","保险学","投资学","金融数学","信用管理","经济与金融","精算学","互联网金融","金融科技"]},{"n":"经济与贸易类","m":["国际经济与贸易","贸易经济","国际经济发展合作"]}]},{"n":"法学","c":[{"n":"法学类","m":["法学","知识产权","监狱学","信用风险管理与法律防控","国际经贸规则","司法警察学","社区矫正","纪检监察"]},{"n":"政治学类","m":["政治学与行政学","国际政治","外交学","国际事务与国际关系","政治学、经济学与哲学","国际组织与全球治理"]},{"n":"社会学类","m":["社会学","社会工作","人类学","女性学","家政学","老年学","社会政策"]},{"n":"马克思主义理论类","m":["科学社会主义","中国共产党历史","思想政治教育","马克思主义理论"]},{"n":"公安学类","m":["治安学","侦查学","边防管理","禁毒学","警犬技术","经济犯罪侦查","边防指挥","消防指挥","警卫学","公安情报学","犯罪学","公安管理学","涉外警务","国内安全保卫","警务指挥与战术","技术侦查学","海警执法","公安政治工作","移民管理","出入境管理","反恐警务","消防政治工作","铁路警务"]}]},{"n":"教育学","c":[{"n":"教育学类","m":["教育学","科学教育","人文教育","教育技术学","艺术教育","学前教育","小学教育","特殊教育","华文教育","教育康复学","卫生教育","认知科学与技术","融合教育","劳动教育"]},{"n":"体育学类","m":["体育教育","运动训练","社会体育指导与管理","武术与民族传统体育","运动人体科学","运动康复","休闲体育","体能训练","冰雪运动","电子竞技运动与管理","智能体育工程","体育旅游","运动能力开发"]}]},{"n":"文学","c":[{"n":"中国语言文学类","m":["汉语言文学","汉语言","汉语国际教育","中国少数民族语言文学","古典文献学","应用语言学","秘书学","中国语言与文化","手语翻译"]},{"n":"外国语言文学类","m":["桑戈语","英语","俄语","德语","法语","西班牙语","阿拉伯语","日语","波斯语","朝鲜语","菲律宾语","语言学","塔玛齐格特语","爪哇语","旁遮普语","梵语巴利语","印度尼西亚语","印地语","柬埔寨语","老挝语","缅甸语","马来语","蒙古语","僧伽罗语","泰语","乌尔都语","希伯来语","越南语","豪萨语","斯瓦希里语","阿尔巴尼亚语","保加利亚语","波兰语","捷克语","斯洛伐克语","罗马尼亚语","葡萄牙语","瑞典语","塞尔维亚语","土耳其语","希腊语","匈牙利语","意大利语","泰米尔语","普什图语","世界语","孟加拉语","尼泊尔语","克罗地亚语","荷兰语","芬兰语","乌克兰语","挪威语","丹麦语","冰岛语","爱尔兰语","拉脱维亚语","立陶宛语","斯洛文尼亚语","爱沙尼亚语","马耳他语","哈萨克语","乌兹别克语","祖鲁语","拉丁语","翻译","商务英语","阿姆哈拉语","吉尔吉斯语","索马里语","土库曼语","加泰罗尼亚语","约鲁巴语","亚美尼亚语","马达加斯加语","格鲁吉亚语","阿塞拜疆语","阿非利卡语","马其顿语","塔吉克语","茨瓦纳语","恩德贝莱语","科摩罗语","克里奥尔语","绍纳语","提格雷尼亚语","白俄罗斯语","毛利语","汤加语","萨摩亚语","库尔德语","比斯拉马语","达里语","德顿语","迪维希语","斐济语","库克群岛毛利语","隆迪语","卢森堡语","卢旺达语","纽埃语","皮金语","切瓦语","塞苏陀语"]},{"n":"新闻传播学类","m":["新闻学","广播电视学","广告学","传播学","编辑出版学","网络与新媒体","数字出版","时尚传播","国际新闻与传播"]},{"n":"新闻传播学类（交叉专业）","m":["会展"]}]},{"n":"历史学","c":[{"n":"历史学类","m":["历史学","世界史","考古学","文物与博物馆学","文物保护技术","外国语言与外国历史","文化遗产","古文字学","科学史"]}]},{"n":"理学","c":[{"n":"数学类","m":["数学与应用数学","信息与计算科学","数理基础科学","数据计算及应用"]},{"n":"物理学类","m":["物理学","应用物理学","核物理","声学","系统科学与工程","量子信息科学"]},{"n":"化学类","m":["化学","应用化学","化学生物学","分子科学与工程","能源化学","化学测量学与技术"]},{"n":"天文学类","m":["天文学"]},{"n":"地理科学类","m":["地理科学","自然地理与资源环境","人文地理与城乡规划","地理信息科学"]},{"n":"大气科学类","m":["大气科学","应用气象学","气象技术与工程"]},{"n":"海洋科学类","m":["海洋科学","海洋技术","海洋资源与环境","军事海洋学"]},{"n":"地球物理学类","m":["地球物理学","空间科学与技术","防灾减灾科学与工程","行星科学"]},{"n":"地质学类","m":["地质学","地球化学","地球信息科学与技术","古生物学"]},{"n":"生物科学类","m":["生物科学","生物技术","生物信息学","生态学","整合科学","神经科学"]},{"n":"心理学类","m":["心理学","应用心理学"]},{"n":"统计学类","m":["统计学","应用统计学"]}]},{"n":"工学","c":[{"n":"力学类","m":["理论与应用力学","工程力学"]},{"n":"机械类","m":["机械工程","机械设计制造及其自动化","材料成型及控制工程","机械电子工程","工业设计","过程装备与控制工程","车辆工程","汽车服务工程","机械工艺技术","微机电系统工程","机电技术教育","汽车维修工程教育","智能制造工程","智能车辆工程","仿生科学与工程","新能源汽车工程","增材制造工程","智能交互设计","应急装备技术与工程"]},{"n":"仪器类","m":["测控技术与仪器","精密仪器","智能感知工程"]},{"n":"材料类","m":["材料科学与工程","材料物理","材料化学","冶金工程","金属材料工程","无机非金属材料工程","高分子材料与工程","复合材料与工程","粉体材料科学与工程","宝石及材料工艺学","焊接技术与工程","功能材料","纳米材料与技术","新能源材料与器件","材料设计科学与工程","复合材料成型工程","智能材料与结构","光电信息材料与器件"]},{"n":"能源动力类","m":["能源与动力工程","能源与环境系统工程","新能源科学与工程","储能科学与工程","能源服务工程","氢能科学与工程","可持续能源"]},{"n":"电气类","m":["电气工程及其自动化","智能电网信息工程","光源与照明","电气工程与智能控制","电机电器智能化","电缆工程","能源互联网工程","智慧能源工程"]},{"n":"电子信息类","m":["电子信息工程","电子科学与技术","通信工程","微电子科学与工程","光电信息科学与工程","信息工程","广播电视工程","水声工程","电子封装技术","集成电路设计与集成系统","医学信息工程","电磁场与无线技术","电波传播与天线","电子信息科学与技术","电信工程及管理","应用电子技术教育","人工智能","海洋信息工程","柔性电子学","智能测控工程"]},{"n":"自动化类","m":["自动化","轨道交通信号与控制","机器人工程","邮政工程","核电技术与控制工程","智能装备与系统","工业智能","智能工程与创意设计"]},{"n":"计算机类","m":["计算机科学与技术","软件工程","网络工程","信息安全","物联网工程","数字媒体技术","智能科学与技术","空间信息与数字技术","电子与计算机工程","数据科学与大数据技术","网络空间安全","新媒体技术","电影制作","保密技术","服务科学与工程","虚拟现实技术","区块链工程","密码科学与技术"]},{"n":"土木类","m":["土木工程","建筑环境与能源应用工程","给排水科学与工程","建筑电气与智能化","城市地下空间工程","道路桥梁与渡河工程","铁道工程","智能建造","土木、水利与海洋工程","土木、水利与交通工程","城市水系统工程","智能建造与智慧交通"]},{"n":"水利类","m":["水利水电工程","水文与水资源工程","港口航道与海岸工程","水务工程","水利科学与工程","智慧水利"]},{"n":"测绘类","m":["测绘工程","遥感科学与技术","导航工程","地理国情监测","地理空间信息工程"]},{"n":"化工与制药类","m":["化学工程与工艺","制药工程","资源循环科学与工程","能源化学工程","化学工程与工业生物工程","化工安全工程","涂料工程","精细化工"]},{"n":"地质类","m":["地质工程","勘查技术与工程","资源勘查工程","地下水科学与工程","旅游地学与规划工程","智能地球探测","资源环境大数据工程"]},{"n":"矿业类","m":["采矿工程","石油工程","矿物加工工程","油气储运工程","矿物资源工程","海洋油气工程","智能采矿工程","碳储科学与工程"]},{"n":"纺织类","m":["纺织工程","服装设计与工程","非织造材料与工程","服装设计与工艺教育","丝绸设计与工程"]},{"n":"轻工类","m":["轻化工程","包装工程","印刷工程","香料香精技术与工程","化妆品技术与工程","生物质能源与材料"]},{"n":"交通运输类","m":["交通运输","交通工程","航海技术","轮机工程","飞行技术","交通设备与控制工程","救助与打捞工程","船舶电子电气工程","轨道交通电气与控制","邮轮工程与管理","智慧交通","智能运输工程"]},{"n":"海洋工程类","m":["船舶与海洋工程","海洋工程与技术","海洋资源开发技术","海洋机器人","智慧海洋技术"]},{"n":"航空航天类","m":["航空航天工程","飞行器设计与工程","飞行器制造工程","飞行器动力工程","飞行器环境与生命保障工程","飞行器质量与可靠性","飞行器适航技术","飞行器控制与信息工程","无人驾驶航空器系统工程","智能飞行器技术","空天智能电推进技术"]},{"n":"兵器类","m":["武器系统与工程","武器发射工程","探测制导与控制技术","弹药工程与爆炸技术","特种能源技术与工程","装甲车辆工程","信息对抗技术","智能无人系统技术"]},{"n":"核工程类","m":["核工程与核技术","辐射防护与核安全","工程物理","核化工与核燃料工程"]},{"n":"农业工程类","m":["农业工程","农业机械化及其自动化","农业电气化","农业建筑环境与能源工程","农业水利工程","土地整治工程","农业智能装备工程"]},{"n":"林业工程类","m":["森林工程","木材科学与工程","林产化工","家具设计与工程","木结构建筑与材料"]},{"n":"环境科学与工程类","m":["环境科学与工程","环境工程","环境科学","环境生态工程","环保设备工程","资源环境科学","水质科学与技术"]},{"n":"生物医学工程类","m":["生物医学工程","假肢矫形工程","临床工程技术","康复工程"]},{"n":"食品科学与工程类","m":["食品科学与工程","食品质量与安全","粮食工程","乳品工程","酿酒工程","葡萄与葡萄酒工程","食品营养与检验教育","烹饪与营养教育","食品安全与检测","食品营养与健康","食用菌科学与工程","白酒酿造工程"]},{"n":"建筑类","m":["建筑学","城乡规划","风景园林","历史建筑保护工程","人居环境科学与技术","城市设计","智慧建筑与建造"]},{"n":"安全科学与工程类","m":["安全工程","应急技术与管理","职业卫生工程"]},{"n":"生物工程类","m":["生物工程","生物制药","合成生物学"]},{"n":"公安技术类","m":["刑事科学技术","消防工程","交通管理工程","安全防范工程","公安视听技术","抢险救援指挥与技术","火灾勘查","网络安全与执法","核生化消防","海警舰艇指挥与技术","数据警务技术","食品药品环境犯罪侦查技术"]}]},{"n":"农学","c":[{"n":"植物生产类","m":["农学","园艺","植物保护","植物科学与技术","种子科学与工程","设施农业科学与工程","茶学","烟草","应用生物科学","农艺教育","园艺教育","智慧农业","菌物科学与工程","农药化肥","生物农药科学与工程","生物育种科学"]},{"n":"自然保护与环境生态类","m":["农业资源与环境","野生动物与自然保护区管理","水土保持与荒漠化防治","生物质科学与工程","土地科学与技术","湿地保护与恢复"]},{"n":"动物生产类","m":["动物科学","蚕学","蜂学","经济动物学","马业科学","饲料工程","智慧牧业科学与工程"]},{"n":"动物医学类","m":["动物医学","动物药学","动植物检疫","实验动物学","中兽医学","兽医公共卫生"]},{"n":"林学类","m":["林学","园林","森林保护","经济林","智慧林业"]},{"n":"水产类","m":["水产养殖学","海洋渔业科学与技术","水族科学与技术","水生动物医学"]},{"n":"草学类","m":["草业科学","草坪科学与工程"]}]},{"n":"医学","c":[{"n":"基础医学类","m":["基础医学","生物医学","生物医学科学"]},{"n":"临床医学类","m":["临床医学","麻醉学","医学影像学","眼视光医学","精神医学","放射医学","儿科学"]},{"n":"口腔医学类","m":["口腔医学"]},{"n":"公共卫生与预防医学类","m":["预防医学","食品卫生与营养学","妇幼保健医学","卫生监督","全球健康学","运动与公共健康"]},{"n":"中医学类","m":["中医学","针灸推拿学","藏医学","蒙医学","维医学","壮医学","哈医学","傣医学","回医学","中医康复学","中医养生学","中医儿科学","中医骨伤科学"]},{"n":"中西医结合类","m":["中西医临床医学"]},{"n":"药学类","m":["药学","药物制剂","临床药学","药事管理","药物分析","药物化学","海洋药学","化妆品科学与技术"]},{"n":"中药学类","m":["中药学","中药资源与开发","藏药学","蒙药学","中药制药","中草药栽培与鉴定"]},{"n":"法医学类","m":["法医学"]},{"n":"医学技术类","m":["医学检验技术","医学实验技术","医学影像技术","眼视光学","康复治疗学","口腔医学技术","卫生检验与检疫","听力与言语康复学","康复物理治疗","康复作业治疗","智能医学工程","生物医药数据科学","智能影像工程"]},{"n":"护理学类","m":["护理学","助产学"]}]},{"n":"管理学","c":[{"n":"管理科学与工程类","m":["管理科学","信息管理与信息系统","工程管理","房地产开发与管理","工程造价","保密管理","邮政管理","大数据管理与应用","工程审计","计算金融","应急管理"]},{"n":"工商管理类","m":["工商管理","市场营销","会计学","财务管理","国际商务","人力资源管理","审计学","资产评估","物业管理","文化产业管理","劳动关系","体育经济与管理","财务会计教育","市场营销教育","零售业管理","创业管理","海关稽查"]},{"n":"农业经济管理类","m":["农林经济管理","农村区域发展"]},{"n":"公共管理类","m":["公共事业管理","行政管理","劳动与社会保障","土地资源管理","城市管理","海关管理","交通管理","海事管理","公共关系学","健康服务与管理","海警后勤管理","医疗产品管理","医疗保险","养老服务管理","海关检验检疫安全","海外安全管理","自然资源登记与管理","慈善管理"]},{"n":"图书情报与档案管理类","m":["图书馆学","档案学","信息资源管理"]},{"n":"物流管理与工程类","m":["物流管理","物流工程","采购管理","供应链管理"]},{"n":"工业工程类","m":["工业工程","标准化工程","质量管理工程"]},{"n":"电子商务类","m":["电子商务","电子商务及法律","跨境电子商务"]},{"n":"旅游管理类","m":["旅游管理","酒店管理","会展经济与管理","旅游管理与服务教育"]}]},{"n":"艺术学","c":[{"n":"艺术学理论类","m":["艺术史论","艺术管理","非物质文化遗产保护"]},{"n":"音乐与舞蹈学类","m":["音乐表演","音乐学","作曲与作曲技术理论","舞蹈表演","舞蹈学","舞蹈编导","舞蹈教育","航空服务艺术与管理","流行音乐","音乐治疗","流行舞蹈","音乐教育"]},{"n":"戏剧与影视学类","m":["表演","戏剧学","电影学","戏剧影视文学","广播电视编导","戏剧影视导演","戏剧影视美术设计","录音艺术","播音与主持艺术","动画","影视摄影与制作","影视技术","戏剧教育","曲艺","音乐剧"]},{"n":"美术学类","m":["美术学","绘画","雕塑","摄影","书法学","中国画","实验艺术","跨媒体艺术","文物保护与修复","漫画","纤维艺术","科技艺术","美术教育"]},{"n":"设计学类","m":["艺术设计学","视觉传达设计","环境设计","产品设计","服装与服饰设计","公共艺术","工艺美术","数字媒体艺术","艺术与科技","陶瓷艺术设计","新媒体艺术","包装设计","珠宝首饰设计与工艺"]}]}];
+let casTargets = new Set();   // 选中的专业（目标）
+let casExcludes = new Set();  // 排除的专业
+let casActiveCat = -1;        // 当前选中的门类index
+let casActiveLei = -1;        // 当前选中的类别index
+
+function initCascader(){
+  const col0 = document.getElementById('casCol0');
+  col0.innerHTML = BENKE_TREE.map((cat,i)=>{
+    const total = cat.c.reduce((s,l)=>s+l.m.length, 0);
+    return `<div class="cas-item" data-idx="${i}" onclick="casCatClick(${i})">
+      <span style="overflow:hidden;text-overflow:ellipsis">${cat.n}</span>
+      <span style="display:flex;align-items:center;gap:3px">
+        <span class="cas-cnt">${total}</span>
+        <span class="cas-arrow">›</span>
+      </span>
+    </div>`;
+  }).join('');
+}
+
+function casCatClick(idx){
+  casActiveCat = idx;
+  casActiveLei = -1;
+  // 高亮
+  document.querySelectorAll('#casCol0 .cas-item').forEach((el,i)=>el.classList.toggle('active', i===idx));
+  // 渲染类别列
+  const col1 = document.getElementById('casCol1');
+  const cat = BENKE_TREE[idx];
+  col1.style.display = '';
+  col1.innerHTML = `<div class="cas-item" onclick="casSelectAllCat(${idx},'target')" style="color:#34C759;font-weight:700;font-size:10px;justify-content:center">✓ 全选目标</div>
+    <div class="cas-item" onclick="casSelectAllCat(${idx},'exclude')" style="color:#FF453A;font-weight:700;font-size:10px;justify-content:center">✕ 全选排除</div>` +
+    cat.c.map((lei,j)=>`<div class="cas-item" data-idx="${j}" onclick="casLeiClick(${idx},${j})">
+      <span style="overflow:hidden;text-overflow:ellipsis">${lei.n}</span>
+      <span style="display:flex;align-items:center;gap:3px">
+        <span class="cas-cnt">${lei.m.length}</span>
+        <span class="cas-arrow">›</span>
+      </span>
+    </div>`).join('');
+  // 隐藏专业列
+  document.getElementById('casCol2').style.display = 'none';
+}
+
+function casLeiClick(catIdx, leiIdx){
+  casActiveLei = leiIdx;
+  document.querySelectorAll('#casCol1 .cas-item').forEach((el,i)=>el.classList.toggle('active', i===leiIdx+2));
+  const col2 = document.getElementById('casCol2');
+  const lei = BENKE_TREE[catIdx].c[leiIdx];
+  col2.style.display = '';
+  col2.innerHTML = `<div class="cas-item" onclick="casSelectAllLei(${catIdx},${leiIdx},'target')" style="color:#34C759;font-weight:700;font-size:10px;justify-content:center">✓ 全选目标</div>
+    <div class="cas-item" onclick="casSelectAllLei(${catIdx},${leiIdx},'exclude')" style="color:#FF453A;font-weight:700;font-size:10px;justify-content:center">✕ 全选排除</div>` +
+    lei.m.map(name=>{
+      const isT = casTargets.has(name);
+      const isE = casExcludes.has(name);
+      return `<div class="cas-item" style="justify-content:space-between">
+        <span style="overflow:hidden;text-overflow:ellipsis;flex:1" title="${name}">${name}</span>
+        <div class="cas-btns">
+          <button class="cas-btn-sel${isT?' on':''}" onclick="casToggle('${name.replace(/'/g,"\\'")}','target')">选</button>
+          <button class="cas-btn-exc${isE?' on':''}" onclick="casToggle('${name.replace(/'/g,"\\'")}','exclude')">排</button>
+        </div>
+      </div>`;
+    }).join('');
+}
+
+function casToggle(name, mode){
+  if(mode==='target'){
+    casExcludes.delete(name);
+    if(casTargets.has(name)) casTargets.delete(name);
+    else casTargets.add(name);
+  } else {
+    casTargets.delete(name);
+    if(casExcludes.has(name)) casExcludes.delete(name);
+    else casExcludes.add(name);
+  }
+  // 刷新当前专业列
+  if(casActiveCat>=0 && casActiveLei>=0) casLeiClick(casActiveCat, casActiveLei);
+  renderCasChips();
+  rebuildKws();
+}
+
+function casSelectAllCat(catIdx, mode){
+  const cat = BENKE_TREE[catIdx];
+  cat.c.forEach(lei=>lei.m.forEach(name=>{
+    if(mode==='target'){ casExcludes.delete(name); casTargets.add(name); }
+    else { casTargets.delete(name); casExcludes.add(name); }
+  }));
+  if(casActiveLei>=0) casLeiClick(catIdx, casActiveLei);
+  renderCasChips();
+  rebuildKws();
+}
+
+function casSelectAllLei(catIdx, leiIdx, mode){
+  const lei = BENKE_TREE[catIdx].c[leiIdx];
+  lei.m.forEach(name=>{
+    if(mode==='target'){ casExcludes.delete(name); casTargets.add(name); }
+    else { casTargets.delete(name); casExcludes.add(name); }
+  });
+  casLeiClick(catIdx, leiIdx);
+  renderCasChips();
+  rebuildKws();
+}
+
+function removeCasChip(name, mode){
+  if(mode==='target') casTargets.delete(name);
+  else casExcludes.delete(name);
+  if(casActiveCat>=0 && casActiveLei>=0) casLeiClick(casActiveCat, casActiveLei);
+  renderCasChips();
+  rebuildKws();
+}
+
+function renderCasChips(){
+  const tEl = document.getElementById('casTargetChips');
+  const eEl = document.getElementById('casExcludeChips');
+  if(casTargets.size){
+    tEl.innerHTML = `<span class="cas-lbl">✓ 目标(${casTargets.size}):</span>` +
+      [...casTargets].map(n=>`<span class="cas-chip-t">${n}<span class="cas-chip-rm" onclick="removeCasChip('${n.replace(/'/g,"\\'")}','target')">×</span></span>`).join('');
+  } else { tEl.innerHTML = ''; }
+  if(casExcludes.size){
+    eEl.innerHTML = `<span class="cas-lbl">✕ 排除(${casExcludes.size}):</span>` +
+      [...casExcludes].map(n=>`<span class="cas-chip-e">${n}<span class="cas-chip-rm" onclick="removeCasChip('${n.replace(/'/g,"\\'")}','exclude')">×</span></span>`).join('');
+  } else { eEl.innerHTML = ''; }
+}
+
+initCascader();
 
 // ── 异步加载关键词数据（重试5次）────────────────────
 async function loadKwLib(){
@@ -1020,6 +1310,9 @@ async function generate(){
   if(!score || score<300||score>750){ alert('请输入有效分数（300-750）'); return; }
   if(targetKws.length===0){ alert('请至少选择一个目标专业方向'); return; }
 
+  // 重新生成时清空删除记录
+  deletedGcodes = [];
+
   const btn = document.getElementById('btnGen');
   btn.textContent='生成中…'; btn.disabled=true;
   document.getElementById('statusBadge').textContent='规划中…';
@@ -1032,6 +1325,8 @@ async function generate(){
       body: JSON.stringify({
         score, ke_lei: selKeLei,
         target_kw: targetKws, exclude_kw: excludeKws,
+        strict_exclude: strictExcludeMode,   // 严格排除：含排除专业的组整体移除
+        include_zhuanxiang: includeZhuanxiang, // 是否包含专项计划
         pref_provinces:    provMode==='inc' && selProvinces.size>0 ? [...selProvinces] : [],
         exclude_provinces: provMode==='exc' && selProvinces.size>0 ? [...selProvinces] : [],
         include_types: ALL_STYPES.filter(t=>stypeState[t]==='inc'),
@@ -1054,6 +1349,7 @@ async function generate(){
     document.getElementById('btnExport').style.display='';
     document.getElementById('btnMC').style.display='';
     document.getElementById('btnOpt').style.display=''; document.getElementById('btnOpt').textContent='🔁 迭代优化';
+    showReplenishBtn();
     document.getElementById('resultWrap').classList.add('show');
     document.getElementById('formWrap').style.display='none';
     window.scrollTo(0,0);
@@ -1089,6 +1385,8 @@ function buildVolListHTML(vols, profile){
       const dSign = diff>0?'+':'';
       const isColdAnchor = m.kind==='cold' && mi>=4;
       const coldTag = isColdAnchor ? `<span class="mj-cold">⚠️冷门</span>` : '';
+      // 专项计划标记
+      const zxTag = m.zhuanxiang ? `<span class="mj-zx" title="${m.full_name||m.name}">📋${m.zhuanxiang}</span>` : '';
       // 实验班：syban_all=全量分流专业；syban_majors=命中目标的子集（高亮用）
       const sybanAll  = m.syban_all  && m.syban_all.length  > 0 ? m.syban_all  : null;
       const sybanHitSet = new Set(m.syban_majors || []);
@@ -1108,10 +1406,18 @@ function buildVolListHTML(vols, profile){
             return `<span class="sbd-chip${hit?' sbd-hit':''}">${hit?'★ ':''}${s}</span>`;
           }).join('')}
         </div>` : '';
+      // 学费显示
+      const feeTxt = m.fee && m.fee > 0
+        ? (m.fee >= 10000 ? (m.fee/10000).toFixed(m.fee%10000?1:0)+'万' : m.fee+'元')
+        : '';
+      // 排名（仅展示'25年位次，不与'24年老高考数据对比）
+      const r25txt = m.r25 ? m.r25.toLocaleString() : '';
       return `<div class="mj-row${sybanAll?' has-syban':''}" ${sybanAll?'onclick="event.stopPropagation();toggleSyban(this)"':''}>
         <span class="mj-idx">${mi+1}</span>
-        <span class="mj-name" title="${m.name}">${simplifyMajorName(m.name)}${coldTag}${sybanTag}</span>
+        <span class="mj-name" title="${m.name}">${simplifyMajorName(m.name)}${coldTag}${zxTag}${sybanTag}</span>
+        ${feeTxt?`<span class="mj-fee">${feeTxt}</span>`:''}
         <span class="mj-s">${m.s25||'?'}分</span>
+        ${r25txt?`<span class="mj-rank">${r25txt}位</span>`:''}
         <span class="mj-diff ${dCls}">${dSign}${diff!=null?diff:''}</span>
         <span class="mj-rate" style="color:${mjRateColor}">${mjRateTxt}</span>
       </div>${sybanDetail}`;
@@ -1130,13 +1436,12 @@ function buildVolListHTML(vols, profile){
     }).join('');
 
     let warnBadge='';
-    if(v.warn_critical)        warnBadge=`<div class="warn-badge warn-critical">⚠️ 专业不足<br>调剂风险</div>`;
-    else if(v.warn_tuidan)     warnBadge=`<div class="warn-badge warn-tuidan">🚨 退档<br>高风险</div>`;
-    else if(v.warn_few_majors) warnBadge=`<div class="warn-badge warn-few">⚠️ 专业不足</div>`;
+    if(v.warn_tuidan)           warnBadge=`<div class="warn-badge warn-tuidan">🚨 退档<br>高风险</div>`;
     else if(v.warn_cold_anchor) warnBadge=`<div class="warn-badge warn-cold">⚠️ 锚点冷门</div>`;
 
     const warnMsgs=[
       v.warn_msg         ?`<div style="font-size:10px;color:#FF9F0A;margin-bottom:2px">⚠️ ${v.warn_msg}</div>`:'',
+      v.warn_msg_excl    ?`<div style="font-size:10px;color:#FF6B6B;margin-bottom:2px">🚫 ${v.warn_msg_excl}</div>`:'',
       v.warn_msg_cold    ?`<div style="font-size:10px;color:#FF9F0A;margin-bottom:2px">⚠️ ${v.warn_msg_cold}</div>`:'',
       v.warn_msg_tuidan  ?`<div style="font-size:10px;color:#FF453A;margin-bottom:2px">${v.warn_msg_tuidan}</div>`:'',
     ].filter(Boolean).join('');
@@ -1144,10 +1449,19 @@ function buildVolListHTML(vols, profile){
 
     const selNames = JSON.stringify((v.intent6||[]).map(m=>m.name)).replace(/'/g,'&#39;');
     const gcode = String(v.gcode||'').replace(/"/g,'&quot;');
+    // 专业折叠摘要：显示前3个专业名
+    const maj6 = v.intent6 || [];
+    const majSummary = maj6.length
+      ? maj6.slice(0,3).map((m,mi)=>`${['①','②','③'][mi]}${simplifyMajorName(m.name)}`).join('  ') + (maj6.length>3?'  …':'')
+      : '暂无专业';
+    const isFirst = i === 0;
+    const isLast  = i === generatedVols.length - 1;
+
     const card = `<div class="vol-card" data-gcode="${gcode}" data-school="${v.school.replace(/"/g,'&quot;')}" data-ke="${selKeLei}" data-selected='${selNames}'>
-      ${warnBadge}
       <div class="vc-hdr">
-        <div class="vc-num" style="color:${c}">${i+1}</div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0">
+          <div class="vc-num" style="color:${c}">${i+1}</div>
+        </div>
         <div class="vc-body">
           <div class="vc-school">${v.school}</div>
           <div class="vc-meta">
@@ -1156,6 +1470,7 @@ function buildVolListHTML(vols, profile){
             <span class="tag t-gray">${v.city}·${v.cr_label}</span>
             <span class="tag ${sc6ok?'t-ok':'t-warn'}">sc6 ${v.sc6||'?'}${sc6ok?' ✓':' △'}</span>
             <span class="tag t-diaoji">服从调剂 ✓</span>
+            ${v.has_zhuanxiang?`<span class="tag t-zx" title="该专业组含专项计划专业，对考生户口有严格限制，请确认资格">📋 ${(v.zhuanxiang_types||[]).join('/')}</span>`:''}
           </div>
           <div class="ys-row">${scoreRow}</div>
         </div>
@@ -1164,9 +1479,18 @@ function buildVolListHTML(vols, profile){
           <div style="font-size:10px;color:rgba(255,255,255,.3)">${topM?topM.name.slice(0,6):'无命中'}</div>
         </div>
         <div class="vc-edit-ctrl">
-          <button class="vc-btn vc-btn-edit" onclick="openVolEdit('${gcode}')">编辑</button>
-          <button class="vc-btn vc-btn-del"  onclick="deleteVol('${gcode}')">✕</button>
+          ${warnBadge}
+          <div style="display:flex;gap:4px;align-items:center">
+            <button class="vc-btn vc-btn-move" onclick="moveVol('${gcode}',-1)" ${isFirst?'disabled':''} title="上移">▲</button>
+            <button class="vc-btn vc-btn-move" onclick="moveVol('${gcode}', 1)" ${isLast ?'disabled':''} title="下移">▼</button>
+            <button class="vc-btn vc-btn-edit" onclick="openVolEdit('${gcode}')">编辑</button>
+            <button class="vc-btn vc-btn-del"  onclick="deleteVol('${gcode}')">删除</button>
+          </div>
         </div>
+      </div>
+      <div class="vc-maj-toggle" onclick="toggleMajors(this)">
+        <span class="vc-maj-summary">${majSummary}</span>
+        <span class="vc-maj-arrow">▾</span>
       </div>
       <div class="vc-majors">${mjRows}</div>
       ${warnBar}
@@ -1241,7 +1565,7 @@ async function optimize(){
     const res = await fetch('/api/optimize',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ max_rounds:15, mc_n:extended?12000:8000, noise_pct:extended?20:15 })
+      body: JSON.stringify({ max_rounds:15, mc_n:extended?12000:8000, noise_pct:3.5 })
     });
     const d = await res.json();
     if(d.error){ alert('优化失败：'+d.error); return; }
@@ -1309,12 +1633,18 @@ function exportExcel(){
   f.href='/api/export_excel';
   // 用POST触发download
   fetch('/api/export_excel',{method:'POST'})
-    .then(r=>r.blob())
-    .then(b=>{
+    .then(r=>{
+      if(!r.ok) return r.json().then(d=>{ alert(d.error||'导出失败'); throw new Error('export failed'); });
+      const cd = r.headers.get('content-disposition')||'';
+      const m = cd.match(/filename\*?=(?:UTF-8'')?([^;]+)/);
+      return r.blob().then(b=>({b, fname: m ? decodeURIComponent(m[1]) : '志愿规划表.xlsx'}));
+    })
+    .then(({b,fname})=>{
       const url=URL.createObjectURL(b);
       const a=document.createElement('a'); a.href=url;
-      a.download=`志愿规划表.xlsx`; a.click();
-    });
+      a.download=fname; a.click();
+    })
+    .catch(e=>{ if(e.message!=='export failed') console.error(e); });
 }
 
 // ── 志愿编辑 ─────────────────────────────────────────
@@ -1388,15 +1718,87 @@ function saveVolEdit(){
   syncPlanToServer();
 }
 
+// ── 专业列表折叠/展开 ──────────────────────────────────
+function toggleMajors(toggleEl){
+  toggleEl.classList.toggle('closed');
+  const majorsEl = toggleEl.nextElementSibling;
+  if(majorsEl && majorsEl.classList.contains('vc-majors')){
+    majorsEl.classList.toggle('closed');
+  }
+}
+
+// ── 上下移动志愿 ────────────────────────────────────────
+function moveVol(gcode, dir){
+  const idx = generatedVols.findIndex(v=>String(v.gcode)===String(gcode));
+  if(idx < 0) return;
+  const newIdx = idx + dir;
+  if(newIdx < 0 || newIdx >= generatedVols.length) return;
+  // 交换
+  [generatedVols[idx], generatedVols[newIdx]] = [generatedVols[newIdx], generatedVols[idx]];
+  // 更新 vol_idx
+  generatedVols.forEach((v,i)=>{ v.vol_idx = i+1; });
+  rerenderVolList();
+  syncPlanToServer();
+}
+
+// ── 已删除的志愿组记录（补充时排除）──────────────────
+let deletedGcodes = [];
+
 // ── 删除志愿组 ────────────────────────────────────────
 function deleteVol(gcode){
   if(!confirm('确认删除该志愿组？')) return;
+  deletedGcodes.push(String(gcode));
   generatedVols = generatedVols.filter(v=>String(v.gcode)!==String(gcode));
   rerenderVolList();
   syncPlanToServer();
-  // 更新志愿数量显示
-  const d = window._lastRenderData;
-  if(d) { const rushN2=generatedVols.filter(v=>v.tp==='冲').length; const safeN2=generatedVols.filter(v=>v.tp==='稳').length; const baoN2=generatedVols.filter(v=>v.tp==='保').length; document.getElementById('rs-rush').textContent=rushN2+'个'; document.getElementById('rs-safe').textContent=safeN2+'个'; document.getElementById('rs-bao').textContent=baoN2+'个'; }
+  updateVolCounts();
+  showReplenishBtn();
+}
+
+function updateVolCounts(){
+  const rushN2=generatedVols.filter(v=>v.tp==='冲').length;
+  const safeN2=generatedVols.filter(v=>v.tp==='稳').length;
+  const baoN2=generatedVols.filter(v=>v.tp==='保').length;
+  const el1=document.getElementById('rs-rush'); if(el1) el1.textContent=rushN2+'个';
+  const el2=document.getElementById('rs-safe'); if(el2) el2.textContent=safeN2+'个';
+  const el3=document.getElementById('rs-bao');  if(el3) el3.textContent=baoN2+'个';
+}
+
+// ── 补充志愿（删除后一键补满） ──────────────────────────
+function showReplenishBtn(){
+  const btn = document.getElementById('btnReplenish');
+  if(!btn) return;
+  const target = 40;
+  const current = generatedVols.length;
+  if(current < target && current > 0){
+    btn.textContent = '➕ 补充 ' + (target - current) + ' 个志愿';
+    btn.style.display = '';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+function doReplenish(){
+  const btn = document.getElementById('btnReplenish');
+  if(btn) { btn.textContent = '补充中...'; btn.disabled = true; }
+  fetch('/api/replenish', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({target_count: 40, exclude_gcodes: deletedGcodes})
+  })
+  .then(r => r.json())
+  .then(d => {
+    if(btn) btn.disabled = false;
+    if(d.error) { alert(d.error); if(btn) btn.textContent = '➕ 补充志愿（重试）'; return; }
+    generatedVols = d.vols || [];
+    rerenderVolList();
+    updateVolCounts();
+    showReplenishBtn();
+    alert('已补充 ' + d.added + ' 个志愿组，共 ' + d.count + ' 个 (耗时' + d.elapsed + 's)');
+  })
+  .catch(e => {
+    if(btn) { btn.disabled = false; btn.textContent = '➕ 补充志愿（重试）'; }
+  });
 }
 
 // ── 插入志愿组 ────────────────────────────────────────
@@ -1483,8 +1885,8 @@ function insertGroup(idx){
     intent6:   g.majors.slice(0,6).map(m=>({name:m.name, s25:m.s25, diff:m.s25?(m.s25-(profile.score||0)):null, kind:'other'})),
     diaoji:    true,
     dedup_count: 0,
-    warn_few_majors: g.majors.length < 3,
-    warn_critical:   g.majors.length < 2,
+    warn_few_majors: false,
+    warn_critical:   false,
     warn_msg:'', warn_cold_anchor:false, warn_msg_cold:'',
     _rate: 0, _topM: null,
   };
@@ -1544,6 +1946,7 @@ if(new URLSearchParams(location.search).get('restored')==='1'){
       document.getElementById('btnExport').style.display='';
       document.getElementById('btnMC').style.display='';
       document.getElementById('btnOpt').style.display='';
+      showReplenishBtn();
       document.getElementById('resultWrap').classList.add('show');
       document.getElementById('formWrap').style.display='none';
     } catch(e){ console.warn('恢复方案失败', e); }
@@ -1557,6 +1960,7 @@ document.getElementById('btnGen').addEventListener('click',()=>{
     document.getElementById('btnExport').style.display='none';
     document.getElementById('btnMC').style.display='none';
     document.getElementById('btnOpt').style.display='none';
+    document.getElementById('btnReplenish').style.display='none';
     document.getElementById('optHistory').style.display='none';
   }
 });
@@ -1594,10 +1998,12 @@ document.getElementById('btnGen').addEventListener('click',()=>{
         <button class="mp-close" onclick="closeMajorPicker()">×</button>
       </div>
       <div class="mp-search">
-        <input type="text" id="mpSearch" placeholder="搜索专业名称、就业方向、关键词..." oninput="renderMpCards()">
+        <input type="text" id="mpSearch" placeholder="搜索专业名称、就业方向、关键词..." oninput="debouncedRenderMpCards()">
       </div>
     </div>
     <div class="mp-cats" id="mpCats"></div>
+    <div class="mp-subcats" id="mpSubCats"></div>
+    <div class="mp-custom-tags" id="mpCustomTags"></div>
     <div class="mp-filters">
       <span class="mp-flt-lbl">热度</span>
       <button class="mp-flt-btn on" id="mfh_全部" onclick="setMpFilter('hot','全部')">全部</button>
@@ -2164,12 +2570,170 @@ let mpKeFilter  = '全部';
   ).join('');
 })();
 
+// ── 门类→类别映射 ──
+const MP_CAT_SUBS = {};
+MP_MAJORS.forEach(m=>{
+  if(!MP_CAT_SUBS[m.门类]) MP_CAT_SUBS[m.门类] = {};
+  if(!MP_CAT_SUBS[m.门类][m.类别]) MP_CAT_SUBS[m.门类][m.类别] = 0;
+  MP_CAT_SUBS[m.门类][m.类别]++;
+});
+
+let mpSubCatFilter = '全部';
+
 function setMpCat(cat){
   mpCatFilter = cat;
+  mpSubCatFilter = '全部'; // 切门类时重置子分类
   document.querySelectorAll('.mp-cat').forEach(b=>b.classList.remove('on'));
   document.getElementById('mpc_'+cat).classList.add('on');
+  renderMpSubCats();
   renderMpCards();
 }
+
+// ── 子分类标签渲染 ──
+function renderMpSubCats(){
+  const el = document.getElementById('mpSubCats');
+  if(mpCatFilter === '全部'){
+    el.classList.remove('show'); return;
+  }
+  const subs = MP_CAT_SUBS[mpCatFilter];
+  if(!subs || Object.keys(subs).length <= 1){ el.classList.remove('show'); return; }
+  const sorted = Object.entries(subs).sort((a,b)=>b[1]-a[1]);
+  el.innerHTML = `<button class="mp-subcat on" onclick="setMpSubCat('全部')">全部</button>` +
+    sorted.map(([name,cnt])=>
+      `<button class="mp-subcat" onclick="setMpSubCat('${name}')">${name}<span class="mp-subcat-cnt">${cnt}</span></button>`
+    ).join('');
+  el.classList.add('show');
+}
+
+function setMpSubCat(sub){
+  mpSubCatFilter = sub;
+  document.querySelectorAll('.mp-subcat').forEach(b=>b.classList.remove('on'));
+  event.target.closest('.mp-subcat').classList.add('on');
+  renderMpCards();
+}
+
+// ── 自定义标签系统 ──
+const MP_CTAG_STORAGE_KEY = 'mp_custom_tags';
+const MP_CTAG_VERSION_KEY = 'mp_custom_tags_v';
+const MP_CTAG_CUR_VERSION = 2;  // 升版本号可触发默认标签重置
+
+// 默认预设标签
+const MP_DEFAULT_TAGS = [
+  {name:'带电工科',  keywords:['电子信息','电气','自动化','计算机','通信','人工智能','机器人','智能'], preset:true},
+  {name:'金融财经',  keywords:['金融','经济','财政','会计','税收','投资','保险','贸易'], preset:true},
+  {name:'医学临床',  keywords:['临床','口腔','麻醉','医学影像','儿科','精神医学','基础医学'], preset:true},
+  {name:'土建交通',  keywords:['土木','建筑','交通','道路','桥梁','城乡规划','给排水','测绘'], preset:true},
+  {name:'生化环材',  keywords:['生物','化学','环境','材料','化工','制药','高分子'], preset:true},
+  {name:'师范教育',  keywords:['教育','学前','小学','体育','心理'], preset:true},
+  {name:'法学公安',  keywords:['法学','侦查','治安','公安','知识产权','政治'], preset:true},
+  {name:'新闻传媒',  keywords:['新闻','传播','广告','网络与新媒体','编导','影视'], preset:true},
+];
+
+// 首次使用或版本升级时写入默认标签
+const savedVer = parseInt(localStorage.getItem(MP_CTAG_VERSION_KEY)||'0');
+let mpCustomTags;
+if(savedVer < MP_CTAG_CUR_VERSION){
+  // 保留用户自建标签（非preset），合并新默认
+  const old = JSON.parse(localStorage.getItem(MP_CTAG_STORAGE_KEY)||'[]');
+  const userTags = old.filter(t=>!t.preset);
+  mpCustomTags = [...MP_DEFAULT_TAGS, ...userTags];
+  localStorage.setItem(MP_CTAG_STORAGE_KEY, JSON.stringify(mpCustomTags));
+  localStorage.setItem(MP_CTAG_VERSION_KEY, String(MP_CTAG_CUR_VERSION));
+} else {
+  mpCustomTags = JSON.parse(localStorage.getItem(MP_CTAG_STORAGE_KEY)||'[]');
+}
+
+let mpActiveCustomTag = null;
+
+function saveMpCustomTags(){
+  localStorage.setItem(MP_CTAG_STORAGE_KEY, JSON.stringify(mpCustomTags));
+}
+
+function renderMpCustomTags(){
+  const el = document.getElementById('mpCustomTags');
+  // 统计每个标签匹配的专业数
+  const counts = mpCustomTags.map(t=>{
+    return MP_MAJORS.filter(m=>t.keywords.some(kw=>m.专业.includes(kw)||m.类别.includes(kw)||m.门类.includes(kw))).length;
+  });
+  el.innerHTML = mpCustomTags.map((t,i)=>{
+    const icon = t.preset ? '📌' : '🏷️';
+    return `<button class="mp-ctag${mpActiveCustomTag===i?' on':''}" onclick="toggleCustomTag(${i})" title="${t.keywords.join('、')}">
+      ${icon}${t.name}<span class="mp-subcat-cnt">${counts[i]}</span>
+      <span class="mp-ctag-del" onclick="event.stopPropagation();deleteCustomTag(${i})" title="删除标签">×</span>
+    </button>`;
+  }).join('') +
+  `<button class="mp-ctag-add" onclick="addCustomTag()">+ 新建标签</button>`;
+}
+
+function toggleCustomTag(idx){
+  if(mpActiveCustomTag === idx){
+    mpActiveCustomTag = null;
+  } else {
+    mpActiveCustomTag = idx;
+    // 激活自定义标签时清除门类/子分类
+    mpCatFilter = '全部'; mpSubCatFilter = '全部';
+    document.querySelectorAll('.mp-cat').forEach(b=>b.classList.remove('on'));
+    const allBtn = document.getElementById('mpc_全部');
+    if(allBtn) allBtn.classList.add('on');
+    document.getElementById('mpSubCats').classList.remove('show');
+  }
+  renderMpCustomTags();
+  renderMpCards();
+}
+
+function deleteCustomTag(idx){
+  const tag = mpCustomTags[idx];
+  const msg = tag.preset
+    ? '删除预设标签「'+tag.name+'」？（可通过清除浏览器缓存恢复）'
+    : '删除标签「'+tag.name+'」？';
+  if(!confirm(msg)) return;
+  mpCustomTags.splice(idx, 1);
+  if(mpActiveCustomTag === idx) mpActiveCustomTag = null;
+  else if(mpActiveCustomTag !== null && mpActiveCustomTag > idx) mpActiveCustomTag--;
+  saveMpCustomTags();
+  renderMpCustomTags();
+  renderMpCards();
+}
+
+function addCustomTag(){
+  const name = prompt('标签名称（例如：带电工科）：');
+  if(!name || !name.trim()) return;
+  const kwStr = prompt('包含的关键词，用逗号分隔（例如：电子,电气,自动化,计算机）：\n\n关键词会匹配专业名、类别名和门类名');
+  if(!kwStr || !kwStr.trim()) return;
+  const keywords = kwStr.split(/[,，]/).map(s=>s.trim()).filter(Boolean);
+  if(!keywords.length) return;
+  // 预览匹配结果
+  const matched = MP_MAJORS.filter(m=>keywords.some(kw=>m.专业.includes(kw)||m.类别.includes(kw)||m.门类.includes(kw)));
+  if(!matched.length){
+    alert('未匹配到任何专业，请调整关键词');
+    return;
+  }
+  mpCustomTags.push({name: name.trim(), keywords, preset:false});
+  saveMpCustomTags();
+  renderMpCustomTags();
+  // 自动激活新标签
+  mpActiveCustomTag = mpCustomTags.length - 1;
+  mpCatFilter = '全部'; mpSubCatFilter = '全部';
+  document.querySelectorAll('.mp-cat').forEach(b=>b.classList.remove('on'));
+  const allBtn = document.getElementById('mpc_全部');
+  if(allBtn) allBtn.classList.add('on');
+  document.getElementById('mpSubCats').classList.remove('show');
+  renderMpCustomTags();
+  renderMpCards();
+}
+
+// 重置为默认预设标签
+function resetCustomTags(){
+  if(!confirm('恢复默认标签？你的自定义标签将被保留。')) return;
+  const userTags = mpCustomTags.filter(t=>!t.preset);
+  mpCustomTags = [...MP_DEFAULT_TAGS, ...userTags];
+  mpActiveCustomTag = null;
+  saveMpCustomTags();
+  renderMpCustomTags();
+  renderMpCards();
+}
+
+renderMpCustomTags();
 
 function setMpFilter(type, val){
   if(type==='hot') mpHotFilter = val;
@@ -2188,59 +2752,121 @@ function setMpFilter(type, val){
   renderMpCards();
 }
 
+// ── 专业选择器：防抖 + 分页渲染 ──────────────────────────────
+let _mpFilteredList = [];   // 当前过滤结果缓存
+let _mpPageSize = 50;       // 每页显示数
+let _mpRenderedCount = 0;   // 已渲染数量
+
+const debouncedRenderMpCards = (()=>{
+  let t; return ()=>{ clearTimeout(t); t=setTimeout(renderMpCards, 200); };
+})();
+
+function _buildMpCardHTML(m){
+  const isSel = mpSelections.has(m.专业+'_'+m.选科);
+  const hc = MP_HOT_COLOR[m.热度级别]||'#6E7EAB';
+  const kc = MP_KE_COLOR[m.选科]||'#6E7EAB';
+  const hasReport = (window.MP_REPORTS||new Set()).has(m.专业);
+  const reportStrip = hasReport ? `
+    <div class="report-strip" data-report="${m.专业.replace(/"/g,'&quot;')}" data-ke="${m.选科}">
+      <div class="rs-left"><span class="rs-icon">📋</span><span class="rs-text">深度报告</span><span class="rs-sub">学习 · 就业 · 薪资</span></div>
+      <span class="rs-arrow">›</span>
+    </div>` : '';
+  return `<div class="mp-card${isSel?' selected':''}${hasReport?' has-report':''}" data-key="${m.专业}_${m.选科}" data-major="${m.专业.replace(/"/g,'&quot;')}" data-ke="${m.选科}">
+    <div class="mp-card-top">
+      <div><div class="mp-card-cat">${m.门类} · ${m.类别}</div><div class="mp-card-name">${m.专业}</div></div>
+      <div class="mp-hot-icon" title="${m.热度级别}">${MP_HOT_ICON[m.热度级别]}</div>
+    </div>
+    <div class="mp-tags">
+      <span class="mp-tag" style="background:${kc}22;color:${kc}">${m.选科}选科</span>
+      <span class="mp-tag" style="background:${hc}22;color:${hc}">${m.热度级别}</span>
+    </div>
+    ${reportStrip}
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <div style="flex:1;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 8px;text-align:center">
+        <div style="font-size:16px;font-weight:900;color:#4A9EFF">${m.均分}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:1px">吉林录取分</div>
+      </div>
+      <div style="flex:1;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 8px;text-align:center">
+        <div style="font-size:16px;font-weight:900;color:#34C759">${m.院校数}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:1px">招生院校数</div>
+      </div>
+    </div>
+    <div class="mp-sel-mark">✓ 已选择</div>
+  </div>`;
+}
+
+// ── 构建被排除的门类/类别集合（级联排除优先级最高）──
+function _buildCasExcludeSets(){
+  const exCats = new Set();   // 被整体排除的门类
+  const exLeis = new Set();   // 被整体排除的类别
+  // 如果某门类下所有专业都被排除 → 该门类被排除
+  BENKE_TREE.forEach(cat=>{
+    const allMajors = cat.c.flatMap(l=>l.m);
+    if(allMajors.length > 0 && allMajors.every(m=>casExcludes.has(m))){
+      exCats.add(cat.n);
+    }
+    cat.c.forEach(lei=>{
+      if(lei.m.length > 0 && lei.m.every(m=>casExcludes.has(m))){
+        exLeis.add(lei.n);
+      }
+    });
+  });
+  return {exCats, exLeis};
+}
+
 function renderMpCards(){
   const q = (document.getElementById('mpSearch').value||'').trim().toLowerCase();
-  const list = MP_MAJORS.filter(m=>{
-    if(mpCatFilter!=='全部' && m.门类!==mpCatFilter) return false;
+  // 获取级联排除集合
+  const {exCats, exLeis} = _buildCasExcludeSets();
+
+  _mpFilteredList = MP_MAJORS.filter(m=>{
+    // ★ 级联排除优先级最高：被排除的门类/类别/专业不显示
+    if(casExcludes.has(m.专业)) return false;
+    if(exCats.has(m.门类)) return false;
+    if(exLeis.has(m.类别)) return false;
+    // 单个排除关键词也过滤（来自快速排除预设+自定义排除）
+    if(excludeKws.length && excludeKws.some(kw => m.专业.includes(kw) || m.类别.includes(kw))) return false;
+
+    // 自定义标签优先
+    if(mpActiveCustomTag !== null){
+      const tag = mpCustomTags[mpActiveCustomTag];
+      if(tag){
+        const match = tag.keywords.some(kw => m.专业.includes(kw) || m.类别.includes(kw) || m.门类.includes(kw));
+        if(!match) return false;
+      }
+    } else {
+      if(mpCatFilter!=='全部' && m.门类!==mpCatFilter) return false;
+      if(mpSubCatFilter!=='全部' && m.类别!==mpSubCatFilter) return false;
+    }
     if(mpHotFilter!=='全部' && m.热度级别!==mpHotFilter) return false;
     if(mpKeFilter!=='全部' && m.选科!==mpKeFilter) return false;
-    if(q) return m.专业.includes(q)||m.类别.includes(q)||m.门类.includes(q);
+    if(q) return m.专业.toLowerCase().includes(q)||m.类别.includes(q)||m.门类.includes(q);
     return true;
   });
   const body = document.getElementById('mpBody');
-  if(!list.length){ body.innerHTML='<div class="mp-empty">暂无匹配专业，请调整筛选条件</div>'; return; }
-  body.innerHTML = list.map(m=>{
-    const isSel = mpSelections.has(m.专业+'_'+m.选科);
-    const hc = MP_HOT_COLOR[m.热度级别]||'#6E7EAB';
-    const kc = MP_KE_COLOR[m.选科]||'#6E7EAB';
-    // 深度报告：检查是否有对应文件（已在页面初始化时加载到 window.MP_REPORTS）
-    const hasReport = (window.MP_REPORTS||new Set()).has(m.专业);
-    const reportStrip = hasReport ? `
-      <div class="report-strip" onclick="event.stopPropagation();openReportFloat('${m.专业.replace(/'/g,"\\'")}','${m.选科}')">
-        <div class="rs-left">
-          <span class="rs-icon">📋</span>
-          <span class="rs-text">深度报告</span>
-          <span class="rs-sub">学习 · 就业 · 薪资</span>
-        </div>
-        <span class="rs-arrow">›</span>
-      </div>` : '';
-    return `<div class="mp-card${isSel?' selected':''}${hasReport?' has-report':''}" onclick="toggleMpCard('${m.专业}_${m.选科}',this)">
-      <div class="mp-card-top">
-        <div>
-          <div class="mp-card-cat">${m.门类} · ${m.类别}</div>
-          <div class="mp-card-name">${m.专业}</div>
-        </div>
-        <div class="mp-hot-icon" title="${m.热度级别}">${MP_HOT_ICON[m.热度级别]}</div>
-      </div>
-      <div class="mp-tags">
-        <span class="mp-tag" style="background:${kc}22;color:${kc}">${m.选科}选科</span>
-        <span class="mp-tag" style="background:${hc}22;color:${hc}">${m.热度级别}</span>
-      </div>
-      ${reportStrip}
-      <div style="display:flex;gap:10px;margin-top:6px">
-        <div style="flex:1;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 8px;text-align:center">
-          <div style="font-size:16px;font-weight:900;color:#4A9EFF">${m.均分}</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:1px">吉林录取分</div>
-        </div>
-        <div style="flex:1;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 8px;text-align:center">
-          <div style="font-size:16px;font-weight:900;color:#34C759">${m.院校数}</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:1px">招生院校数</div>
-        </div>
-      </div>
-      <div class="mp-sel-mark">✓ 已选择</div>
-    </div>`;
-  }).join('');
+  if(!_mpFilteredList.length){
+    body.innerHTML='<div class="mp-empty">暂无匹配专业，请调整筛选条件</div>';
+    _mpRenderedCount=0; return;
+  }
+  // 首批渲染
+  const batch = _mpFilteredList.slice(0, _mpPageSize);
+  body.innerHTML = batch.map(_buildMpCardHTML).join('') +
+    (_mpFilteredList.length > _mpPageSize
+      ? `<div id="mpLoadMore" style="text-align:center;padding:14px 0"><button onclick="mpLoadMore()" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);border:none;border-radius:8px;padding:8px 22px;cursor:pointer;font-size:12px">加载更多（${_mpFilteredList.length - _mpPageSize} 个）</button></div>`
+      : '');
+  _mpRenderedCount = batch.length;
   document.getElementById('mpSelCount').textContent = mpSelections.size;
+}
+
+function mpLoadMore(){
+  const next = _mpFilteredList.slice(_mpRenderedCount, _mpRenderedCount + _mpPageSize);
+  const btn = document.getElementById('mpLoadMore');
+  const frag = next.map(_buildMpCardHTML).join('');
+  _mpRenderedCount += next.length;
+  const remaining = _mpFilteredList.length - _mpRenderedCount;
+  if(btn) btn.outerHTML = frag + (remaining > 0
+    ? `<div id="mpLoadMore" style="text-align:center;padding:14px 0"><button onclick="mpLoadMore()" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);border:none;border-radius:8px;padding:8px 22px;cursor:pointer;font-size:12px">加载更多（${remaining} 个）</button></div>`
+    : '');
 }
 
 function toggleMpCard(key, el){
@@ -2339,13 +2965,22 @@ function removeMpChip(key){
 // 重写 rebuildKws，合并专业选择器结果
 rebuildKws = function(){
   targetKws = [];
+  // 1. 快速方向标签
   selTargetLibs.forEach(k=>{ if(kwLib[k]) targetKws.push(...kwLib[k]); });
+  // 2. 自定义目标关键词
   targetKws.push(...customTargets);
-  // 加入专业选择器结果（专业名本身作为关键词）
+  // 3. 专业选择器结果
   mpSelections.forEach((name, key) => { if(!targetKws.includes(name)) targetKws.push(name); });
+  // 4. 级联选择器 — 目标专业
+  casTargets.forEach(name => { if(!targetKws.includes(name)) targetKws.push(name); });
+
   excludeKws = [];
+  // 1. 快速排除预设
   selExcludePresets.forEach(k=>{ if(exPresets[k]) excludeKws.push(...exPresets[k]); });
+  // 2. 自定义排除关键词
   excludeKws.push(...customExcludes);
+  // 3. 级联选择器 — 排除专业
+  casExcludes.forEach(name => { if(!excludeKws.includes(name)) excludeKws.push(name); });
 };
 
 // 关闭弹窗时点击遮罩
@@ -2370,14 +3005,46 @@ function simplifyMajorName(name){
   return name.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '').trim();
 }
 
-// ── 分数→位次估算 ────────────────────────────────────────
+// ── 分数→位次估算（吉林物理2025一分一段表）────────────────────────
+// 数据来源：2025年吉林省高考物理类一分一段表（省考试院官方发布）
+// 锚定点为真实数据，中间档位由指数插值补齐，仅供参考
+const SCORE_RANK_TABLE = [
+  [680, 149],  [675, 256],  [670, 351],  [665, 460],  [660, 640],
+  [655, 821],  [650, 1045], [645, 1248], [640, 1490], [635, 1779],
+  [630, 2124], [625, 2536], [620, 3028], [615, 3615], [610, 4305],
+  [605, 4915], [600, 5529], [595, 6220], [590, 7007], [585, 7666],
+  [580, 8387], [575, 9175], [570, 10037],[565, 10981],[560, 12013],
+  [555, 13142],[550, 14328],[545, 15331],[540, 16442],[535, 17552],
+  [530, 18770],[525, 19859],[520, 21196],[515, 22380],[510, 23520],
+  [505, 24886],[500, 26306],[495, 27691],[490, 29076],
+];
+
+function scoreToRank(score){
+  const tbl = SCORE_RANK_TABLE;
+  // 高于最高档
+  if(score >= tbl[0][0]) return Math.max(1, Math.round(tbl[0][1] * (tbl[0][0] / score)));
+  // 低于最低档：外推
+  if(score <= tbl[tbl.length-1][0]){
+    const [s0,r0] = tbl[tbl.length-2], [s1,r1] = tbl[tbl.length-1];
+    return Math.round(r1 + (s1 - score) * (r1 - r0) / (s1 - s0));
+  }
+  // 区间内分段线性插值
+  for(let i=0; i<tbl.length-1; i++){
+    const [s_hi, r_hi] = tbl[i], [s_lo, r_lo] = tbl[i+1];
+    if(score <= s_hi && score >= s_lo){
+      const t = (s_hi - score) / (s_hi - s_lo);
+      return Math.max(1, Math.round(r_hi + t * (r_lo - r_hi)));
+    }
+  }
+  return 99999;
+}
+
 function onScoreInput(){
   const score = parseInt(document.getElementById('score').value) || 0;
   const el = document.getElementById('rankEstimate');
   if(!el) return;
   if(score < 300 || score > 750){ el.textContent=''; return; }
-  // 吉林物理2025估算（基准：585分≈位次7806，斜率150/分）
-  const rank = Math.max(1, Math.round(7806 + (585 - score) * 150));
+  const rank = scoreToRank(score);
   const rankStr = rank.toLocaleString();
   el.textContent = `估算位次约 ${rankStr} 名（仅供参考）`;
 }
@@ -2435,6 +3102,7 @@ async function restoreHistory(idx){
     document.getElementById('btnExport').style.display='';
     document.getElementById('btnMC').style.display='';
     document.getElementById('btnOpt').style.display='';
+    showReplenishBtn();
     document.getElementById('resultWrap').classList.add('show');
     document.getElementById('formWrap').style.display='none';
     window.scrollTo(0,0);
@@ -2448,26 +3116,75 @@ function vtEl() { return document.getElementById('volTooltip'); }
 
 function bindVolCardHover(){
   document.querySelectorAll('#volList .vol-card').forEach(card=>{
-    card.addEventListener('mouseenter', e=>{
-      clearTimeout(vtTimer);
-      vtTimer = setTimeout(()=> showVolTooltip(e, card), 180);
-    });
-    card.addEventListener('mouseleave', ()=>{
-      clearTimeout(vtTimer);
-      setTimeout(()=>{
-        if(!vtEl().matches(':hover')){
-          vtEl().classList.remove('show');
-          vtVisible = false;
-        }
-      }, 80);
-    });
-    card.addEventListener('mousemove', e=>{ if(vtVisible) positionVolTooltip(e); });
+    const majorsEl = card.querySelector('.vc-majors');
+    if(!majorsEl) return;
+
+    if(_isMobile){
+      // ── 手机端：点击专业区域显示底部抽屉 ──
+      majorsEl.addEventListener('click', e=>{
+        e.stopPropagation();
+        showVolTooltipMobile(card);
+      });
+    } else {
+      // ── 桌面端：hover 触发 ──
+      majorsEl.addEventListener('mouseenter', e=>{
+        clearTimeout(vtTimer);
+        vtTimer = setTimeout(()=> showVolTooltip(e, card), 180);
+      });
+      majorsEl.addEventListener('mouseleave', ()=>{
+        clearTimeout(vtTimer);
+        setTimeout(()=>{
+          if(!vtEl().matches(':hover')){
+            vtEl().classList.remove('show');
+            vtVisible = false;
+          }
+        }, 80);
+      });
+      majorsEl.addEventListener('mousemove', e=>{ if(vtVisible) positionVolTooltip(e); });
+    }
   });
-  const tip = vtEl();
-  if(tip) tip.addEventListener('mouseleave', ()=>{
-    vtEl().classList.remove('show');
-    vtVisible = false;
-  });
+  if(!_isMobile){
+    const tip = vtEl();
+    if(tip) tip.addEventListener('mouseleave', ()=>{
+      vtEl().classList.remove('show');
+      vtVisible = false;
+    });
+  }
+  // 手机端点击背景关闭
+  if(_isMobile){
+    document.addEventListener('click', e=>{
+      const tip = vtEl();
+      if(vtVisible && !tip.contains(e.target) && !e.target.closest('.vc-majors')){
+        tip.classList.remove('show');
+        vtVisible = false;
+      }
+    });
+  }
+}
+
+// 手机端显示志愿卡片详情（底部抽屉）
+async function showVolTooltipMobile(card){
+  const school = card.dataset.school;
+  const gcode  = card.dataset.gcode;
+  const ke     = card.dataset.ke || selKeLei;
+  const tip    = vtEl();
+  vtVisible = true;
+  tip.querySelector('.vtt-title').textContent = school;
+  tip.querySelector('.vtt-sub').textContent   = `${ke}选科 · 专业组全部专业（2025录取分）`;
+  tip.querySelector('.vtt-list').innerHTML     = '<div class="vtt-loading">加载中…</div>';
+  tip.classList.add('show');
+
+  const vol = (generatedVols||[]).find(v=>String(v.gcode)===String(gcode));
+  const selNames = new Set((vol&&vol.intent6||[]).map(m=>m.name));
+  const cacheKey = gcode+'_'+ke;
+  if(vtCache[cacheKey]){ renderVolList(vtCache[cacheKey], selNames); return; }
+  try{
+    const r = await fetch(`/api/school_majors?gcode=${encodeURIComponent(gcode)}&ke=${encodeURIComponent(ke)}`);
+    const d = await r.json();
+    if(d.error){ tip.querySelector('.vtt-list').innerHTML='<div class="vtt-empty">暂无数据</div>'; return; }
+    vtCache[cacheKey] = d.majors;
+    if(vtVisible) renderVolList(d.majors, selNames);
+  }catch{ tip.querySelector('.vtt-list').innerHTML='<div class="vtt-empty">请求失败</div>'; }
 }
 
 function positionVolTooltip(e){
@@ -2751,29 +3468,91 @@ document.addEventListener('click', e=>{
   if(modal && e.target === modal) closeMptModal();
 });
 
-// ── 重写 renderMpCards，绑定 hover 事件 ───────────────
-const _origRenderMpCards = renderMpCards;
-renderMpCards = function(){
-  _origRenderMpCards();
-  // 给每张卡片绑定 hover 事件
-  document.querySelectorAll('#mpBody .mp-card').forEach(card=>{
-    const nameEl = card.querySelector('.mp-card-name');
-    const catEl  = card.querySelector('.mp-card-cat');
-    if(!nameEl) return;
-    const majorName = nameEl.textContent.trim();
-    // 从 cat 文字里提取选科（格式: "门类 · 类别"，选科在 mp-tags 里）
-    const tagEl = card.querySelector('.mp-tag');
-    const ke = tagEl ? tagEl.textContent.replace('选科','').trim() : selKeLei;
-    card.addEventListener('mouseenter', e=>mpCardMouseEnter(e, majorName, ke));
-    card.addEventListener('mouseleave', mpCardMouseLeave);
-    card.addEventListener('mousemove',  mpCardMouseMove);
+// ── 专业选择器：事件委托（替代每张卡片绑定）──────────────────
+const _isMobile = ('ontouchstart' in window) || window.innerWidth <= 640;
+
+(()=>{
+  const body = document.getElementById('mpBody');
+  // 点击委托：卡片选择 + 深度报告
+  body.addEventListener('click', e=>{
+    // 深度报告条带
+    const strip = e.target.closest('.report-strip');
+    if(strip){ e.stopPropagation(); openReportFloat(strip.dataset.report, strip.dataset.ke); return; }
+    // 卡片选择
+    const card = e.target.closest('.mp-card');
+    if(card) toggleMpCard(card.dataset.key, card);
   });
-};
+
+  if(_isMobile){
+    // ── 手机端：长按显示详情（底部抽屉） ──
+    let _touchTimer = null;
+    let _touchMoved = false;
+    body.addEventListener('touchstart', e=>{
+      _touchMoved = false;
+      const card = e.target.closest('.mp-card');
+      if(!card) return;
+      _touchTimer = setTimeout(()=>{
+        if(!_touchMoved){
+          e.preventDefault();
+          showMpTooltipMobile(card.dataset.major, card.dataset.ke||selKeLei);
+        }
+      }, 400);
+    }, {passive:false});
+    body.addEventListener('touchmove', ()=>{ _touchMoved=true; clearTimeout(_touchTimer); });
+    body.addEventListener('touchend', ()=>{ clearTimeout(_touchTimer); });
+    // 点击背景关闭底部抽屉
+    document.addEventListener('click', e=>{
+      const tip = mptEl();
+      if(mptVisible && !tip.contains(e.target) && !e.target.closest('.mp-card')){
+        tip.classList.remove('show');
+        mptVisible = false;
+      }
+    });
+  } else {
+    // ── 桌面端：hover 委托 ──
+    body.addEventListener('mouseenter', e=>{
+      const card = e.target.closest('.mp-card');
+      if(card) mpCardMouseEnter(e, card.dataset.major, card.dataset.ke||selKeLei);
+    }, true);
+    body.addEventListener('mouseleave', e=>{
+      const card = e.target.closest('.mp-card');
+      if(card) mpCardMouseLeave(e);
+    }, true);
+    body.addEventListener('mousemove', e=>{
+      if(e.target.closest('.mp-card')) mpCardMouseMove(e);
+    });
+  }
+})();
+
+// 手机端显示详情（底部抽屉模式）
+async function showMpTooltipMobile(majorName, ke){
+  mptVisible = true;
+  mptCurrentKey = majorName + '_' + ke;
+  mptTit().textContent = majorName;
+  mptSub().textContent = `${ke}选科 · 2025年吉林省招生院校`;
+  mptLst().innerHTML = '<div class="mpt-loading">加载中…</div>';
+  const btn = mptAllBtn();
+  if(btn) btn.style.display = 'none';
+  mptEl().classList.add('show');
+  if(mptCache[mptCurrentKey]){
+    renderTooltipList(mptCache[mptCurrentKey]); return;
+  }
+  try{
+    const r = await fetch(`/api/major_schools?name=${encodeURIComponent(majorName)}&ke=${encodeURIComponent(ke)}`);
+    const d = await r.json();
+    if(d.error){ mptLst().innerHTML=`<div class="mpt-empty">暂无数据</div>`; return; }
+    mptCache[mptCurrentKey] = d.schools;
+    if(mptVisible) renderTooltipList(d.schools);
+  }catch(err){ mptLst().innerHTML=`<div class="mpt-empty">请求失败</div>`; }
+}
 </script>
 
 <!-- 专业 hover 浮窗 -->
 <div id="mpTooltip">
-  <div class="mpt-title" id="mptTitle"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between">
+    <div class="mpt-title" id="mptTitle"></div>
+    <button onclick="mptEl().classList.remove('show');mptVisible=false" style="display:none;background:rgba(255,255,255,.1);border:none;color:#fff;border-radius:50%;width:26px;height:26px;font-size:14px;cursor:pointer;flex-shrink:0" class="mpt-close-mobile">✕</button>
+  </div>
   <div class="mpt-sub"   id="mptSub"></div>
   <div class="mpt-filter">
     <span class="mpt-filter-lbl">分数</span>
@@ -2789,7 +3568,10 @@ renderMpCards = function(){
 
 <!-- 志愿卡片 hover 浮窗 -->
 <div id="volTooltip">
-  <div class="vtt-title"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between">
+    <div class="vtt-title"></div>
+    <button onclick="vtEl().classList.remove('show');vtVisible=false" style="display:none;background:rgba(255,255,255,.1);border:none;color:#fff;border-radius:50%;width:26px;height:26px;font-size:14px;cursor:pointer;flex-shrink:0" class="vtt-close-mobile">✕</button>
+  </div>
   <div class="vtt-sub"></div>
   <div class="vtt-list"><div class="vtt-loading">加载中…</div></div>
 </div>

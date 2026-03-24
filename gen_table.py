@@ -255,7 +255,10 @@ for ri, (k, v2) in enumerate(notes, 2):
     ck.border = bdr; cv.border = bdr
 
 # ── 保存 ──────────────────────────────────────────────────────
-out = r'C:\Users\谢欣\Downloads\大拿_605分_吉林高考志愿表_v2.xlsx'
+_HERE    = os.path.dirname(os.path.abspath(__file__))
+_OUT_DIR = os.path.join(_HERE, 'outputs')
+os.makedirs(_OUT_DIR, exist_ok=True)
+out = os.path.join(_OUT_DIR, f'{STUDENT}_{SCORE}分_吉林高考志愿表.xlsx')
 wb.save(out)
 print('OK: ' + out)
 print('size: ' + str(os.path.getsize(out)) + ' bytes')
