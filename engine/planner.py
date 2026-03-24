@@ -2,9 +2,11 @@
 吉林省高考志愿规划引擎 v3
 核心：根据考生信息从数据源生成40志愿方案（10冲+20稳+10保）
 """
-import os, sys, pickle, random
+import os, sys, re, pickle, random
 import pandas as pd
-from engine.sybandb import load_syban_map, is_syban_target, matching_majors as syban_matching
+from engine.sybandb import is_syban_target, matching_majors as syban_matching
+# syban 数据加载：SQLite 优先，回退到 Excel
+from engine.sybandb import load_syban_map as _syban_load_excel
 
 # PyInstaller 打包路径兼容
 if getattr(sys, 'frozen', False):
@@ -13,6 +15,19 @@ else:
     _DATA_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_PATH  = os.path.join(_DATA_BASE, 'data', '2026_jilin_gaokao_data.xlsx')
 CACHE_PATH = os.path.join(_DATA_BASE, 'data', 'df_cache.pkl')
+DB_PATH    = os.path.join(_DATA_BASE, 'data', 'gaokao.db')
+
+# 优先使用 SQLite 数据库
+_USE_DB = os.path.exists(DB_PATH)
+
+def load_syban_map():
+    """实验班映射：SQLite 优先，回退到 Excel"""
+    if _USE_DB:
+        from engine.db import load_syban_map as _db_syban
+        result = _db_syban()
+        if result:
+            return result
+    return _syban_load_excel()
 
 LV_LABEL = {1:'985', 2:'211+', 3:'211', 4:'国重点', 5:'省重点', 6:'其他'}
 CR_LABEL  = {1:'一线', 2:'新一线', 3:'二线', 4:'其他'}
@@ -68,16 +83,25 @@ EXCLUDE_PRESETS = {
     'lang':     ['英语','日语','德语','法语','翻译','外国语'],
 }
 
-_df_cache = None
+_df_cache_fallback = None  # 仅用于非 DB 回退路径
 
 def load_raw_df():
-    global _df_cache
-    if _df_cache is not None:
-        return _df_cache
+    global _df_cache_fallback
+    # ── 优先从 SQLite 读取（速度快、结构化，db.py 内部有缓存） ──
+    if _USE_DB:
+        from engine.db import load_raw_df as _db_load
+        return _db_load()
+
+    if _df_cache_fallback is not None:
+        return _df_cache_fallback
+
+    # ── 回退：pickle 缓存 ──
     if os.path.exists(CACHE_PATH):
         with open(CACHE_PATH, 'rb') as f:
-            _df_cache = pickle.load(f)
-        return _df_cache
+            _df_cache_fallback = pickle.load(f)
+        return _df_cache_fallback
+
+    # ── 回退：直读 Excel（首次运行 / 无DB时） ──
     import openpyxl
     wb = openpyxl.load_workbook(DATA_PATH, read_only=True, data_only=True)
     ws = wb['吉林']
@@ -91,7 +115,7 @@ def load_raw_df():
     df = pd.DataFrame(data, columns=new_headers)
     with open(CACHE_PATH, 'wb') as f:
         pickle.dump(df, f)
-    _df_cache = df
+    _df_cache_fallback = df
     wb.close()
     return df
 
@@ -137,8 +161,7 @@ def build_plan(profile: dict) -> dict:
             if req_str in ('不限', '无', ''):
                 return True   # 明确标注不限
             # 将要求拆分为科目集合（支持逗号、顿号、空格分隔）
-            import re as _re
-            req_set = set(_re.split(r'[，,、\s]+', req_str))
+            req_set = set(re.split(r'[，,、\s]+', req_str))
             req_set.discard('')
             # 用户选科必须覆盖全部要求科目
             user_set = set(select_subjects)
@@ -240,6 +263,18 @@ def build_plan(profile: dict) -> dict:
         _is_syban = _syban_map and (_school, _major_name) in _syban_map
         _syban_hits = syban_matching(_school, _major_name, target_kw) if (_is_syban and target_kw) else []
         _syban_all  = sorted(_syban_map[(_school, _major_name)]) if _is_syban else []
+        # 检测专项计划标记（国家专项/高校专项/地方专项）
+        _remark = str(row.get('专业备注', '') or '')
+        _full_name = str(row.get('专业全称', '') or '')
+        _zx_text = _remark or _full_name
+        _zx_type = ''
+        if '国家专项计划' in _zx_text:
+            _zx_type = '国家专项'
+        elif '高校专项计划' in _zx_text:
+            _zx_type = '高校专项'
+        elif '地方专项计划' in _zx_text:
+            _zx_type = '地方专项'
+
         g['majors'].append({
             'name': _major_name, 's25': row['s25'],
             's24': row['s24'],   's23': row['s23'],
@@ -248,6 +283,8 @@ def build_plan(profile: dict) -> dict:
             'r24': (int(row['r24']) if pd.notna(row.get('r24', float('nan'))) else None),
             'syban_majors': _syban_hits,  # 命中目标专业（高亮）
             'syban_all':    _syban_all,   # 全量分流专业
+            'zhuanxiang': _zx_type,       # 专项计划类型（空=非专项）
+            'full_name': _full_name if _full_name != _major_name else '',
         })
         # 推算组级多年最低分（取组内所有专业的年度最低值）
         s24v = row['s24'] if pd.notna(row['s24']) else None
@@ -402,6 +439,9 @@ def build_plan(profile: dict) -> dict:
             if any(k in m['name'] for k in exclude_kw)
         ] if exclude_kw else []
 
+        # 检测该组是否含专项计划专业
+        zx_types_in_group = list({m['zhuanxiang'] for m in g['majors'] if m.get('zhuanxiang')})
+
         rows.append({
             **{k: v for k, v in g.items() if k != 'majors'},
             'majors': g['majors'], 'intent': intent, 'top6': top6,
@@ -414,6 +454,8 @@ def build_plan(profile: dict) -> dict:
             'spread_risk':     spread_risk,
             'n_cold_over_ref': n_cold_over_ref,
             'excl_in_group':   excl_in_group,   # 用户排除专业中出现在本组的列表
+            'has_zhuanxiang':  bool(zx_types_in_group),  # 是否含专项计划
+            'zhuanxiang_types': zx_types_in_group,       # 专项类型列表
         })
 
     # ── 严格排除模式：含排除专业的组整体移除 ──
@@ -672,7 +714,7 @@ def build_tiqian(profile: dict) -> dict:
             'batch':    str(row['批次']),
             'city':     str(row['城市']),
             'province': str(row['所在省']),
-            'gmin25':   int(gmin) if pd.notna(gmin) else None,
+            'gmin25':   int(float(gmin)) if pd.notna(gmin) else None,
             'diff':     diff,
             'lv':       str(row.get('院校标签', '')),
             'majors':   majors,
@@ -745,7 +787,7 @@ def mc_simulate(plan_vols, N=10000, seed=42, bias_lo=0, bias_hi=0, noise_pct=3.5
                 # ── 分数比较模型（双层噪声）────────────────────────
                 # 全部有历史分数的专业（含cold保底，用于提档线）
                 all_scored = [m for m in top6
-                              if m.get('s25') and m['s25'] == m['s25']]  # 排除 NaN/0
+                              if m.get('s25') and pd.notna(m['s25'])]  # 排除 NaN/0
                 if not all_scored:
                     continue
 
@@ -846,9 +888,22 @@ def optimize_plan(build_result: dict, max_rounds: int = 10,
     bao_pool      = list(build_result.get('_bao_cands',  []))
     rush_sort_key = build_result.get('_rush_sort_key')
     sort_key      = build_result.get('_sort_key')
-    student_rank  = build_result['stats']['student_rank']
-    profile       = build_result['profile']
-    score         = int(profile['score'])
+    profile       = build_result.get('profile', {})
+
+    # 历史恢复后候选池为空 → 从 profile 重建
+    if not rush_pool and not safe_pool and not bao_pool and profile:
+        rebuilt = build_plan(profile)
+        rush_pool     = list(rebuilt.get('_rush_cands', []))
+        safe_pool     = list(rebuilt.get('_safe_cands', []))
+        bao_pool      = list(rebuilt.get('_bao_cands',  []))
+        rush_sort_key = rush_sort_key or rebuilt.get('_rush_sort_key')
+        sort_key      = sort_key or rebuilt.get('_sort_key')
+        # 用重建结果补齐 stats
+        if 'stats' not in build_result or not build_result['stats']:
+            build_result['stats'] = rebuilt['stats']
+
+    student_rank  = build_result.get('stats', {}).get('student_rank', 7806)
+    score         = int(profile.get('score', 585))
     noise         = noise_pct / 100.0
 
     LVQ = {1: 100, 2: 80, 3: 65, 4: 55, 5: 45, 6: 30}  # 层次质量分
@@ -1090,7 +1145,8 @@ def export_excel(plan_result: dict, mc_result: dict, out_path: str):
         row=i+4; tp=v['tp']; rate=rates[i] if i<len(rates) else 0; top=top_mjs[i] if i<len(top_mjs) else None
         sc6v=v.get('sc6'); safe_str='✅安全' if v.get('safe') else ('⚠️注意' if sc6v else '❓')
         top6=v.get('top6',[])[:6]
-        specs=[f"{m['name']}({int(m['s25']) if m['s25'] else '?'})" for m in top6]
+        def _safe_s(v): return int(v) if isinstance(v, (int,float)) and pd.notna(v) else '?'
+        specs=[f"{m['name']}({_safe_s(m['s25'])})" for m in top6]
         while len(specs)<6: specs.append('')
         # 直辖市城市名修正：city 字段存储的是区名（海淀区/闵行区），用 province 替代
         _raw_city = v.get('city', '')
@@ -1117,11 +1173,13 @@ def export_excel(plan_result: dict, mc_result: dict, out_path: str):
         mhd=major_hits[i] if i<len(major_hits) else {}
         for m in v.get('majors',[]):
             s25=m.get('s25'); s24=m.get('s24'); kind=m.get('kind','other')
-            diff=round(s25-score_int,0) if (s25 and s25==s25) else None
+            _s25_ok = isinstance(s25, (int, float)) and pd.notna(s25)
+            _s24_ok = isinstance(s24, (int, float)) and pd.notna(s24)
+            diff=round(s25-score_int,0) if _s25_ok else None
             bg='C8E6C9' if kind=='target' else 'FFE0B2' if kind=='cold' else 'FFFFFF'
             cnt=mhd.get(m['name'],0); hr=f"{cnt/N_mc:.1%}" if cnt>0 else ''
             vals2=[i+1,v['tp'],v['school'],v['city'],v.get('lv_label','?'),m['name'],kind,
-                   int(s25) if (s25 and s25==s25) else '',int(s24) if (s24 and s24==s24) else '',
+                   int(s25) if _s25_ok else '',int(s24) if _s24_ok else '',
                    (f"+{int(diff)}" if diff and diff>0 else int(diff)) if diff is not None else '',hr]
             for ci,val in enumerate(vals2,1):
                 c=ws2.cell(row2,ci,val); c.fill=PatternFill('solid',fgColor=bg); c.border=bdr

@@ -146,6 +146,14 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .t-diaoji{background:rgba(52,199,89,.1);color:#34C759;border:1px solid rgba(52,199,89,.25)}
 /* 冷门专业标记 */
 .mj-cold{font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:rgba(255,159,10,.15);color:#FF9F0A;margin-left:3px;white-space:nowrap}
+/* 专项计划徽章 */
+.mj-zx{font-size:8px;font-weight:800;padding:1px 5px;border-radius:3px;background:rgba(255,69,58,.15);color:#FF6B6B;border:1px solid rgba(255,69,58,.3);margin-left:3px;white-space:nowrap;cursor:help}
+.tag.t-zx{background:rgba(255,69,58,.18);color:#FF6B6B;border:1px solid rgba(255,69,58,.35);font-weight:700;animation:zx-pulse 2s ease-in-out infinite}
+@keyframes zx-pulse{0%,100%{opacity:1}50%{opacity:.6}}
+/* 补充志愿按钮（底栏） */
+.btn-replenish{background:rgba(74,158,255,.15);color:#4A9EFF;border:1px solid rgba(74,158,255,.3)}
+.btn-replenish:hover{background:rgba(74,158,255,.25)}
+.btn-replenish:disabled{opacity:.5;cursor:wait}
 /* 实验班徽章 */
 .mj-syban{font-size:8px;font-weight:800;padding:1px 5px;border-radius:3px;background:rgba(94,92,230,.2);color:#8E8CF0;border:1px solid rgba(94,92,230,.35);margin-left:4px;white-space:nowrap;cursor:pointer}
 .mj-row.has-syban{cursor:pointer;border-radius:6px;transition:.1s}
@@ -362,6 +370,9 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .strict-toggle input:checked + .strict-slider::after{left:16px}
 .strict-label{font-size:10px;color:rgba(255,255,255,.4);font-weight:400}
 .strict-toggle input:checked ~ .strict-label{color:#FF453A}
+/* 专项计划开关（蓝色） */
+.strict-toggle input:checked + .zx-slider{background:#4A9EFF}
+.strict-toggle input:checked + .zx-slider ~ .strict-label{color:#4A9EFF}
 
 /* ── 本科专业体系级联选择器 ── */
 .cas-wrap{display:flex;gap:1px;border:1px solid rgba(255,255,255,.1);border-radius:10px;overflow:hidden;max-height:240px;background:rgba(255,255,255,.03)}
@@ -661,11 +672,18 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
   <div class="field">
     <div class="field-lbl" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
       <span>快速排除预设 <span class="field-sub">可多选</span></span>
-      <label class="strict-toggle" title="开启后，含排除专业的专业组将整体移除，不出现在志愿表中">
-        <input type="checkbox" id="strictExcludeToggle" onchange="onStrictExcludeChange()">
-        <span class="strict-slider"></span>
-        <span class="strict-label">严格排除：含排除专业的组整体移除</span>
-      </label>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+        <label class="strict-toggle" title="开启后，含排除专业的专业组将整体移除，不出现在志愿表中">
+          <input type="checkbox" id="strictExcludeToggle" onchange="onStrictExcludeChange()">
+          <span class="strict-slider"></span>
+          <span class="strict-label">严格排除：含排除专业的组整体移除</span>
+        </label>
+        <label class="strict-toggle" title="国家专项/高校专项计划对考生户籍有严格限制，需提前审核资格。开启后将包含专项计划专业组">
+          <input type="checkbox" id="zhuanxiangToggle" onchange="onZhuanxiangChange()">
+          <span class="strict-slider zx-slider"></span>
+          <span class="strict-label">包含专项计划：国家专项/高校专项（需户籍资格）</span>
+        </label>
+      </div>
     </div>
     <div class="tag-grid" id="excludeGrid"></div>
   </div>
@@ -757,6 +775,7 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 <div class="bottom-bar">
   <button class="btn btn-generate" id="btnGen" onclick="generate()">▶ 生成志愿方案</button>
   <button class="btn btn-opt" id="btnOpt" style="display:none" onclick="optimize()">🔁 迭代优化</button>
+  <button class="btn btn-replenish" id="btnReplenish" style="display:none" onclick="doReplenish()">➕ 补充志愿</button>
   <button class="btn btn-export" id="btnExport" style="display:none" onclick="exportExcel()">📥 Excel</button>
   <a class="btn btn-mc" id="btnMC" href="/mc" style="display:none">🎲 仿真</a>
   <button class="btn" id="btnHistory" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);font-size:11px;padding:8px 12px" onclick="openHistory()">📋 历史</button>
@@ -807,9 +826,13 @@ const EX_LABELS = {
 };
 let selTargetLibs = new Set(), selExcludePresets = new Set();
 let strictExcludeMode = false;  // 严格排除模式：含排除专业的组整体移除
+let includeZhuanxiang = false; // 包含专项计划（默认不包含）
 
 function onStrictExcludeChange(){
   strictExcludeMode = document.getElementById('strictExcludeToggle').checked;
+}
+function onZhuanxiangChange(){
+  includeZhuanxiang = document.getElementById('zhuanxiangToggle').checked;
 }
 
 // ── 立即渲染按钮（不依赖网络请求）────────────────────
@@ -1287,6 +1310,9 @@ async function generate(){
   if(!score || score<300||score>750){ alert('请输入有效分数（300-750）'); return; }
   if(targetKws.length===0){ alert('请至少选择一个目标专业方向'); return; }
 
+  // 重新生成时清空删除记录
+  deletedGcodes = [];
+
   const btn = document.getElementById('btnGen');
   btn.textContent='生成中…'; btn.disabled=true;
   document.getElementById('statusBadge').textContent='规划中…';
@@ -1300,6 +1326,7 @@ async function generate(){
         score, ke_lei: selKeLei,
         target_kw: targetKws, exclude_kw: excludeKws,
         strict_exclude: strictExcludeMode,   // 严格排除：含排除专业的组整体移除
+        include_zhuanxiang: includeZhuanxiang, // 是否包含专项计划
         pref_provinces:    provMode==='inc' && selProvinces.size>0 ? [...selProvinces] : [],
         exclude_provinces: provMode==='exc' && selProvinces.size>0 ? [...selProvinces] : [],
         include_types: ALL_STYPES.filter(t=>stypeState[t]==='inc'),
@@ -1322,6 +1349,7 @@ async function generate(){
     document.getElementById('btnExport').style.display='';
     document.getElementById('btnMC').style.display='';
     document.getElementById('btnOpt').style.display=''; document.getElementById('btnOpt').textContent='🔁 迭代优化';
+    showReplenishBtn();
     document.getElementById('resultWrap').classList.add('show');
     document.getElementById('formWrap').style.display='none';
     window.scrollTo(0,0);
@@ -1357,6 +1385,8 @@ function buildVolListHTML(vols, profile){
       const dSign = diff>0?'+':'';
       const isColdAnchor = m.kind==='cold' && mi>=4;
       const coldTag = isColdAnchor ? `<span class="mj-cold">⚠️冷门</span>` : '';
+      // 专项计划标记
+      const zxTag = m.zhuanxiang ? `<span class="mj-zx" title="${m.full_name||m.name}">📋${m.zhuanxiang}</span>` : '';
       // 实验班：syban_all=全量分流专业；syban_majors=命中目标的子集（高亮用）
       const sybanAll  = m.syban_all  && m.syban_all.length  > 0 ? m.syban_all  : null;
       const sybanHitSet = new Set(m.syban_majors || []);
@@ -1384,7 +1414,7 @@ function buildVolListHTML(vols, profile){
       const r25txt = m.r25 ? m.r25.toLocaleString() : '';
       return `<div class="mj-row${sybanAll?' has-syban':''}" ${sybanAll?'onclick="event.stopPropagation();toggleSyban(this)"':''}>
         <span class="mj-idx">${mi+1}</span>
-        <span class="mj-name" title="${m.name}">${simplifyMajorName(m.name)}${coldTag}${sybanTag}</span>
+        <span class="mj-name" title="${m.name}">${simplifyMajorName(m.name)}${coldTag}${zxTag}${sybanTag}</span>
         ${feeTxt?`<span class="mj-fee">${feeTxt}</span>`:''}
         <span class="mj-s">${m.s25||'?'}分</span>
         ${r25txt?`<span class="mj-rank">${r25txt}位</span>`:''}
@@ -1440,6 +1470,7 @@ function buildVolListHTML(vols, profile){
             <span class="tag t-gray">${v.city}·${v.cr_label}</span>
             <span class="tag ${sc6ok?'t-ok':'t-warn'}">sc6 ${v.sc6||'?'}${sc6ok?' ✓':' △'}</span>
             <span class="tag t-diaoji">服从调剂 ✓</span>
+            ${v.has_zhuanxiang?`<span class="tag t-zx" title="该专业组含专项计划专业，对考生户口有严格限制，请确认资格">📋 ${(v.zhuanxiang_types||[]).join('/')}</span>`:''}
           </div>
           <div class="ys-row">${scoreRow}</div>
         </div>
@@ -1602,12 +1633,18 @@ function exportExcel(){
   f.href='/api/export_excel';
   // 用POST触发download
   fetch('/api/export_excel',{method:'POST'})
-    .then(r=>r.blob())
-    .then(b=>{
+    .then(r=>{
+      if(!r.ok) return r.json().then(d=>{ alert(d.error||'导出失败'); throw new Error('export failed'); });
+      const cd = r.headers.get('content-disposition')||'';
+      const m = cd.match(/filename\*?=(?:UTF-8'')?([^;]+)/);
+      return r.blob().then(b=>({b, fname: m ? decodeURIComponent(m[1]) : '志愿规划表.xlsx'}));
+    })
+    .then(({b,fname})=>{
       const url=URL.createObjectURL(b);
       const a=document.createElement('a'); a.href=url;
-      a.download=`志愿规划表.xlsx`; a.click();
-    });
+      a.download=fname; a.click();
+    })
+    .catch(e=>{ if(e.message!=='export failed') console.error(e); });
 }
 
 // ── 志愿编辑 ─────────────────────────────────────────
@@ -1704,15 +1741,64 @@ function moveVol(gcode, dir){
   syncPlanToServer();
 }
 
+// ── 已删除的志愿组记录（补充时排除）──────────────────
+let deletedGcodes = [];
+
 // ── 删除志愿组 ────────────────────────────────────────
 function deleteVol(gcode){
   if(!confirm('确认删除该志愿组？')) return;
+  deletedGcodes.push(String(gcode));
   generatedVols = generatedVols.filter(v=>String(v.gcode)!==String(gcode));
   rerenderVolList();
   syncPlanToServer();
-  // 更新志愿数量显示
-  const d = window._lastRenderData;
-  if(d) { const rushN2=generatedVols.filter(v=>v.tp==='冲').length; const safeN2=generatedVols.filter(v=>v.tp==='稳').length; const baoN2=generatedVols.filter(v=>v.tp==='保').length; document.getElementById('rs-rush').textContent=rushN2+'个'; document.getElementById('rs-safe').textContent=safeN2+'个'; document.getElementById('rs-bao').textContent=baoN2+'个'; }
+  updateVolCounts();
+  showReplenishBtn();
+}
+
+function updateVolCounts(){
+  const rushN2=generatedVols.filter(v=>v.tp==='冲').length;
+  const safeN2=generatedVols.filter(v=>v.tp==='稳').length;
+  const baoN2=generatedVols.filter(v=>v.tp==='保').length;
+  const el1=document.getElementById('rs-rush'); if(el1) el1.textContent=rushN2+'个';
+  const el2=document.getElementById('rs-safe'); if(el2) el2.textContent=safeN2+'个';
+  const el3=document.getElementById('rs-bao');  if(el3) el3.textContent=baoN2+'个';
+}
+
+// ── 补充志愿（删除后一键补满） ──────────────────────────
+function showReplenishBtn(){
+  const btn = document.getElementById('btnReplenish');
+  if(!btn) return;
+  const target = 40;
+  const current = generatedVols.length;
+  if(current < target && current > 0){
+    btn.textContent = '➕ 补充 ' + (target - current) + ' 个志愿';
+    btn.style.display = '';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+function doReplenish(){
+  const btn = document.getElementById('btnReplenish');
+  if(btn) { btn.textContent = '补充中...'; btn.disabled = true; }
+  fetch('/api/replenish', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({target_count: 40, exclude_gcodes: deletedGcodes})
+  })
+  .then(r => r.json())
+  .then(d => {
+    if(btn) btn.disabled = false;
+    if(d.error) { alert(d.error); if(btn) btn.textContent = '➕ 补充志愿（重试）'; return; }
+    generatedVols = d.vols || [];
+    rerenderVolList();
+    updateVolCounts();
+    showReplenishBtn();
+    alert('已补充 ' + d.added + ' 个志愿组，共 ' + d.count + ' 个 (耗时' + d.elapsed + 's)');
+  })
+  .catch(e => {
+    if(btn) { btn.disabled = false; btn.textContent = '➕ 补充志愿（重试）'; }
+  });
 }
 
 // ── 插入志愿组 ────────────────────────────────────────
@@ -1860,6 +1946,7 @@ if(new URLSearchParams(location.search).get('restored')==='1'){
       document.getElementById('btnExport').style.display='';
       document.getElementById('btnMC').style.display='';
       document.getElementById('btnOpt').style.display='';
+      showReplenishBtn();
       document.getElementById('resultWrap').classList.add('show');
       document.getElementById('formWrap').style.display='none';
     } catch(e){ console.warn('恢复方案失败', e); }
@@ -1873,6 +1960,7 @@ document.getElementById('btnGen').addEventListener('click',()=>{
     document.getElementById('btnExport').style.display='none';
     document.getElementById('btnMC').style.display='none';
     document.getElementById('btnOpt').style.display='none';
+    document.getElementById('btnReplenish').style.display='none';
     document.getElementById('optHistory').style.display='none';
   }
 });
@@ -3014,6 +3102,7 @@ async function restoreHistory(idx){
     document.getElementById('btnExport').style.display='';
     document.getElementById('btnMC').style.display='';
     document.getElementById('btnOpt').style.display='';
+    showReplenishBtn();
     document.getElementById('resultWrap').classList.add('show');
     document.getElementById('formWrap').style.display='none';
     window.scrollTo(0,0);

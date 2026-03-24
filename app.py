@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from engine.planner import (build_plan, mc_simulate, optimize_plan, export_excel,
                              KW_LIB, EXCLUDE_PRESETS, load_raw_df)
 from engine.system_prompt import SYSTEM_PROMPT
+from engine import db as gaokao_db
 
 # ── PyInstaller 打包路径兼容 ──────────────────────────────
 if getattr(sys, 'frozen', False):
@@ -23,16 +24,77 @@ else:
     app = Flask(__name__)
 OUT_DIR = os.path.join(BASE, 'outputs')
 os.makedirs(OUT_DIR, exist_ok=True)
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB 请求体上限
 
-# ── 当前会话方案（内存） ──────────────────────────────────
-SESSION = {}
+# ── 当前会话方案（内存，按 session_id 隔离 + LRU 淘汰） ──
+import uuid as _uuid
+_SESSIONS = {}        # {session_id: {plan, mc, profile, ...}}
+_SESSION_TS = {}      # {session_id: last_access_timestamp} — 淘汰用
+_MAX_SESSIONS = 200   # 最多保留 200 个 session
 SETTINGS = {}         # 用户设置（API Key 等）
-_SESSION_LOCK = threading.Lock()
+_SESSION_LOCK = threading.RLock()
 _HISTORY_LOCK = threading.Lock()
-_CHAT_LAST_TIME = 0.0   # 上次 chat 请求时间戳，用于速率限制
-PLAN_VERSION = 'v3.5'   # 每次规则变更时递增，旧SESSION自动失效
+_CHAT_LAST_TIME = {}  # {session_id: timestamp} — 按用户限流
+PLAN_VERSION = 'v3.5' # 每次规则变更时递增，旧SESSION自动失效
 
-# ── 历史方案持久化 ────────────────────────────────────────
+def _get_sid():
+    """从请求 cookie 或 header 获取 session_id，不存在则生成（同一请求内缓存）"""
+    from flask import g
+    if hasattr(g, '_gaokao_sid'):
+        return g._gaokao_sid
+    sid = request.cookies.get('gaokao_sid') or request.headers.get('X-Session-Id')
+    if not sid:
+        sid = str(_uuid.uuid4())[:12]
+    g._gaokao_sid = sid
+    return sid
+
+def _get_session(sid=None):
+    """获取当前用户的 SESSION dict（线程安全 + LRU 淘汰）"""
+    if sid is None:
+        sid = _get_sid()
+    with _SESSION_LOCK:
+        if sid not in _SESSIONS:
+            _SESSIONS[sid] = {}
+            # LRU 淘汰：超过上限时删除最久未活跃的 session
+            if len(_SESSIONS) > _MAX_SESSIONS:
+                oldest = sorted(_SESSION_TS, key=_SESSION_TS.get)
+                for old_sid in oldest[:len(_SESSIONS) - _MAX_SESSIONS]:
+                    _SESSIONS.pop(old_sid, None)
+                    _SESSION_TS.pop(old_sid, None)
+                    _CHAT_LAST_TIME.pop(old_sid, None)
+        _SESSION_TS[sid] = time.time()
+        return _SESSIONS[sid]
+
+
+class _SessionProxy(dict):
+    """代理对象：在请求上下文中自动路由到正确的 per-user SESSION"""
+    def _target(self):
+        try:
+            return _get_session()
+        except RuntimeError:
+            # 非请求上下文（启动阶段），返回空 dict
+            return {}
+    def __getitem__(self, k):   return self._target()[k]
+    def __setitem__(self, k, v):self._target()[k] = v
+    def __delitem__(self, k):   del self._target()[k]
+    def __contains__(self, k):  return k in self._target()
+    def __iter__(self):         return iter(self._target())
+    def __len__(self):          return len(self._target())
+    def get(self, k, d=None):   return self._target().get(k, d)
+    def pop(self, k, *a):       return self._target().pop(k, *a)
+    def setdefault(self, k, d=None): return self._target().setdefault(k, d)
+
+SESSION = _SessionProxy()   # 全局变量保持不变，底层按 session_id 隔离
+
+@app.after_request
+def _set_session_cookie(response):
+    """首次访问时设置 gaokao_sid cookie"""
+    if not request.cookies.get('gaokao_sid'):
+        sid = _get_sid()
+        response.set_cookie('gaokao_sid', sid, max_age=86400*30, httponly=True, samesite='Lax')
+    return response
+
+# ── 历史方案持久化（双通道：SQLite 优先，JSON 文件回退）────
 import json as _json
 
 def _history_files():
@@ -43,7 +105,34 @@ def _history_files():
     return files
 
 def _load_history():
-    """从磁盘加载最近10条历史方案"""
+    """从数据库或磁盘加载最近10条历史方案"""
+    # 优先从 SQLite 加载
+    if gaokao_db.db_exists():
+        try:
+            db_plans = gaokao_db.load_plans(limit=10)
+            history = []
+            for p in db_plans:
+                pj = p.get('plan_json', {})
+                prof = p.get('profile', {})
+                history.append({
+                    'ts':       p.get('created_at', '')[:16].replace('T', ' '),
+                    'score':    prof.get('score', 0),
+                    'ke':       prof.get('ke_lei', '物理'),
+                    'tgt':      '|'.join(prof.get('target_kw', [])[:3]),
+                    'n_vols':   pj.get('n_vols', 0),
+                    'rush_rate': pj.get('rush_rate', 0),
+                    'vols_out': pj.get('vols_out', []),
+                    'mc':       pj.get('mc', {}),
+                    'profile':  prof,
+                    'stats':    pj.get('stats', {}),
+                    'plan_version': pj.get('plan_version', PLAN_VERSION),
+                    '_db_id':   p['id'],
+                })
+            if history:
+                return history
+        except Exception:
+            pass
+    # 回退：从 JSON 文件加载
     history = []
     for fpath in _history_files()[:10]:
         try:
@@ -54,20 +143,37 @@ def _load_history():
     return history
 
 def _save_history_entry(entry):
-    """将单条方案写入磁盘"""
+    """将单条方案保存到 SQLite + JSON 文件双写"""
     import datetime
+    # 1. 写入 SQLite
+    if gaokao_db.db_exists():
+        try:
+            profile = entry.get('profile', {})
+            plan_json = {
+                'vols_out':     entry.get('vols_out', []),
+                'mc':           entry.get('mc', {}),
+                'stats':        entry.get('stats', {}),
+                'n_vols':       entry.get('n_vols', 0),
+                'rush_rate':    entry.get('rush_rate', 0),
+                'plan_version': entry.get('plan_version', PLAN_VERSION),
+            }
+            gaokao_db.save_plan(profile, plan_json)
+        except Exception as e:
+            import logging
+            logging.warning(f"方案保存到SQLite失败: {e}")
+    # 2. 同时写 JSON 文件（兼容旧流程）
     fname = 'plan_' + datetime.datetime.now().strftime('%Y%m%d_%H%M%S') + '.json'
     fpath = os.path.join(OUT_DIR, fname)
     try:
         with open(fpath, 'w', encoding='utf-8') as f:
             _json.dump(entry, f, ensure_ascii=False, indent=2)
-        # 超过10条时删除最旧的
         files = _history_files()
         for old in files[10:]:
             try: os.remove(old)
             except Exception: pass
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.warning(f"方案保存到JSON文件失败: {e}")
 
 PLAN_HISTORY = _load_history()   # 启动时从磁盘恢复
 
@@ -151,10 +257,23 @@ def api_history_restore(idx):
         return jsonify({
             'error': f"历史方案版本({h.get('plan_version')})与当前引擎({PLAN_VERSION})不兼容，请重新生成方案"
         }), 409
+    # 从 vols_out 重建 plan_vols 供 simulate/optimize 使用
+    restored_vols = []
+    for v in h.get('vols_out', []):
+        rv = dict(v)
+        # simulate/optimize 需要 top6 字段（从 intent6 还原）
+        rv['top6'] = rv.get('intent6', [])
+        restored_vols.append(rv)
     with _SESSION_LOCK:
         SESSION['profile']      = h['profile']
         SESSION['mc']           = h['mc']
         SESSION['plan_version'] = h.get('plan_version', PLAN_VERSION)
+        SESSION['plan'] = {
+            'plan_vols':   restored_vols,
+            'stats':       h.get('stats', {}),
+            'all_results': {},
+            'profile':     h['profile'],
+        }
     return jsonify({
         'ok':      True,
         'vols':    h['vols_out'],
@@ -225,13 +344,54 @@ def api_generate():
             'school_pref':      body.get('school_pref', 'school'),
             'slope':            float(body.get('slope', 150.0)),
             'fee_max':          int(fee_max_raw) if fee_max_raw else None,
+            'select_subjects':  body.get('select_subjects', []),
         }
+
+        include_zhuanxiang = body.get('include_zhuanxiang', False)
 
         t0 = time.time()
         result = build_plan(profile)
         elapsed = round(time.time()-t0, 2)
 
         plan_vols = result['plan_vols']
+
+        # 专项计划过滤：默认不包含，开关开启后才包含
+        if not include_zhuanxiang:
+            zx_gcodes = {v['gcode'] for v in plan_vols if v.get('has_zhuanxiang')}
+            if zx_gcodes:
+                plan_vols = [v for v in plan_vols if not v.get('has_zhuanxiang')]
+                # 从 all_results 候选池中补充非专项计划的志愿组
+                need = 40 - len(plan_vols)
+                if need > 0:
+                    used_gcodes = {v['gcode'] for v in plan_vols}
+                    used_schools = {v['school'] for v in plan_vols}
+                    all_results = result.get('all_results', {})
+                    # 按 sc6 降序从全量候选中补充
+                    fill_cands = sorted(
+                        [r for r in all_results.values()
+                         if r['gcode'] not in used_gcodes
+                         and r['gcode'] not in zx_gcodes
+                         and r['school'] not in used_schools
+                         and not r.get('has_zhuanxiang')],
+                        key=lambda r: -(r.get('sc6') or 0)
+                    )
+                    for r in fill_cands[:need]:
+                        sc6 = r.get('sc6')
+                        gmin = float(r.get('gmin25') or 0)
+                        if gmin > score:
+                            r['tp'] = '冲'
+                        elif sc6 is not None and score - sc6 >= 10:
+                            r['tp'] = '保'
+                        else:
+                            r['tp'] = '稳'
+                        plan_vols.append(r)
+                # 按冲稳保排序，重新编号
+                tp_ord = {'冲': 0, '稳': 1, '保': 2}
+                plan_vols.sort(key=lambda v: (tp_ord.get(v.get('tp','稳'), 1), -(v.get('sc6') or 0)))
+                for i, v in enumerate(plan_vols):
+                    v['vol_idx'] = i + 1
+                result['plan_vols'] = plan_vols
+
         stats     = result['stats']
 
         # 快速MC（N=5000，基准）—— 使用 build_plan 算好的实际位次
@@ -270,7 +430,11 @@ def api_generate():
                                'diff':m.get('diff'),'kind':m.get('kind','other'),
                                'fee': m.get('fee'), 'r25': m.get('r25'), 'r24': m.get('r24'),
                                'syban_majors':m.get('syban_majors',[]),
-                               'syban_all':   m.get('syban_all',[])} for m in intent6],
+                               'syban_all':   m.get('syban_all',[]),
+                               'zhuanxiang':  m.get('zhuanxiang',''),
+                               'full_name':   m.get('full_name','')} for m in intent6],
+                'has_zhuanxiang':    v.get('has_zhuanxiang', False),
+                'zhuanxiang_types':  v.get('zhuanxiang_types', []),
                 'all_majors_count': len(v.get('majors',[])),
                 'dedup_count':      v.get('dedup_count', 0),
                 'diaoji':           v.get('diaoji', True),
@@ -339,11 +503,14 @@ def api_simulate():
     bias_hi   = float(body.get('bias_hi', 0))
     noise_pct = float(body.get('noise_pct', body.get('noise', 3.5)))
 
-    plan_vols = SESSION['plan']['plan_vols']
-    profile   = SESSION['profile']
+    # 在锁内做快照，防止并发修改
+    import copy as _copy
+    with _SESSION_LOCK:
+        plan_vols    = _copy.deepcopy(SESSION['plan']['plan_vols'])
+        profile      = _copy.deepcopy(SESSION['profile'])
+        student_rank = SESSION['plan']['stats']['student_rank']
 
     score = profile['score']
-    student_rank = SESSION['plan']['stats']['student_rank']
 
     mc = mc_simulate(plan_vols, N=N, seed=seed,
                      bias_lo=bias_lo, bias_hi=bias_hi, noise_pct=noise_pct,
@@ -399,9 +566,13 @@ def api_optimize():
     noise_pct  = float(body.get('noise_pct', 3.5))
 
     try:
+        import copy as _copy
+        with _SESSION_LOCK:
+            plan_snapshot = _copy.deepcopy(SESSION['plan'])
+
         t0     = time.time()
         opt    = optimize_plan(
-            SESSION['plan'],
+            plan_snapshot,
             max_rounds=max_rounds,
             mc_n=mc_n,
             noise_pct=noise_pct,
@@ -501,17 +672,21 @@ def api_optimize_constrained():
     max_rounds       = int(body.get('max_rounds', 10))
     mc_n             = min(int(body.get('mc_n', 8000)), 50000)
     noise_pct        = float(body.get('noise_pct', 3.5))
-    score            = SESSION['profile']['score']
 
     try:
+        import copy as _copy
+        with _SESSION_LOCK:
+            plan_snapshot = _copy.deepcopy(SESSION['plan'])
+            score = SESSION['profile']['score']
+
         t0 = time.time()
 
         # 记录优化前的方案，用于 diff 对比
-        before_vols = SESSION['plan']['plan_vols']
+        before_vols = plan_snapshot['plan_vols']
         before_map  = {v['gcode']: v for v in before_vols}
 
         opt = optimize_plan(
-            SESSION['plan'],
+            plan_snapshot,
             max_rounds=max_rounds,
             mc_n=mc_n,
             noise_pct=noise_pct,
@@ -544,7 +719,7 @@ def api_optimize_constrained():
                 })
 
         # 序列化优化后志愿（含 is_new / is_locked 标记）
-        after_gcodes = {v['gcode'] for v in before_vols}
+        before_gcodes = {v['gcode'] for v in before_vols}
         vols_out = []
         for v in opt['plan_vols']:
             intent6 = v.get('top6', v.get('intent', []))[:6]
@@ -565,7 +740,7 @@ def api_optimize_constrained():
                 'sc6':       v.get('sc6'),
                 'safe':      v.get('safe', False),
                 'gmin_rank': v.get('gmin_rank'),
-                'is_new':    v['gcode'] not in after_gcodes,       # 新加入的志愿
+                'is_new':    v['gcode'] not in before_gcodes,       # 新加入的志愿
                 'is_locked': v['gcode'] in locked_codes,            # 用户锁定的
                 'intent6':   [{'name': m['name'], 's25': m.get('s25'),
                                'diff': m.get('diff'), 'kind': m.get('kind','other'),
@@ -635,11 +810,11 @@ def api_chat():
     AI咨询：Gemini API（gemini-2.0-flash）
     Body: { message: str, history: [{role, content}, ...] }
     """
-    global _CHAT_LAST_TIME
+    sid = _get_sid()
     now = time.time()
-    if now - _CHAT_LAST_TIME < 3.0:
+    if now - _CHAT_LAST_TIME.get(sid, 0) < 3.0:
         return jsonify({'error': '请求过于频繁，请稍后再试（每3秒限1次）'}), 429
-    _CHAT_LAST_TIME = now
+    _CHAT_LAST_TIME[sid] = now
 
     api_key = SETTINGS.get('api_key', '')
     if not api_key:
@@ -647,16 +822,18 @@ def api_chat():
 
     body    = request.json or {}
     message = body.get('message', '').strip()
-    history = body.get('history', [])
+    history = body.get('history', [])[:50]  # 限制历史长度，防止内存/token耗尽
 
-    if not message:
-        return jsonify({'error': '消息不能为空'}), 400
+    if not message or len(message) > 5000:
+        return jsonify({'error': '消息不能为空且不超过5000字'}), 400
 
     # 构建方案摘要注入 system prompt
     plan_json  = '（尚未生成方案）'
     mc_summary = '（尚未运行 MC 仿真）'
     if 'plan' in SESSION:
-        vols = SESSION['plan']['plan_vols']
+        from copy import deepcopy
+        with _SESSION_LOCK:
+            vols = deepcopy(SESSION['plan']['plan_vols'])
         plan_items = []
         for v in vols:
             t6 = [m['name'] for m in v.get('top6', [])[:6]]
@@ -721,12 +898,15 @@ def api_export_excel():
     """导出Excel（内存流，避免 Windows 文件缓冲导致截断）"""
     if 'plan' not in SESSION:
         return jsonify({'error': '请先生成志愿方案'}), 400
-    import io
-    profile  = SESSION['profile']
-    score    = profile['score']
+    import io, copy as _copy
+    with _SESSION_LOCK:
+        plan_snap    = _copy.deepcopy(SESSION['plan'])
+        profile_snap = _copy.deepcopy(SESSION['profile'])
+        mc_snap      = _copy.deepcopy(SESSION.get('mc', {}))
+    score    = profile_snap['score']
     fname    = f"zhiyuan_{score}fen.xlsx"
     buf = io.BytesIO()
-    export_excel(SESSION['plan'], SESSION.get('mc', {}), buf)
+    export_excel(plan_snap, mc_snap, buf)
     # 同步写磁盘备份（供调试用）
     out_path = os.path.join(OUT_DIR, fname)
     with open(out_path, 'wb') as f:
@@ -763,12 +943,14 @@ def api_tiqian():
         batch    = request.args.get('batch', 'all')   # A / B / all
         score_lo = request.args.get('score_lo', type=int, default=None)
         score_hi = request.args.get('score_hi', type=int, default=None)
-        if not score:
+        if score is None:
             return jsonify({'error': '缺少score参数'}), 400
+        select_subjects = request.args.get('select_subjects', '')
         profile = {
             'score': score, 'ke_lei': ke_lei, 'batch': batch,
             'score_lo': score_lo if score_lo is not None else score - 80,
             'score_hi': score_hi if score_hi is not None else score + 20,
+            'select_subjects': [s.strip() for s in select_subjects.split(',') if s.strip()] if select_subjects else [],
         }
         result = build_tiqian(profile)
         return jsonify(result)
@@ -795,11 +977,9 @@ def api_reports():
 
 @app.route('/reports/<path:filename>')
 def serve_report(filename):
-    """直接提供 reports/ 目录下的 HTML 报告文件"""
-    filepath = os.path.join(REPORTS_DIR, filename)
-    if not os.path.isfile(filepath):
-        return '报告文件不存在', 404
-    return send_file(filepath, mimetype='text/html')
+    """直接提供 reports/ 目录下的 HTML 报告文件（防路径遍历）"""
+    from flask import send_from_directory
+    return send_from_directory(REPORTS_DIR, filename, mimetype='text/html')
 
 
 @app.route('/api/major_schools')
@@ -878,7 +1058,7 @@ def api_major_schools():
         # 计算吉林省内排名（按院校全国排名升序）
         jl_df = df[(df['年份'] == 2025) & (df['所在省'] == '吉林')]
         jl_ranks = {}
-        if len(jl_df):
+        if len(jl_df) and '院校排名' in jl_df.columns:
             jl_sch = jl_df[['院校名称', '院校排名']].copy()
             jl_sch['nat'] = pd.to_numeric(jl_sch['院校排名'], errors='coerce')
             jl_sch = jl_sch.dropna(subset=['nat']).drop_duplicates('院校名称')
@@ -888,7 +1068,7 @@ def api_major_schools():
 
         schools = []
         for _, r in sub.iterrows():
-            nat  = pd.to_numeric(r.get('院校排名'), errors='coerce')
+            nat  = pd.to_numeric(r.get('院校排名') if '院校排名' in sub.columns else None, errors='coerce')
             rank = pd.to_numeric(r.get('最低位次'), errors='coerce')
             name = str(r['院校名称'])
             schools.append({
@@ -896,10 +1076,10 @@ def api_major_schools():
                 'city':      str(r['城市']),
                 'province':  str(r['所在省']),
                 'score':     int(r['s25']),
-                'rank':      int(rank) if (rank == rank) else None,
+                'rank':      int(rank) if pd.notna(rank) else None,
                 'lv':        lv(r['院校标签']),
-                'disc_eval': parse_disc(r.get('学科评估')),
-                'nat_rank':  int(nat) if (nat == nat) else None,
+                'disc_eval': parse_disc(r.get('学科评估')) if '学科评估' in sub.columns else None,
+                'nat_rank':  int(nat) if pd.notna(nat) else None,
                 'prov_rank': jl_ranks.get(name),
                 'via_syban': str(r.get('via_syban', '') or ''),
             })
@@ -930,8 +1110,8 @@ def api_school_majors():
         majors = [{
             'name':  str(r['专业名称']),
             'score': int(r['s25']),
-            'rank':  int(r['r25']) if (r['r25'] == r['r25']) else None,
-            'plan':  int(r['计划人数']) if pd.notna(r['计划人数']) else None,
+            'rank':  int(r['r25']) if pd.notna(r['r25']) else None,
+            'plan':  int(r['计划人数']) if ('计划人数' in sub.columns and pd.notna(r.get('计划人数'))) else None,
         } for _, r in sub.iterrows()]
         school = str(sub.iloc[0]['院校名称']) if len(sub) else gcode
         return jsonify({'school': school, 'ke': ke, 'count': len(majors), 'majors': majors})
@@ -948,51 +1128,194 @@ def api_save_plan():
     edits = body.get('vols', [])
 
     from engine.planner import LV_LABEL, CR_LABEL
-    plan_vols = SESSION['plan']['plan_vols']
-    vol_map   = {str(v['gcode']): v for v in plan_vols}
+    with _SESSION_LOCK:
+        plan_vols = SESSION['plan']['plan_vols']
+        vol_map   = {str(v['gcode']): v for v in plan_vols}
 
-    new_plan_vols = []
-    for i, e in enumerate(edits):
-        gcode = e.get('gcode', '')
-        if gcode in vol_map:
-            v = dict(vol_map[gcode])
-        else:
-            # 新插入的志愿组（来自 search_groups）
-            slv = int(e.get('school_lv', 6))
-            crk = int(e.get('city_rank', 4))
-            v = {
-                'gcode':     gcode,
-                'school':    e.get('school', ''),
-                'city':      e.get('city', ''),
-                'school_lv': slv,
-                'city_rank': crk,
-                'lv_label':  LV_LABEL.get(slv, '其他'),
-                'cr_label':  CR_LABEL.get(crk, '其他'),
-                'gmin25':    e.get('gmin25'),
-                'gmin24':    e.get('gmin24'),
-                'gmin23':    e.get('gmin23'),
-                'sc6':       e.get('sc6'),
-                'gmin_rank': None,
-                'n_target':  0, 'n_cold': 0,
-                'safe':      False,
-                'majors':    [{'name': m['name'], 's25': m.get('s25'),
-                               'diff': m.get('diff', 0), 'kind': m.get('kind', 'other')}
-                              for m in e.get('intent6', [])],
-                'diaoji':    True,
-                'dedup_count': 0,
-                'warn_few_majors': False, 'warn_critical': False,
-                'warn_msg': '', 'warn_cold_anchor': False, 'warn_msg_cold': '',
-            }
-        v = dict(v)
-        v['vol_idx'] = i + 1
-        v['tp']  = e.get('tp', v.get('tp', '稳'))
-        v['top6'] = [{'name': m['name'], 's25': m.get('s25'),
-                      'diff': m.get('diff'), 'kind': m.get('kind', 'other')}
-                     for m in e.get('intent6', [])]
-        new_plan_vols.append(v)
+        new_plan_vols = []
+        for i, e in enumerate(edits):
+            gcode = e.get('gcode', '')
+            if gcode in vol_map:
+                v = dict(vol_map[gcode])
+            else:
+                # 新插入的志愿组（来自 search_groups）
+                slv = int(e.get('school_lv', 6))
+                crk = int(e.get('city_rank', 4))
+                v = {
+                    'gcode':     gcode,
+                    'school':    e.get('school', ''),
+                    'city':      e.get('city', ''),
+                    'school_lv': slv,
+                    'city_rank': crk,
+                    'lv_label':  LV_LABEL.get(slv, '其他'),
+                    'cr_label':  CR_LABEL.get(crk, '其他'),
+                    'gmin25':    e.get('gmin25'),
+                    'gmin24':    e.get('gmin24'),
+                    'gmin23':    e.get('gmin23'),
+                    'sc6':       e.get('sc6'),
+                    'gmin_rank': None,
+                    'n_target':  0, 'n_cold': 0,
+                    'safe':      False,
+                    'majors':    [{'name': m['name'], 's25': m.get('s25'),
+                                   'diff': m.get('diff', 0), 'kind': m.get('kind', 'other')}
+                                  for m in e.get('intent6', [])],
+                    'diaoji':    True,
+                    'dedup_count': 0,
+                    'warn_few_majors': False, 'warn_critical': False,
+                    'warn_msg': '', 'warn_cold_anchor': False, 'warn_msg_cold': '',
+                }
+            v = dict(v)
+            v['vol_idx'] = i + 1
+            v['tp']  = e.get('tp', v.get('tp', '稳'))
+            v['top6'] = [{'name': m['name'], 's25': m.get('s25'),
+                          'diff': m.get('diff'), 'kind': m.get('kind', 'other')}
+                         for m in e.get('intent6', [])]
+            new_plan_vols.append(v)
 
-    SESSION['plan']['plan_vols'] = new_plan_vols
+        SESSION['plan']['plan_vols'] = new_plan_vols
     return jsonify({'ok': True, 'count': len(new_plan_vols)})
+
+
+@app.route('/api/replenish', methods=['POST'])
+def api_replenish():
+    """
+    补充志愿：用户删除部分志愿组后，自动补充到目标数量并重新排序。
+    请求体: { target_count: 40 }  (可选，默认补充到40个)
+    """
+    if 'plan' not in SESSION:
+        return jsonify({'error': '无当前方案'}), 400
+
+    body = request.json or {}
+    target_count = body.get('target_count', 40)
+
+    with _SESSION_LOCK:
+        snap_plan = __import__('copy').deepcopy(SESSION.get('plan', {}))
+        snap_profile = __import__('copy').deepcopy(SESSION.get('profile', {}))
+
+    current_vols = snap_plan.get('plan_vols', [])
+    current_count = len(current_vols)
+
+    if current_count >= target_count:
+        return jsonify({'ok': True, 'msg': '志愿数量已满，无需补充',
+                        'count': current_count, 'added': 0})
+
+    need = target_count - current_count
+    existing_gcodes = {str(v['gcode']) for v in current_vols}
+
+    # 用户主动删除的志愿组，补充时也要排除（避免补回已删除的）
+    exclude_gcodes = set(str(g) for g in body.get('exclude_gcodes', []))
+
+    # 用当前 profile 重新生成完整方案
+    try:
+        t0 = time.time()
+        full_result = build_plan(snap_profile)
+        full_vols = full_result.get('plan_vols', [])
+
+        # 从完整方案中筛选出：不在当前列表中 且 不在用户删除列表中
+        candidates = [v for v in full_vols
+                      if str(v['gcode']) not in existing_gcodes
+                      and str(v['gcode']) not in exclude_gcodes]
+
+        # 按原始排序取前 need 个
+        added = candidates[:need]
+
+        # 合并：当前志愿 + 新增志愿
+        merged = list(current_vols) + added
+
+        # 梯度重分类：对齐 build_plan 的冲/稳/保定义
+        # 冲: gmin25 > score（不会被提档，安全冲击高校）
+        # 稳: gmin25 ≤ score 且 sc6 在 [score-45, score-2]（能提档，sc6 保底）
+        # 保: score - sc6 ≥ 10（大幅超过保底线）
+        score = snap_profile.get('score', 500)
+        for v in merged:
+            sc6 = v.get('sc6')
+            gmin = v.get('gmin25')
+            gmin_f = float(gmin) if gmin is not None else 0
+
+            if gmin_f > score:
+                # 组最低分高于考生分 → 冲志愿
+                v['tp'] = '冲'
+            elif sc6 is not None:
+                diff = score - sc6
+                if diff < 0:
+                    v['tp'] = '冲'     # sc6 > score，有调剂风险
+                elif diff < 10:
+                    v['tp'] = '稳'     # 稳区：sc6 接近考生分
+                else:
+                    v['tp'] = '保'     # 保区：大幅超过 sc6
+            else:
+                # sc6 为 None（专业少于6个），按 gmin 判断
+                v['tp'] = '稳' if gmin_f <= score else '冲'
+
+        # 按冲稳保分组，组内按sc6降序（与 build_plan 一致）
+        tp_order = {'冲': 0, '稳': 1, '保': 2}
+        merged.sort(key=lambda v: (tp_order.get(v.get('tp', '稳'), 1),
+                                   -(v.get('sc6') or 0)))
+
+        # 重新编号
+        for i, v in enumerate(merged):
+            v['vol_idx'] = i + 1
+
+        # 序列化输出（与 api_generate 格式完全对齐，含 warn 字段）
+        vols_out = []
+        for v in merged:
+            intent6 = v.get('top6', v.get('intent6', []))[:6]
+            vols_out.append({
+                'vol_idx':   v['vol_idx'],
+                'tp':        v['tp'],
+                'school':    v['school'],
+                'city':      v.get('city', ''),
+                'province':  v.get('province', ''),
+                'lv_label':  v.get('lv_label','?'),
+                'cr_label':  v.get('cr_label','?'),
+                'school_lv': v.get('school_lv', 6),
+                'city_rank': v.get('city_rank', 4),
+                'gcode':     v['gcode'],
+                'gmin25':    v.get('gmin25'),
+                'gmin24':    v.get('gmin24'),
+                'gmin23':    v.get('gmin23'),
+                'sc6':       v.get('sc6'),
+                'safe':      v.get('safe', False),
+                'n_target':  v.get('n_target', 0),
+                'n_cold':    v.get('n_cold', 0),
+                'gmin_rank': v.get('gmin_rank'),
+                'intent6':   [{'name':m['name'],'s25':m.get('s25'),
+                               'diff':m.get('diff'),'kind':m.get('kind','other'),
+                               'fee': m.get('fee'), 'r25': m.get('r25'), 'r24': m.get('r24'),
+                               'syban_majors':m.get('syban_majors',[]),
+                               'syban_all':   m.get('syban_all',[]),
+                               'zhuanxiang':  m.get('zhuanxiang',''),
+                               'full_name':   m.get('full_name','')} for m in intent6],
+                'has_zhuanxiang':    v.get('has_zhuanxiang', False),
+                'zhuanxiang_types':  v.get('zhuanxiang_types', []),
+                'all_majors_count': len(v.get('majors',[])),
+                'dedup_count':      v.get('dedup_count', 0),
+                'diaoji':           v.get('diaoji', True),
+                'warn_few_majors':  v.get('warn_few_majors', False),
+                'warn_critical':    v.get('warn_critical', False),
+                'warn_msg':         v.get('warn_msg', ''),
+                'warn_excl_major':  v.get('warn_excl_major', False),
+                'warn_msg_excl':    v.get('warn_msg_excl', ''),
+                'warn_cold_anchor': v.get('warn_cold_anchor', False),
+                'warn_msg_cold':    v.get('warn_msg_cold', ''),
+                'warn_tuidan':      v.get('warn_tuidan', False),
+                'warn_msg_tuidan':  v.get('warn_msg_tuidan', ''),
+            })
+
+        elapsed = round(time.time() - t0, 2)
+
+        with _SESSION_LOCK:
+            SESSION['plan']['plan_vols'] = merged
+
+        return jsonify({
+            'ok': True,
+            'count': len(merged),
+            'added': len(added),
+            'elapsed': elapsed,
+            'vols': vols_out,
+        })
+    except Exception as e:
+        return jsonify({'error': f'补充失败: {str(e)}'}), 500
 
 
 @app.route('/api/search_groups')
@@ -1118,7 +1441,10 @@ def api_map_data():
         plan_cities = {}
         has_plan = 'plan' in SESSION
         if has_plan:
-            for v in SESSION['plan']['plan_vols']:
+            from copy import deepcopy
+            with _SESSION_LOCK:
+                _plan_vols_snap = deepcopy(SESSION['plan']['plan_vols'])
+            for v in _plan_vols_snap:
                 city = v.get('city', '')
                 if city:
                     if city not in plan_cities:
@@ -1143,6 +1469,71 @@ def api_map_data():
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 
+# ══ 数据库增强 API ═════════════════════════════════════════
+
+@app.route('/api/db/stats')
+def api_db_stats():
+    """返回数据库统计信息"""
+    if not gaokao_db.db_exists():
+        return jsonify({'error': '数据库不存在，请先运行迁移'}), 404
+    return jsonify(gaokao_db.get_stats())
+
+@app.route('/api/db/major_tree')
+def api_db_major_tree():
+    """返回专业目录树形结构（门类→类别→专业）"""
+    level = request.args.get('level', '本科')
+    return jsonify(gaokao_db.get_major_tree(level))
+
+@app.route('/api/db/search_majors')
+def api_db_search_majors():
+    """按关键词搜索专业目录"""
+    kw = request.args.get('q', '')
+    level = request.args.get('level', '本科')
+    if not kw:
+        return jsonify([])
+    return jsonify(gaokao_db.search_majors(kw, level))
+
+@app.route('/api/db/search_schools')
+def api_db_search_schools():
+    """搜索院校"""
+    kw = request.args.get('q', '')
+    prov = request.args.get('province', '')
+    tags = request.args.get('tags', '')
+    limit = int(request.args.get('limit', 50))
+    return jsonify(gaokao_db.search_schools(kw, prov, tags, limit))
+
+@app.route('/api/db/school_detail')
+def api_db_school_detail():
+    """查询院校的专业组和专业详情"""
+    name = request.args.get('name', '')
+    year = int(request.args.get('year', 2025))
+    ke = request.args.get('ke_lei', '物理')
+    if not name:
+        return jsonify({'error': '请提供院校名称'}), 400
+    return jsonify(gaokao_db.get_school_majors(name, year, ke))
+
+@app.route('/api/db/save_plan', methods=['POST'])
+def api_db_save_plan():
+    """保存方案到数据库"""
+    body = request.json or {}
+    profile = body.get('profile', SESSION.get('profile', {}))
+    plan_json = body.get('plan_json', {})
+    plan_id = gaokao_db.save_plan(profile, plan_json)
+    return jsonify({'ok': True, 'plan_id': plan_id})
+
+@app.route('/api/db/plans')
+def api_db_plans():
+    """读取历史方案列表"""
+    limit = int(request.args.get('limit', 10))
+    return jsonify(gaokao_db.load_plans(limit=limit))
+
+@app.route('/api/db/plans/<int:plan_id>', methods=['DELETE'])
+def api_db_delete_plan(plan_id):
+    """删除指定方案"""
+    ok = gaokao_db.delete_plan(plan_id)
+    return jsonify({'ok': ok})
+
+
 if __name__ == '__main__':
     import os as _os, sys as _sys
     # Windows GBK 终端 emoji 兼容
@@ -1157,10 +1548,13 @@ if __name__ == '__main__':
     print("\n" + "="*52)
     print("  🎓 吉林省高考志愿规划系统 · 本地版 v3.5")
     print("="*52)
-    # 检测缓存
+    # 检测数据源
+    _db = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'data', 'gaokao.db')
     _cache = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'data', 'df_cache.pkl')
-    if _os.path.exists(_cache):
-        print("  预加载数据中（读取缓存）...", end='', flush=True)
+    if _os.path.exists(_db):
+        print("  预加载数据中（读取SQLite数据库）...", end='', flush=True)
+    elif _os.path.exists(_cache):
+        print("  预加载数据中（读取pickle缓存）...", end='', flush=True)
     else:
         print("  首次启动，正在读取Excel数据（约30秒，请耐心等待）...", end='', flush=True)
     try:
@@ -1182,4 +1576,4 @@ if __name__ == '__main__':
         _sys.exit(1)
     print(f"  🌐 地址: http://localhost:5000")
     print("  Ctrl+C 停止\n")
-    app.run(debug=False, port=5000, host='0.0.0.0')
+    app.run(debug=False, port=5000, host='127.0.0.1')

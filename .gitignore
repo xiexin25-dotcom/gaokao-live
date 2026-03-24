@@ -9,6 +9,7 @@ data/*.xlsx
 data/*.xls
 data/*.pkl
 data/*.pickle
+data/*.db
 
 # 输出文件（生成的志愿表不提交）
 outputs/
