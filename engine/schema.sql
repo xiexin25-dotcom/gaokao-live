@@ -36,19 +36,20 @@ CREATE TABLE IF NOT EXISTS school (
 
 -- 3. 院校专业组
 CREATE TABLE IF NOT EXISTS major_group (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    gcode       TEXT NOT NULL,               -- 院校专业组代码（原"院校专业组代码"）
-    school_id   INTEGER REFERENCES school(id),
-    year        INTEGER NOT NULL,            -- 招生年份
-    ke_lei      TEXT NOT NULL,               -- 科类：物理 / 历史
-    batch       TEXT NOT NULL,               -- 批次：本科批 / 提前批A段…
-    subj_req    TEXT,                        -- 选科要求
-    gmin_score  REAL,                        -- 专业组最低分
-    gmin_rank   INTEGER,                    -- 专业组最低位次
-    disc_eval   TEXT,                        -- 学科评估（如"四轮：A；五轮：A+"）
-    group_plan  INTEGER,                    -- 专业组计划人数
-    admit_cnt   INTEGER,                    -- 专业组录取人数
-    UNIQUE(gcode, year)
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    gcode          TEXT NOT NULL,            -- 院校专业组代码
+    school_id      INTEGER REFERENCES school(id),
+    year           INTEGER NOT NULL,         -- 招生年份
+    ke_lei         TEXT NOT NULL,            -- 科类：物理 / 历史
+    batch          TEXT NOT NULL,            -- 批次：本科批 / 提前批A段…
+    sheng_yuan_di  TEXT NOT NULL DEFAULT '吉林', -- 生源地（考生省份）
+    subj_req       TEXT,                     -- 选科要求
+    gmin_score     REAL,                     -- 专业组最低分（2025）
+    gmin_rank      INTEGER,                  -- 专业组最低位次（2025）
+    disc_eval      TEXT,                     -- 学科评估
+    group_plan     INTEGER,                  -- 专业组计划人数
+    admit_cnt      INTEGER,                  -- 专业组录取人数
+    UNIQUE(gcode, year, sheng_yuan_di)
 );
 
 -- 4. 专业录取明细（核心大表，一行=一个专业在某年的录取数据）
@@ -76,7 +77,38 @@ CREATE TABLE IF NOT EXISTS major_score (
     is_new          TEXT                      -- 是否新增专业
 );
 
--- 5. 本科专业目录（教育部标准 13门类→92类别→770专业）
+-- 5. 专业+学校直填模式录取明细（辽宁/重庆/山东/浙江/河北）
+-- 这5省无院校专业组概念，每行 = 1所学校的1个专业的1年录取数据
+CREATE TABLE IF NOT EXISTS major_direct (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    school_name  TEXT NOT NULL,
+    school_id    INTEGER REFERENCES school(id),
+    major_name   TEXT NOT NULL,
+    major_full   TEXT,
+    year         INTEGER NOT NULL,
+    ke_lei       TEXT,                        -- 物理/历史/综合(山东/浙江不分科类)
+    batch        TEXT,
+    sheng_yuan   TEXT NOT NULL,              -- 生源地（考生省份）
+    min_score    REAL,
+    min_rank     INTEGER,
+    max_score    REAL,
+    avg_score    REAL,
+    plan_count   INTEGER,
+    admit_count  INTEGER,
+    tuition      REAL,
+    study_years  INTEGER,
+    subj_req     TEXT,
+    remark       TEXT,
+    major_class  TEXT,
+    pub_priv     TEXT DEFAULT '公办',
+    UNIQUE(school_name, major_name, year, sheng_yuan, ke_lei, batch)
+);
+
+CREATE INDEX IF NOT EXISTS idx_md_year_prov  ON major_direct(year, sheng_yuan);
+CREATE INDEX IF NOT EXISTS idx_md_ke_lei     ON major_direct(ke_lei);
+CREATE INDEX IF NOT EXISTS idx_md_school     ON major_direct(school_name);
+
+-- 5b. 本科专业目录（教育部标准 13门类→92类别→770专业）
 CREATE TABLE IF NOT EXISTS major_catalog (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     level       TEXT NOT NULL DEFAULT '本科', -- 本科 / 专科
@@ -109,11 +141,12 @@ CREATE TABLE IF NOT EXISTS user (
 
 -- 8. 用户方案历史（预留）
 CREATE TABLE IF NOT EXISTS user_plan (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id     INTEGER REFERENCES user(id),
-    profile     TEXT,                        -- JSON：考生信息快照
-    plan_json   TEXT,                        -- JSON：完整志愿方案
-    created_at  TEXT DEFAULT (datetime('now'))
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id          INTEGER REFERENCES user(id),
+    student_province TEXT DEFAULT '吉林',    -- 考生所在省（高考报名省份）
+    profile          TEXT,                   -- JSON：考生信息快照
+    plan_json        TEXT,                   -- JSON：完整志愿方案
+    created_at       TEXT DEFAULT (datetime('now'))
 );
 
 -- 9. 聊天记录（预留）
@@ -130,6 +163,7 @@ CREATE TABLE IF NOT EXISTS chat_history (
 -- ============================================================
 CREATE INDEX IF NOT EXISTS idx_mg_year_ke      ON major_group(year, ke_lei);
 CREATE INDEX IF NOT EXISTS idx_mg_batch        ON major_group(batch);
+CREATE INDEX IF NOT EXISTS idx_mg_sheng_yuan   ON major_group(sheng_yuan_di);
 CREATE INDEX IF NOT EXISTS idx_ms_group_year   ON major_score(major_group_id, year);
 CREATE INDEX IF NOT EXISTS idx_ms_major_name   ON major_score(major_name);
 CREATE INDEX IF NOT EXISTS idx_ms_full_name    ON major_score(major_full_name);

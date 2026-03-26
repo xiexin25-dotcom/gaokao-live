@@ -7,8 +7,10 @@ import pandas as pd
 from flask import Flask, render_template, request, jsonify, send_file, make_response
 
 sys.path.insert(0, os.path.dirname(__file__))
-from engine.planner import (build_plan, mc_simulate, optimize_plan, export_excel,
-                             KW_LIB, EXCLUDE_PRESETS, load_raw_df)
+from engine.planner import (build_plan, build_plan_direct, mc_simulate,
+                             optimize_plan, export_excel,
+                             KW_LIB, EXCLUDE_PRESETS, load_raw_df,
+                             _DIRECT_PROV_CFG)
 from engine.system_prompt import SYSTEM_PROMPT
 from engine import db as gaokao_db
 
@@ -332,6 +334,7 @@ def api_generate():
         profile = {
             'score':            score,
             'ke_lei':           ke_lei,
+            'student_province': body.get('student_province', '吉林'),
             'target_kw':        body.get('target_kw', []),
             'exclude_kw':       body.get('exclude_kw', []),
             'strict_exclude':   body.get('strict_exclude', False),
@@ -350,13 +353,18 @@ def api_generate():
         include_zhuanxiang = body.get('include_zhuanxiang', False)
 
         t0 = time.time()
-        result = build_plan(profile)
+        student_province = profile.get('student_province', '吉林')
+        is_direct = student_province in _DIRECT_PROV_CFG
+        if is_direct:
+            result = build_plan_direct(profile)
+        else:
+            result = build_plan(profile)
         elapsed = round(time.time()-t0, 2)
 
         plan_vols = result['plan_vols']
 
-        # 专项计划过滤：默认不包含，开关开启后才包含
-        if not include_zhuanxiang:
+        # 直填模式不走专项计划过滤逻辑（无 gcode 字段）
+        if not include_zhuanxiang and not is_direct:
             zx_gcodes = {v['gcode'] for v in plan_vols if v.get('has_zhuanxiang')}
             if zx_gcodes:
                 plan_vols = [v for v in plan_vols if not v.get('has_zhuanxiang')]
@@ -394,60 +402,95 @@ def api_generate():
 
         stats     = result['stats']
 
-        # 快速MC（N=5000，基准）—— 使用 build_plan 算好的实际位次
-        mc = mc_simulate(plan_vols, N=5000, seed=42, bias_lo=0, bias_hi=0, noise_pct=3.5,
-                         student_rank=stats['student_rank'], student_score=score)
+        # 直填模式 MC 仿真暂不支持（无专业组概念），返回空占位
+        if is_direct:
+            mc = {'rates': [], 'total_rate': 0, 'rush_rate': 0,
+                  'exp_vol': None, 'exp_q': None, 'N': 0}
+        else:
+            # 快速MC（N=5000，基准）—— 使用 build_plan 算好的实际位次
+            mc = mc_simulate(plan_vols, N=5000, seed=42, bias_lo=0, bias_hi=0, noise_pct=3.5,
+                             student_rank=stats['student_rank'], student_score=score)
 
         with _SESSION_LOCK:
             SESSION['plan']    = result
             SESSION['mc']      = mc
             SESSION['profile'] = profile
 
+        def _n(x):
+            """Convert NaN/inf to None for JSON safety."""
+            import math
+            if x is None: return None
+            try:
+                if math.isnan(x) or math.isinf(x): return None
+            except TypeError:
+                pass
+            return x
+
         # 序列化输出（去掉大型原始字段）
         vols_out = []
         for v in plan_vols:
-            intent6 = v.get('top6', v.get('intent',[]))[:6]
-            vols_out.append({
-                'vol_idx':   v['vol_idx'],
-                'tp':        v['tp'],
-                'school':    v['school'],
-                'city':      v['city'],
-                'province':  v.get('province', ''),
-                'lv_label':  v.get('lv_label','?'),
-                'cr_label':  v.get('cr_label','?'),
-                'school_lv': v['school_lv'],
-                'city_rank': v['city_rank'],
-                'gcode':     v['gcode'],
-                'gmin25':    v.get('gmin25'),
-                'gmin24':    v.get('gmin24'),
-                'gmin23':    v.get('gmin23'),
-                'sc6':       v.get('sc6'),
-                'safe':      v.get('safe', False),
-                'n_target':  v.get('n_target', 0),
-                'n_cold':    v.get('n_cold', 0),
-                'gmin_rank': v.get('gmin_rank'),
-                'intent6':   [{'name':m['name'],'s25':m.get('s25'),
-                               'diff':m.get('diff'),'kind':m.get('kind','other'),
-                               'fee': m.get('fee'), 'r25': m.get('r25'), 'r24': m.get('r24'),
-                               'syban_majors':m.get('syban_majors',[]),
-                               'syban_all':   m.get('syban_all',[]),
-                               'zhuanxiang':  m.get('zhuanxiang',''),
-                               'full_name':   m.get('full_name','')} for m in intent6],
-                'has_zhuanxiang':    v.get('has_zhuanxiang', False),
-                'zhuanxiang_types':  v.get('zhuanxiang_types', []),
-                'all_majors_count': len(v.get('majors',[])),
-                'dedup_count':      v.get('dedup_count', 0),
-                'diaoji':           v.get('diaoji', True),
-                'warn_few_majors':  v.get('warn_few_majors', False),
-                'warn_critical':    v.get('warn_critical', False),
-                'warn_msg':         v.get('warn_msg', ''),
-                'warn_excl_major':  v.get('warn_excl_major', False),
-                'warn_msg_excl':    v.get('warn_msg_excl', ''),
-                'warn_cold_anchor':  v.get('warn_cold_anchor', False),
-                'warn_msg_cold':     v.get('warn_msg_cold', ''),
-                'warn_tuidan':       v.get('warn_tuidan', False),
-                'warn_msg_tuidan':   v.get('warn_msg_tuidan', ''),
-            })
+            if is_direct:
+                vols_out.append({
+                    'vol_idx':    v['vol_idx'],
+                    'tp':         v['tp'],
+                    'school':     v['school'],
+                    'major':      v.get('major', ''),
+                    'city':       v.get('city', ''),
+                    'ke_lei':     v.get('ke_lei', ''),
+                    'batch':      v.get('batch', ''),
+                    's25':        _n(v.get('s25')),
+                    'diff':       _n(v.get('diff')),
+                    'tags':       v.get('tags', '') or '',
+                    'city_level': v.get('city_level', '') or '',
+                    'school_lv':  v.get('school_lv', '') or '',
+                    'subj_req':   v.get('subj_req', '') or '',
+                    'tuition':    _n(v.get('tuition')),
+                    'ruanke_rank': _n(v.get('ruanke_rank')),
+                    'plan_count': v.get('plan_count'),
+                })
+            else:
+                intent6 = v.get('top6', v.get('intent',[]))[:6]
+                vols_out.append({
+                    'vol_idx':   v['vol_idx'],
+                    'tp':        v['tp'],
+                    'school':    v['school'],
+                    'city':      v['city'],
+                    'province':  v.get('province', ''),
+                    'lv_label':  v.get('lv_label','?'),
+                    'cr_label':  v.get('cr_label','?'),
+                    'school_lv': v['school_lv'],
+                    'city_rank': v['city_rank'],
+                    'gcode':     v['gcode'],
+                    'gmin25':    v.get('gmin25'),
+                    'gmin24':    v.get('gmin24'),
+                    'gmin23':    v.get('gmin23'),
+                    'sc6':       v.get('sc6'),
+                    'safe':      v.get('safe', False),
+                    'n_target':  v.get('n_target', 0),
+                    'n_cold':    v.get('n_cold', 0),
+                    'gmin_rank': v.get('gmin_rank'),
+                    'intent6':   [{'name':m['name'],'s25':m.get('s25'),
+                                   'diff':m.get('diff'),'kind':m.get('kind','other'),
+                                   'fee': m.get('fee'), 'r25': m.get('r25'), 'r24': m.get('r24'),
+                                   'syban_majors':m.get('syban_majors',[]),
+                                   'syban_all':   m.get('syban_all',[]),
+                                   'zhuanxiang':  m.get('zhuanxiang',''),
+                                   'full_name':   m.get('full_name','')} for m in intent6],
+                    'has_zhuanxiang':    v.get('has_zhuanxiang', False),
+                    'zhuanxiang_types':  v.get('zhuanxiang_types', []),
+                    'all_majors_count': len(v.get('majors',[])),
+                    'dedup_count':      v.get('dedup_count', 0),
+                    'diaoji':           v.get('diaoji', True),
+                    'warn_few_majors':  v.get('warn_few_majors', False),
+                    'warn_critical':    v.get('warn_critical', False),
+                    'warn_msg':         v.get('warn_msg', ''),
+                    'warn_excl_major':  v.get('warn_excl_major', False),
+                    'warn_msg_excl':    v.get('warn_msg_excl', ''),
+                    'warn_cold_anchor':  v.get('warn_cold_anchor', False),
+                    'warn_msg_cold':     v.get('warn_msg_cold', ''),
+                    'warn_tuidan':       v.get('warn_tuidan', False),
+                    'warn_msg_tuidan':   v.get('warn_msg_tuidan', ''),
+                })
 
         plan_ok, plan_warnings = validate_plan(plan_vols, score)
         with _SESSION_LOCK:
@@ -474,14 +517,16 @@ def api_generate():
         _save_history_entry(hist_entry)
 
         return jsonify({
-            'ok':       True,
-            'elapsed':  elapsed,
-            'stats':    stats,
-            'vols':     vols_out,
-            'mc':       mc,
-            'profile':  profile,
-            'plan_ok':  plan_ok,
-            'warnings': plan_warnings,
+            'ok':         True,
+            'elapsed':    elapsed,
+            'stats':      stats,
+            'vols':       vols_out,
+            'mc':         mc,
+            'profile':    profile,
+            'plan_ok':    plan_ok,
+            'warnings':   plan_warnings,
+            'mode':       result.get('mode', 'group'),
+            'round_note': result.get('round_note', ''),
         })
 
     except Exception as e:
@@ -559,6 +604,10 @@ def api_optimize():
     """
     if 'plan' not in SESSION:
         return jsonify({'error': '请先生成志愿方案'}), 400
+    with _SESSION_LOCK:
+        _plan_mode = SESSION['plan'].get('mode', 'group')
+    if _plan_mode == 'direct':
+        return jsonify({'error': '直填模式不支持迭代优化'}), 400
 
     body       = request.json or {}
     max_rounds = int(body.get('max_rounds', 10))
@@ -903,6 +952,8 @@ def api_export_excel():
         plan_snap    = _copy.deepcopy(SESSION['plan'])
         profile_snap = _copy.deepcopy(SESSION['profile'])
         mc_snap      = _copy.deepcopy(SESSION.get('mc', {}))
+    if plan_snap.get('mode') == 'direct':
+        return jsonify({'error': '直填模式暂不支持Excel导出，请手动记录志愿'}), 400
     score    = profile_snap['score']
     fname    = f"zhiyuan_{score}fen.xlsx"
     buf = io.BytesIO()
