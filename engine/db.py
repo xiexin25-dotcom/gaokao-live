@@ -15,6 +15,12 @@ else:
     _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DB_PATH = os.path.join(_BASE, 'data', 'gaokao.db')
+# 在 git worktree 中运行时，data/ 不存在，自动回退到主仓库路径
+if not os.path.exists(DB_PATH):
+    _main_repo = os.path.normpath(os.path.join(_BASE, '..', '..', '..'))
+    _fallback  = os.path.join(_main_repo, 'data', 'gaokao.db')
+    if os.path.exists(_fallback):
+        DB_PATH = _fallback
 
 _df_cache = None
 
@@ -76,6 +82,8 @@ class _ConnPool:
 # 全局连接池实例
 _pool = _ConnPool(DB_PATH) if os.path.exists(DB_PATH) else None
 
+# 自动迁移：为已有数据库补充新列（在函数定义后调用，见模块末尾 _migrate_user_plan()）
+
 
 def _get_conn(readonly=True):
     """获取数据库连接（通过连接池）"""
@@ -90,6 +98,76 @@ def _get_conn(readonly=True):
 def db_exists() -> bool:
     """检查数据库是否存在"""
     return os.path.exists(DB_PATH)
+
+
+def _migrate_user_plan():
+    """为已有数据库的 user_plan 表添加 student_province 列（幂等）"""
+    if not os.path.exists(DB_PATH):
+        return
+    conn = _get_conn(readonly=False)
+    with _pool.write_lock:
+        cur = conn.cursor()
+        cur.execute("PRAGMA table_info(user_plan)")
+        cols = {row[1] for row in cur.fetchall()}
+        if 'student_province' not in cols:
+            cur.execute("ALTER TABLE user_plan ADD COLUMN student_province TEXT DEFAULT '吉林'")
+            conn.commit()
+
+
+def _migrate_major_group_sheng_yuan():
+    """
+    为已有数据库的 major_group 表添加 sheng_yuan_di 列并重建 UNIQUE 约束（幂等）。
+    SQLite 不支持直接修改 UNIQUE 约束，需要重建表。
+    """
+    if not os.path.exists(DB_PATH):
+        return
+    conn = _get_conn(readonly=False)
+    with _pool.write_lock:
+        cur = conn.cursor()
+        # 检查列是否已存在
+        cur.execute("PRAGMA table_info(major_group)")
+        cols = {row[1] for row in cur.fetchall()}
+        if 'sheng_yuan_di' in cols:
+            return  # 已迁移，跳过
+
+        cur.executescript("""
+            PRAGMA foreign_keys = OFF;
+
+            CREATE TABLE IF NOT EXISTS major_group_new (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                gcode          TEXT NOT NULL,
+                school_id      INTEGER REFERENCES school(id),
+                year           INTEGER NOT NULL,
+                ke_lei         TEXT NOT NULL,
+                batch          TEXT NOT NULL,
+                sheng_yuan_di  TEXT NOT NULL DEFAULT '吉林',
+                subj_req       TEXT,
+                gmin_score     REAL,
+                gmin_rank      INTEGER,
+                disc_eval      TEXT,
+                group_plan     INTEGER,
+                admit_cnt      INTEGER,
+                UNIQUE(gcode, year, sheng_yuan_di)
+            );
+
+            INSERT INTO major_group_new
+                (id, gcode, school_id, year, ke_lei, batch, sheng_yuan_di,
+                 subj_req, gmin_score, gmin_rank, disc_eval, group_plan, admit_cnt)
+            SELECT id, gcode, school_id, year, ke_lei, batch, '吉林',
+                   subj_req, gmin_score, gmin_rank, disc_eval, group_plan, admit_cnt
+            FROM major_group;
+
+            DROP TABLE major_group;
+            ALTER TABLE major_group_new RENAME TO major_group;
+
+            CREATE INDEX IF NOT EXISTS idx_mg_year_ke    ON major_group(year, ke_lei);
+            CREATE INDEX IF NOT EXISTS idx_mg_batch      ON major_group(batch);
+            CREATE INDEX IF NOT EXISTS idx_mg_sheng_yuan ON major_group(sheng_yuan_di);
+
+            PRAGMA foreign_keys = ON;
+        """)
+        conn.commit()
+        print("[db] major_group 迁移完成：已添加 sheng_yuan_di 列")
 
 
 # ═══════════════════════════════════════════════════════════
@@ -115,8 +193,9 @@ def clear_cache():
 
 def load_raw_df() -> pd.DataFrame:
     """
-    从 SQLite 加载主数据，输出完整 DataFrame。
+    从 SQLite 加载主数据，输出完整 DataFrame（含所有生源地）。
     包含原 Excel 所有关键列 + 新增的院校/专业附加信息列。
+    planner.py 在 Python 层按 student_province 过滤。
     """
     global _df_cache
     if _df_cache is not None:
@@ -131,10 +210,11 @@ def load_raw_df() -> pd.DataFrame:
     conn = _get_conn(readonly=True)
     sql = """
     SELECT
-        mg.year        AS "年份",
-        mg.ke_lei      AS "科类",
-        mg.batch       AS "批次",
-        s.pub_priv     AS "公私性质",
+        mg.year           AS "年份",
+        mg.sheng_yuan_di  AS "生源地",
+        mg.ke_lei         AS "科类",
+        mg.batch          AS "批次",
+        s.pub_priv        AS "公私性质",
         s.name         AS "院校名称",
         ms25.major_name AS "专业名称",
         ms25.major_full_name AS "专业全称",
@@ -429,12 +509,14 @@ def save_plan(profile: dict, plan_json: dict, user_id: int = None) -> int:
     """
     保存用户方案到数据库，返回 plan_id（写连接 + 全局锁）
     """
+    student_province = profile.get('student_province', '吉林')
     conn = _get_conn(readonly=False)
     with _pool.write_lock:
         cur = conn.cursor()
-        cur.execute("""INSERT INTO user_plan (user_id, profile, plan_json, created_at)
-                       VALUES (?, ?, ?, ?)""",
-                    (user_id, json.dumps(profile, ensure_ascii=False),
+        cur.execute("""INSERT INTO user_plan (user_id, student_province, profile, plan_json, created_at)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (user_id, student_province,
+                     json.dumps(profile, ensure_ascii=False),
                      json.dumps(plan_json, ensure_ascii=False),
                      datetime.now().isoformat()))
         conn.commit()
@@ -508,3 +590,94 @@ def load_chat(user_id: int = None, limit: int = 50) -> list[dict]:
     results = [dict(r) for r in cur.fetchall()]
     results.reverse()  # 时间正序
     return results
+
+
+def _migrate_major_direct():
+    """创建 major_direct 表（专业+学校直填模式，幂等）"""
+    if not os.path.exists(DB_PATH):
+        return
+    conn = _get_conn(readonly=False)
+    with _pool.write_lock:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS major_direct (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                school_name  TEXT NOT NULL,
+                school_id    INTEGER REFERENCES school(id),
+                major_name   TEXT NOT NULL,
+                major_full   TEXT,
+                year         INTEGER NOT NULL,
+                ke_lei       TEXT,
+                batch        TEXT,
+                sheng_yuan   TEXT NOT NULL,
+                min_score    REAL,
+                min_rank     INTEGER,
+                max_score    REAL,
+                avg_score    REAL,
+                plan_count   INTEGER,
+                admit_count  INTEGER,
+                tuition      REAL,
+                study_years  INTEGER,
+                subj_req     TEXT,
+                remark       TEXT,
+                major_class  TEXT,
+                pub_priv     TEXT DEFAULT '公办',
+                UNIQUE(school_name, major_name, year, sheng_yuan, ke_lei, batch)
+            );
+            CREATE INDEX IF NOT EXISTS idx_md_year_prov ON major_direct(year, sheng_yuan);
+            CREATE INDEX IF NOT EXISTS idx_md_ke_lei    ON major_direct(ke_lei);
+            CREATE INDEX IF NOT EXISTS idx_md_school    ON major_direct(school_name);
+        """)
+        conn.commit()
+
+
+def load_direct_df(province: str) -> 'pd.DataFrame':
+    """加载专业+学校直填模式数据（辽宁/重庆/山东/浙江/河北）"""
+    conn = _get_conn()
+    sql = """
+    SELECT
+        md.year        AS "年份",
+        md.sheng_yuan  AS "生源地",
+        md.ke_lei      AS "科类",
+        md.batch       AS "批次",
+        md.school_name AS "院校名称",
+        md.major_name  AS "专业名称",
+        md.major_full  AS "专业全称",
+        md.min_score   AS "最低分",
+        md.min_rank    AS "最低位次",
+        md.max_score   AS "最高分",
+        md.avg_score   AS "平均分",
+        md.plan_count  AS "计划人数",
+        md.admit_count AS "录取人数",
+        md.tuition     AS "学费",
+        md.study_years AS "学制",
+        md.subj_req    AS "选科要求",
+        md.remark      AS "专业备注",
+        md.major_class AS "专业类",
+        md.pub_priv    AS "公私性质",
+        s.city         AS "城市",
+        s.type         AS "院校类型",
+        s.tags         AS "院校标签",
+        s.city_level   AS "城市等级",
+        s.school_level AS "院校层级",
+        s.ruanke_rank  AS "软科排名",
+        s.nat_rank     AS "全国排名",
+        s.bao_yan      AS "保研率",
+        s.master_cnt   AS "硕士点数量",
+        s.doctor_cnt   AS "博士点数量"
+    FROM major_direct md
+    LEFT JOIN school s ON md.school_id = s.id
+    WHERE md.sheng_yuan = ?
+    """
+    df = pd.read_sql_query(sql, conn, params=(province,))
+    return df
+
+
+# 模块加载时自动执行迁移（幂等，已有列时 no-op）
+try:
+    _migrate_user_plan()
+except Exception:
+    pass
+try:
+    _migrate_major_direct()
+except Exception:
+    pass

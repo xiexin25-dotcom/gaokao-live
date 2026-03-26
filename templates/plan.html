@@ -564,6 +564,60 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px" id="selectSubjBtns"></div>
     <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">不选则不过滤（含所有选科要求的专业）</div>
   </div>
+
+  <!-- 考生所在省 -->
+  <div class="field">
+    <div class="field-lbl">考生所在省 <span class="field-sub">高考报名省份</span></div>
+    <select id="studentProvince" onchange="onProvinceChange(this.value)" style="width:100%;padding:10px 12px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;font-size:14px;outline:none;appearance:none;cursor:pointer">
+      <optgroup label="东北">
+        <option value="吉林" selected>吉林省</option>
+        <option value="辽宁">辽宁省</option>
+        <option value="黑龙江">黑龙江省</option>
+      </optgroup>
+      <optgroup label="华北">
+        <option value="北京">北京市</option>
+        <option value="天津">天津市</option>
+        <option value="河北">河北省</option>
+        <option value="山西">山西省</option>
+        <option value="内蒙古">内蒙古自治区</option>
+      </optgroup>
+      <optgroup label="华东">
+        <option value="上海">上海市</option>
+        <option value="江苏">江苏省</option>
+        <option value="浙江">浙江省</option>
+        <option value="安徽">安徽省</option>
+        <option value="福建">福建省</option>
+        <option value="江西">江西省</option>
+        <option value="山东">山东省</option>
+      </optgroup>
+      <optgroup label="华中">
+        <option value="河南">河南省</option>
+        <option value="湖北">湖北省</option>
+        <option value="湖南">湖南省</option>
+      </optgroup>
+      <optgroup label="华南">
+        <option value="广东">广东省</option>
+        <option value="广西">广西壮族自治区</option>
+        <option value="海南">海南省</option>
+      </optgroup>
+      <optgroup label="西南">
+        <option value="重庆">重庆市</option>
+        <option value="四川">四川省</option>
+        <option value="贵州">贵州省</option>
+        <option value="云南">云南省</option>
+        <option value="西藏">西藏自治区</option>
+      </optgroup>
+      <optgroup label="西北">
+        <option value="陕西">陕西省</option>
+        <option value="甘肃">甘肃省</option>
+        <option value="青海">青海省</option>
+        <option value="宁夏">宁夏回族自治区</option>
+        <option value="新疆">新疆维吾尔自治区</option>
+      </optgroup>
+    </select>
+    <!-- 特殊省份规则提示 -->
+    <div id="provinceRuleHint" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(255,200,0,.12);border:1px solid rgba(255,200,0,.3);border-radius:8px;font-size:12px;color:#ffd060;line-height:1.6"></div>
+  </div>
 </div>
 
 
@@ -1304,6 +1358,26 @@ function onFeeCustomInput(){
   selFeeMax = parseInt(document.getElementById('feeCustomVal').value)||0;
 }
 
+// ── 省份切换规则提示 ──────────────────────────────────────
+const _PROV_RULES = {
+  '河北': {total:96,  mode:'院校+专业组', hint:'河北：志愿模式与吉林相同（院校+专业组），但上限96组（冲20+稳52+保24）。3+1+2，按物理/历史类分别投档。'},
+  '辽宁': {total:112, mode:'专业+学校',   hint:'辽宁：专业+学校直填模式，112个专业志愿（冲28+稳56+保28）。每条志愿精确到1所学校+1个专业，无组内调剂，不服从调剂即退档。'},
+  '重庆': {total:96,  mode:'专业+学校',   hint:'重庆：专业+学校直填模式，本科批96个专业志愿（冲24+稳48+保24）。提前批A段（军事/公安）单独填1个顺序志愿，不占本科批名额。'},
+  '山东': {total:96,  mode:'专业+学校',   hint:'山东：专业+学校直填模式，常规批每次96个志愿，共3次独立填报机会（第1次落榜可在第2次重报）。3+3选考模式，不分物理/历史类，按全省统一总分位次排序。'},
+  '浙江': {total:80,  mode:'专业+学校',   hint:'浙江：专业+学校直填模式，分两段各填80个志愿（1:1精确投档，无调剂）。3+3七选三，不分物理/历史类。一段线未录取可参加二段再填80个。'},
+};
+
+function onProvinceChange(prov) {
+  const hint = document.getElementById('provinceRuleHint');
+  const cfg  = _PROV_RULES[prov];
+  if (cfg) {
+    hint.style.display = 'block';
+    hint.innerHTML = `<b>【${cfg.mode}】</b> ${cfg.hint}`;
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
 // ── 生成方案 ──────────────────────────────────────────
 async function generate(){
   const score = parseInt(document.getElementById('score').value);
@@ -1324,6 +1398,7 @@ async function generate(){
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         score, ke_lei: selKeLei,
+        student_province: document.getElementById('studentProvince').value || '吉林',
         target_kw: targetKws, exclude_kw: excludeKws,
         strict_exclude: strictExcludeMode,   // 严格排除：含排除专业的组整体移除
         include_zhuanxiang: includeZhuanxiang, // 是否包含专项计划
@@ -1347,8 +1422,13 @@ async function generate(){
     document.getElementById('statusBadge').textContent=`完成 ${d.vols.length}志愿 ✓`;
     document.getElementById('statusBadge').className='badge b-green';
     document.getElementById('btnExport').style.display='';
-    document.getElementById('btnMC').style.display='';
-    document.getElementById('btnOpt').style.display=''; document.getElementById('btnOpt').textContent='🔁 迭代优化';
+    if(d.mode === 'direct'){
+      document.getElementById('btnMC').style.display='none';
+      document.getElementById('btnOpt').style.display='none';
+    } else {
+      document.getElementById('btnMC').style.display='';
+      document.getElementById('btnOpt').style.display=''; document.getElementById('btnOpt').textContent='🔁 迭代优化';
+    }
     showReplenishBtn();
     document.getElementById('resultWrap').classList.add('show');
     document.getElementById('formWrap').style.display='none';
@@ -1508,12 +1588,55 @@ function buildVolListHTML(vols, profile){
          lbl('🛡 保志愿',baoVols.length)+baoH;
 }
 
+// ── 直填模式（专业+学校）志愿列表 ──────────────────────────────
+function buildDirectVolListHTML(vols, profile) {
+  const TP_C = {'冲':'#FF9F0A','稳':'#4A9EFF','保':'#34C759'};
+  let rushH='', safeH='', baoH='';
+  const rushVols = vols.filter(v=>v.tp==='冲');
+  const safeVols = vols.filter(v=>v.tp==='稳');
+  const baoVols  = vols.filter(v=>v.tp==='保');
+  const ordered  = [...rushVols, ...safeVols, ...baoVols];
+  ordered.forEach((v,i) => {
+    const c = TP_C[v.tp]||'#fff';
+    const diff = v.diff != null ? (v.diff>0?'+':'')+v.diff : '';
+    const dCls = v.diff>0?'d-pos':v.diff<-3?'d-neg':'d-neu';
+    const tags = (v.tags||'').split('/').filter(Boolean).slice(0,3)
+                  .map(t=>`<span class="school-tag">${t}</span>`).join('');
+    const card = `
+      <div class="vol-card" style="border-left:3px solid ${c};margin-bottom:8px;padding:10px 14px;background:rgba(255,255,255,.04);border-radius:8px">
+        <div class="vc-hdr" style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-weight:700;color:${c};min-width:26px">${i+1}</span>
+          <span class="tp-badge" style="background:${c}22;color:${c};padding:2px 8px;border-radius:4px;font-size:11px">${v.tp}</span>
+          <span style="font-weight:600;font-size:14px">${v.school||''}</span>
+          <span style="font-size:12px;color:rgba(255,255,255,.5)">▸ ${v.major||''}</span>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:rgba(255,255,255,.6)">
+          <span>📍 ${v.city||''}${v.city_level?` (${v.city_level})`:''}  </span>
+          <span>批次：${v.batch||''}</span>
+          ${v.ke_lei?`<span>科类：${v.ke_lei}</span>`:''}
+          <span>25年最低：<b style="color:#fff">${v.s25||'?'}分</b></span>
+          <span class="${dCls}">${diff?`差值 ${diff}分`:''}</span>
+          ${v.subj_req&&v.subj_req!=='不限'?`<span style="color:#ffd060">选科：${v.subj_req}</span>`:''}
+          ${tags?`<span>${tags}</span>`:''}
+        </div>
+      </div>`;
+    if(v.tp==='冲') rushH+=card;
+    else if(v.tp==='稳') safeH+=card;
+    else baoH+=card;
+  });
+  const lbl = (t,n) => n>0 ? `<div style="font-size:11px;color:rgba(255,255,255,.4);margin:10px 0 4px;padding-left:4px">${t}（${n}个）</div>` : '';
+  return lbl('⚡ 冲志愿',rushVols.length)+rushH+
+         lbl('✅ 稳志愿',safeVols.length)+safeH+
+         lbl('🛡 保志愿',baoVols.length)+baoH;
+}
+
 function renderResult(d){
+  const isDirect = d.mode === 'direct';
   // 统计卡
   document.getElementById('rs-cands').textContent  = d.stats.total_cands;
-  document.getElementById('rs-rate').textContent   = (d.mc.rush_rate*100).toFixed(1)+'%';
-  document.getElementById('rs-rounds').textContent = d.opt_rounds!==undefined?d.opt_rounds+'轮':'未优化';
-  document.getElementById('rs-eq').textContent     = d.mc.exp_q.toFixed(1);
+  document.getElementById('rs-rate').textContent   = isDirect ? '—' : (d.mc.rush_rate*100).toFixed(1)+'%';
+  document.getElementById('rs-rounds').textContent = isDirect ? '直填模式' : (d.opt_rounds!==undefined?d.opt_rounds+'轮':'未优化');
+  document.getElementById('rs-eq').textContent     = isDirect ? '—' : (d.mc.exp_q||0).toFixed(1);
   // 冲/稳/保分布条
   const rushN = d.vols.filter(v=>v.tp==='冲').length;
   const safeN = d.vols.filter(v=>v.tp==='稳').length;
@@ -1542,14 +1665,18 @@ function renderResult(d){
     });
   });
 
-  document.getElementById('volList').innerHTML = buildVolListHTML(d.vols, d.profile);
+  document.getElementById('volList').innerHTML = isDirect
+    ? buildDirectVolListHTML(d.vols, d.profile)
+    : buildVolListHTML(d.vols, d.profile);
   bindVolCardHover();
 }
 
 function rerenderVolList(){
   const d = window._lastRenderData;
   if(!d || !generatedVols) return;
-  document.getElementById('volList').innerHTML = buildVolListHTML(generatedVols, d.profile);
+  document.getElementById('volList').innerHTML = d.mode === 'direct'
+    ? buildDirectVolListHTML(generatedVols, d.profile)
+    : buildVolListHTML(generatedVols, d.profile);
   bindVolCardHover();
 }
 

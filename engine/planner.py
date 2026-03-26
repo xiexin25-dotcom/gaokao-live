@@ -140,13 +140,16 @@ def build_plan(profile: dict) -> dict:
     # 格式：['化学', '生物'] 表示要求"必须含化学且必须含生物"的专业组才保留
     # 空列表=不限（默认），包含'不限'=仅保留选科要求为"不限"的专业组
     select_subjects  = profile.get('select_subjects', [])   # 用户已选的再选科
+    student_province = profile.get('student_province', '吉林')
     student_rank = max(1, int(7806 + (585 - score) * slope))
 
     df = load_raw_df()
+    _syd = df['生源地'] if '生源地' in df.columns else None
     d  = df[(df['年份'] == 2025) &
             (df['科类'] == ke_lei) &
             (df['批次'] == '本科批') &
-            (df['公私性质'] == '公办')].copy()
+            (df['公私性质'] == '公办') &
+            (_syd == student_province if _syd is not None else True)].copy()
 
     # ── P6 选科要求细化过滤 ─────────────────────────────────────────────
     # 数据列"选科要求"示例值："物理,化学" / "物理,生物" / "不限" / None
@@ -664,6 +667,7 @@ def build_tiqian(profile: dict) -> dict:
     batch      = profile.get('batch', 'A')        # 'A' / 'B' / 'all'
     score_lo   = profile.get('score_lo', score - 80)
     score_hi   = profile.get('score_hi', score + 20)
+    student_province = profile.get('student_province', '吉林')
 
     df = load_raw_df()
 
@@ -675,10 +679,12 @@ def build_tiqian(profile: dict) -> dict:
     else:
         batches = ['提前批A段', '提前批B段']
 
+    _syd = df['生源地'] if '生源地' in df.columns else None
     sub = df[
         (df['年份'] == 2025) &
         (df['科类'] == ke_lei) &
-        (df['批次'].isin(batches))
+        (df['批次'].isin(batches)) &
+        (_syd == student_province if _syd is not None else True)
     ].copy()
 
     sub['s25'] = pd.to_numeric(sub['最低分'], errors='coerce')
@@ -731,6 +737,153 @@ def build_tiqian(profile: dict) -> dict:
         'ke_lei': ke_lei,
         'score': score,
         'score_range': [score_lo, score_hi],
+    }
+
+
+# ── 各省志愿上限配置（专业+学校直填模式）──────────────────────────────
+# 格式: {省份: (total, rush, stable, safe, mode)}
+# mode: 'direct'=专业+学校; 'group96'=院校+专业组但96个（河北）
+_DIRECT_PROV_CFG = {
+    '河北': {'total': 96,  'rush': 20, 'stable': 52, 'safe': 24, 'mode': 'group96',
+             'ke_split': True,  'multi_round': False, 'invest_ratio': 1.05},
+    '辽宁': {'total': 112, 'rush': 28, 'stable': 56, 'safe': 28, 'mode': 'direct',
+             'ke_split': True,  'multi_round': False, 'invest_ratio': 1.05},
+    '重庆': {'total': 96,  'rush': 24, 'stable': 48, 'safe': 24, 'mode': 'direct',
+             'ke_split': True,  'multi_round': False, 'invest_ratio': 1.05},
+    '山东': {'total': 96,  'rush': 24, 'stable': 48, 'safe': 24, 'mode': 'direct',
+             'ke_split': False, 'multi_round': True,  'invest_ratio': 1.05,
+             'rounds': 3},
+    '浙江': {'total': 80,  'rush': 20, 'stable': 40, 'safe': 20, 'mode': 'direct',
+             'ke_split': False, 'multi_round': True,  'invest_ratio': 1.0,
+             'rounds': 2},
+}
+
+
+def build_plan_direct(profile: dict) -> dict:
+    """
+    专业+学校直填模式规划引擎（辽宁/重庆/山东/浙江/河北）
+
+    与 build_plan() 的区别：
+    - 不使用 major_group，直接从 major_direct 表加载数据
+    - 每个志愿单位 = 1所学校 × 1个专业（无专业组中间层）
+    - 山东/浙江：ke_split=False，不按物理/历史分科，统一排名
+    - 浙江：invest_ratio=1.0（精确1:1投档，无调剂）
+    - 河北：虽使用专业组模式，但数据在 major_direct，按冲稳保选96条
+    """
+    from engine.db import load_direct_df
+
+    score    = int(profile['score'])
+    province = profile.get('student_province', '吉林')
+    cfg      = _DIRECT_PROV_CFG.get(province)
+    if cfg is None:
+        raise ValueError(f"build_plan_direct 不支持省份: {province!r}")
+
+    ke_lei   = profile.get('ke_lei', '物理')
+    slope    = float(profile.get('slope', 150.0))
+    student_rank = max(1, int(7806 + (585 - score) * slope))
+
+    # 加载该省数据
+    df = load_direct_df(province)
+    if df.empty:
+        return {'plan_vols': [], 'stats': {}, 'profile': profile,
+                'mode': 'direct', 'province_cfg': cfg}
+
+    # 过滤年份 + 批次（取2025年本科批/一段线/本科批(一)等）
+    df2025 = df[df['年份'] == 2025].copy()
+
+    # 科类过滤（山东/浙江不分科，其他按物理/历史过滤）
+    if cfg['ke_split'] and '科类' in df2025.columns:
+        df2025 = df2025[df2025['科类'] == ke_lei]
+
+    # 只保留公办（与主引擎一致）
+    if '公私性质' in df2025.columns:
+        df2025 = df2025[df2025['公私性质'] == '公办']
+
+    # 分数有效行
+    df2025['s25'] = pd.to_numeric(df2025['最低分'], errors='coerce')
+    df2025 = df2025[df2025['s25'].notna()].copy()
+
+    if df2025.empty:
+        return {'plan_vols': [], 'stats': {}, 'profile': profile,
+                'mode': 'direct', 'province_cfg': cfg}
+
+    # 冲稳保区间（同主引擎逻辑）
+    rush_lo   = score - 2
+    rush_hi   = score + 60
+    stable_lo = score - 30
+    stable_hi = score - 1
+    safe_lo   = score - 60
+    safe_hi   = score - 31
+
+    def _zone(row_score):
+        if rush_lo <= row_score <= rush_hi:   return '冲'
+        if stable_lo <= row_score <= stable_hi: return '稳'
+        if safe_lo <= row_score <= safe_hi:     return '保'
+        return None
+
+    df2025['zone'] = df2025['s25'].apply(_zone)
+
+    # 构建候选列表（每行 = 1个专业志愿单元）
+    def _build_rows(zone_df, zone_label):
+        rows = []
+        for _, r in zone_df.iterrows():
+            rows.append({
+                'school':     str(r.get('院校名称', '')),
+                'major':      str(r.get('专业名称', '')),
+                'batch':      str(r.get('批次', '')),
+                'city':       str(r.get('城市', '')),
+                'ke_lei':     str(r.get('科类', '')),
+                'subj_req':   str(r.get('选科要求', '不限')),
+                'plan_count': r.get('计划人数'),
+                'tuition':    r.get('学费'),
+                's25':        float(r['s25']),
+                'diff':       round(float(r['s25']) - score, 1),
+                'tags':       str(r.get('院校标签', '')),
+                'city_level': str(r.get('城市等级', '')),
+                'school_lv':  str(r.get('院校层级', '')),
+                'ruanke_rank': r.get('软科排名'),
+                'tp':         zone_label,
+            })
+        return rows
+
+    rush_df   = df2025[df2025['zone'] == '冲'].sort_values('s25', ascending=False)
+    stable_df = df2025[df2025['zone'] == '稳'].sort_values('s25', ascending=False)
+    safe_df   = df2025[df2025['zone'] == '保'].sort_values('s25', ascending=False)
+
+    RUSH_N   = cfg['rush']
+    STABLE_N = cfg['stable']
+    SAFE_N   = cfg['safe']
+
+    rush_rows   = _build_rows(rush_df.head(RUSH_N),   '冲')
+    stable_rows = _build_rows(stable_df.head(STABLE_N), '稳')
+    safe_rows   = _build_rows(safe_df.head(SAFE_N),   '保')
+
+    plan_vols = []
+    for i, r in enumerate(rush_rows + stable_rows + safe_rows, 1):
+        plan_vols.append({**r, 'vol_idx': i})
+
+    # 多轮说明（山东/浙江）
+    round_note = ''
+    if cfg.get('multi_round'):
+        rounds = cfg.get('rounds', 2)
+        round_note = (f'本方案为第1次填报（共{rounds}次）；'
+                      f'未录取可在第2次重新填报，适当降低目标。')
+
+    return {
+        'plan_vols':    plan_vols,
+        'mode':         'direct',
+        'province_cfg': cfg,
+        'stats': {
+            'total_cands':  len(df2025),
+            'rush_cands':   len(rush_df),
+            'stable_cands': len(stable_df),
+            'safe_cands':   len(safe_df),
+            'plan_count':   len(plan_vols),
+            'student_rank': student_rank,
+            'rush_n': RUSH_N, 'stable_n': STABLE_N, 'safe_n': SAFE_N,
+        },
+        'profile':    profile,
+        'round_note': round_note,
     }
 
 
