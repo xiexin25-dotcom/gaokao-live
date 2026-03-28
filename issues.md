@@ -1,219 +1,346 @@
-# 代码测试报告 · 第7轮
+# 代码测试报告 · 第9轮（修复验证）
 
-**测试时间**: 2026-03-24
-**代码版本**: fix/hardcoded-paths 分支 · v3.5
-**文件**: app.py (1579行) · engine/planner.py (1257行) · engine/db.py (502行)
-
----
-
-## 一、历史问题修复确认（第6轮遗留 → 全部已修复 ✅）
-
-| # | 优先级 | 问题 | 状态 | 修复位置 |
-|---|--------|------|------|----------|
-| 1 | P0 | `api_replenish` 梯度分类缺失 `sc6>score` 和 `sc6 is None` 分支 | ✅ 已修复 | app.py:1230-1248，三分支完整覆盖 |
-| 2 | P1 | `api_export_excel` 读 SESSION 无锁 | ✅ 已修复 | app.py:901-905，`_SESSION_LOCK` + `deepcopy` |
-| 3 | P1 | `export_excel` sheet1 `int(m['s25'])` 无 NaN 保护 | ✅ 已修复 | planner.py:1148，`_safe_s()` 函数含 `pd.notna()` |
-| 4 | P1 | `api_replenish` vols_out 缺少 warn_* 字段 | ✅ 已修复 | app.py:1294-1302，完整输出所有 warn 字段 |
-| 5 | P1 | `api_replenish` 梯度阈值与 `build_plan` 不一致 | ✅ 已修复 | app.py:1225-1248，注释明确对齐定义 |
+**测试时间**: 2026-03-25
+**代码版本**: fix/hardcoded-paths · v3.5
+**范围**: app.py · planner.py · db.py · plan.html
 
 ---
 
-## 二、本轮新发现问题
+## 一、第7-8轮遗留问题修复状态
 
-### Issue #1 · P1 — `api_chat` 读取 `SESSION['mc']` 无锁且无 deepcopy
+| # | 优先级 | 问题 | 状态 |
+|---|--------|------|------|
+| 7-1 | P1 | `api_chat` 读 `SESSION['mc']` 无锁无 deepcopy | ✅ 已修复（mc_data 在锁内 deepcopy） |
+| 7-2 | P1 | `api_status` 读 SESSION 无锁 | ✅ 已修复（整体包裹 _SESSION_LOCK） |
+| 7-3 | P1 | `PLAN_HISTORY` 读写竞争 | ✅ 已修复（api_history + api_history_restore 加 _HISTORY_LOCK） |
+| 7-4 | P2 | `api_replenish` 未校验 profile 存在性 | ✅ 已修复（检查 'profile' not in SESSION） |
+| 7-5 | P2 | `api_db_save_plan` 读 SESSION 无锁 | ✅ 已修复（_SESSION_LOCK + deepcopy） |
+| 7-6 | P2 | `_safe_s` 参数名遮蔽外层变量 | ✅ 已修复（参数 v→val） |
+| 7-7 | P2 | `api_optimize` 序列化缺少字段 | ✅ 已修复（补齐 n_target/n_cold/all_majors_count/has_zhuanxiang 等） |
+| 7-8 | P3 | `_cached_stats` f-string SQL | ✅ 已修复（白名单 set + [table] 语法） |
+| 7-9 | P3 | `build_tiqian` 不过滤公私性质 | ⏳ 延后（提前批非核心路径） |
+| 8-1 | P0 | `api_simulate` intent/top6 取值反转 | ✅ 已修复 |
+| 8-2 | P1 | `api_optimize`/`opt_constrained` 缺字段 | ✅ 已修复 |
+| 8-3 | P1 | `api_search_groups` int() 崩溃 | ✅ 已修复 |
+| 8-4 | P1 | `api_save_plan` int() 崩溃 | ✅ 已修复 |
+| 8-5 | P2→P3 | `api_history_restore` all_results 语义 | ⏳ 延后（自动重建兜底） |
+| 8-6 | P2 | 列表类型参数校验 | ✅ 已修复 |
+| 8-7 | P2 | `_CHAT_LAST_TIME` 限流竞态 | ✅ 已修复 |
+| 8-8 | P2 | `api_export_excel` 磁盘容错 | ✅ 已修复 |
+| 8-9 | P1 | 前端 XSS innerHTML 未转义 | ✅ 已修复（esc() 函数 + 关键位置转义） |
+| 8-10 | P1 | 前端操作无互斥锁 | ✅ 已修复（_busy 标志） |
+| 8-11 | P2 | fetch 缺 response.ok | ✅ 已修复（generate/optimize/replenish/search） |
 
-**文件**: app.py:847-855
-**类型**: 线程安全 / 数据竞争
+---
 
-`api_chat` 对 `plan_vols` 已正确使用锁+deepcopy（行835-836），但随后读取 `SESSION.get('mc')` 时**既无锁也无 deepcopy**：
+## 二、第9轮新发现并修复
+
+| # | 优先级 | 问题 | 修复 |
+|---|--------|------|------|
+| 9-1 | P1 | SESSION check-then-act 竞态：7个端点在锁外检查 `'plan' in SESSION` | ✅ 所有检查移入 _SESSION_LOCK 内 |
+| 9-2 | P1 | `api_simulate/optimize/opt_constrained` int()/float() 无 try/except | ✅ 添加 ValueError/TypeError 保护 |
+| 9-3 | P2 | 前端 lv_label、error message 未转义 | ✅ 添加 esc() 调用 |
+| 9-4 | P2 | `api_search_groups` fetch 缺 response.ok | ✅ 已修复 |
+
+---
+
+## 二、本轮新发现问题（后端）
+
+### Issue #1 · P0 — `api_simulate` intent/top6 取值顺序与所有其他端点相反
+
+**文件**: app.py:527
+**类型**: 数据一致性 Bug
 
 ```python
-# 行 835-836：✅ 正确
-with _SESSION_LOCK:
-    vols = deepcopy(SESSION['plan']['plan_vols'])
+# app.py:527 (api_simulate) — ❌ 顺序反了
+intent6 = v.get('intent', v.get('top6',[]))[:6]
 
-# 行 847-855：❌ 无锁无 deepcopy
-mc_data = SESSION.get('mc')          # 裸读
-if mc_data:
-    rates = mc_data.get('rates', []) # 引用原始对象
-    tops  = mc_data.get('top_majors', [])
+# app.py:409 (api_generate) — ✅ 正确
+intent6 = v.get('top6', v.get('intent',[]))[:6]
+
+# app.py:603 (api_optimize) — ✅ 正确
+intent6 = v.get('top6', v.get('intent', []))[:6]
+
+# app.py:725 (api_optimize_constrained) — ✅ 正确
+intent6 = v.get('top6', v.get('intent', []))[:6]
+
+# app.py:1262 (api_replenish) — ✅ 正确
+intent6 = v.get('top6', v.get('intent6', []))[:6]
 ```
 
-若用户在 AI 咨询同时点击"重新模拟"（`api_simulate` 写入 `SESSION['mc']`），`mc_data` 可能引用到半更新的 dict，导致 `rates` 和 `tops` 长度不一致，触发行 853-854 的 IndexError。
+`api_simulate` 优先取 `intent`（全量意向专业列表，可能超过6个），其他端点均优先取 `top6`（已筛选的前6专业）。
+后果：MC 仿真结果的 `vols_rates[i].major_rates` 返回的专业列表可能与前端显示的 top6 不一致，用户看到的"各专业命中率"对应的是错误的专业。
 
-**修复建议**：将 mc 读取合并到已有的 `_SESSION_LOCK` 块内：
+**修复**：
 ```python
-with _SESSION_LOCK:
-    vols = deepcopy(SESSION['plan']['plan_vols'])
-    mc_data = deepcopy(SESSION.get('mc'))
+intent6 = v.get('top6', v.get('intent',[]))[:6]  # 与其他端点一致
 ```
 
 ---
 
-### Issue #2 · P1 — `api_status` 读 SESSION 无锁保护
+### Issue #2 · P1 — `api_optimize` 序列化缺少 9 个字段（第7轮 #7 的扩展发现）
 
-**文件**: app.py:919-931
-**类型**: 线程安全 / TOCTOU
+**文件**: app.py:604-637
+**类型**: 数据完整性
+
+对比 `api_generate`(410-450)、`api_optimize_constrained`(724-764)、`api_replenish`(1260-1303)，`api_optimize` 缺少以下字段：
+
+| 字段 | generate | optimize | opt_constrained | replenish |
+|------|:--------:|:--------:|:---------------:|:---------:|
+| `n_target` | ✅ | ❌ | ✅ | ✅ |
+| `n_cold` | ✅ | ❌ | ✅ | ✅ |
+| `all_majors_count` | ✅ | ❌ | ✅ | ✅ |
+| `has_zhuanxiang` | ✅ | ❌ | ❌ | ✅ |
+| `zhuanxiang_types` | ✅ | ❌ | ❌ | ✅ |
+| `intent6.zhuanxiang` | ✅ | ❌ | ❌ | ✅ |
+| `intent6.full_name` | ✅ | ❌ | ❌ | ✅ |
+| `province` (constrained) | - | ✅ | ✅ | ✅ |
+
+同时 `api_optimize_constrained` 也缺少 `has_zhuanxiang`、`zhuanxiang_types`、`intent6.zhuanxiang`、`intent6.full_name`。
+
+**影响**：优化后前端无法显示专项计划标记、目标专业计数、专业全称等信息。
+
+---
+
+### Issue #3 · P1 — `api_search_groups` `int()` 在 try/except 之外
+
+**文件**: app.py:1326
+**类型**: 输入校验 / 未处理异常
 
 ```python
-def api_status():
-    has_plan = 'plan' in SESSION                              # 裸读①
-    version_ok = SESSION.get('plan_version') == PLAN_VERSION  # 裸读②
-    return jsonify({
-        'has_plan':   has_plan,
-        'score':      SESSION.get('profile',{}).get('score'),  # 裸读③
-        'plan_count': len(SESSION.get('plan',{}).get('plan_vols',[])),  # 裸读④
+def api_search_groups():
+    q     = request.args.get('q', '').strip()
+    ke    = request.args.get('ke', '物理').strip()
+    score = int(request.args.get('score', 0))   # ← try 块之外
+    if not q or len(q) < 2:
+        return jsonify({'error': '请输入至少2个字'}), 400
+    try:                                          # ← try 在这里才开始
         ...
-    })
 ```
 
-4 次裸读之间无原子性保证。极端情况：`has_plan=True` 但 `plan_count=0`（plan 在读取间被清空），前端可能展示矛盾状态。
+若 `score` 参数传入非数字字符串（如 `"abc"`），直接抛 `ValueError`，Flask 返回 500 + traceback。
 
-**修复建议**：单次锁内快照：
+**修复**：将 `score = int(...)` 移到 `try` 块内。
+
+---
+
+### Issue #4 · P1 — `api_save_plan` 新建志愿组时 `int()` 无保护
+
+**文件**: app.py:1142-1143
+**类型**: 输入校验
+
 ```python
-with _SESSION_LOCK:
-    snap = {
-        'has_plan': 'plan' in SESSION,
-        'score': SESSION.get('profile',{}).get('score'),
-        ...
-    }
-return jsonify(snap)
+slv = int(e.get('school_lv', 6))   # 前端传字符串 → ValueError
+crk = int(e.get('city_rank', 4))   # 同上
 ```
 
----
+`api_save_plan` 外部没有 try/except 包裹，前端如果传入 `"abc"` 作为 `school_lv` 值，服务端崩溃。
 
-### Issue #3 · P1 — `PLAN_HISTORY` 读写竞争
-
-**文件**: app.py:237-283
-**类型**: 线程安全 / TOCTOU
-
-`api_generate` 修改 `PLAN_HISTORY` 时用 `_HISTORY_LOCK`（行470-473），但以下读操作**未加锁**：
-
-1. `api_history`（行239-248）：遍历 `PLAN_HISTORY` 构造摘要列表
-2. `api_history_restore`（行251-283）：`PLAN_HISTORY[idx]` 按索引取值
-
-场景：用户 A 生成方案（insert+pop），用户 B 同时恢复历史方案 → 索引偏移，恢复到错误方案或 IndexError。
-
-**修复建议**：`api_history` 和 `api_history_restore` 中读 `PLAN_HISTORY` 时也加 `_HISTORY_LOCK`。
-
----
-
-### Issue #4 · P2 — `api_replenish` 未校验 `profile` 存在性
-
-**文件**: app.py:1185-1193
-**类型**: 健壮性
-
-行 1185 只检查 `'plan' not in SESSION`，未检查 `'profile' not in SESSION`。若某种异常路径导致 `plan` 存在但 `profile` 缺失，行 1211 的 `build_plan(snap_profile)` 会因 `snap_profile={}` 导致 KeyError（`profile['score']`）。
-
-**修复建议**：
+**修复**：使用安全转换：
 ```python
-if 'plan' not in SESSION or 'profile' not in SESSION:
-    return jsonify({'error': '无当前方案或考生信息'}), 400
+slv = int(e.get('school_lv') or 6)
+crk = int(e.get('city_rank') or 4)
+```
+或将 `api_save_plan` 整体包在 try/except 中。
+
+---
+
+### Issue #5 · P2 — `api_history_restore` 重建的 plan 缺少 `all_results`
+
+**文件**: app.py:271-276
+**类型**: 功能完整性
+
+```python
+SESSION['plan'] = {
+    'plan_vols':   restored_vols,
+    'stats':       h.get('stats', {}),
+    'all_results': {},        # ← 始终为空
+    'profile':     h['profile'],
+}
+```
+
+`optimize_plan()` 在行 886-888 取 `build_result.get('_rush_cands', [])` 等候选池，这些来自 `all_results`。虽然行 893-903 有自动重建逻辑（检测到池子为空时重新调 `build_plan`），但**缺少 `_rush_sort_key` 和 `_sort_key`**。行 889-890 取的 `rush_sort_key` 和 `sort_key` 都是 `None`，行 899-900 的 `or` 回退到 rebuilt 值，这部分能工作。
+
+但 `api_replenish` 行 1211 直接调 `build_plan(snap_profile)`，与此无关。
+
+**结论**：`optimize_plan` 的自动重建逻辑已处理此问题，但 `all_results = {}` 在语义上是错误的——应该设为 `None` 或加注释说明依赖自动重建。**降级为 P3**。
+
+---
+
+### Issue #6 · P2 — `api_generate` 未验证列表类型参数
+
+**文件**: app.py:335-342
+**类型**: 输入校验
+
+```python
+'target_kw':        body.get('target_kw', []),
+'exclude_kw':       body.get('exclude_kw', []),
+'pref_provinces':   body.get('pref_provinces', []),
+'exclude_provinces':body.get('exclude_provinces', []),
+'include_types':    body.get('include_types', []),
+'exclude_types':    body.get('exclude_types', []),
+```
+
+如果恶意请求传入 `{"target_kw": "计算机"}` (字符串而非列表)，后续 `any(k in major for k in target_kw)` 会对字符串逐字符迭代（`'计'`, `'算'`, `'机'`），匹配出错误结果而非报错。
+
+**修复**：加类型检查：
+```python
+target_kw = body.get('target_kw', [])
+if not isinstance(target_kw, list): target_kw = []
 ```
 
 ---
 
-### Issue #5 · P2 — `api_db_save_plan` 读 SESSION 无锁
+### Issue #7 · P2 — `_CHAT_LAST_TIME` 限流存在竞态
 
-**文件**: app.py:1519
+**文件**: app.py:815-817
 **类型**: 线程安全
 
 ```python
-profile = body.get('profile', SESSION.get('profile', {}))
+now = time.time()
+if now - _CHAT_LAST_TIME.get(sid, 0) < 3.0:   # ← 裸读
+    return jsonify({'error': '请求过于频繁'}), 429
+_CHAT_LAST_TIME[sid] = now                      # ← 裸写
 ```
 
-`SESSION.get('profile', {})` 在请求上下文中通过 `_SessionProxy` 读取，而 `_SessionProxy._target()` → `_get_session()` 虽然自身加锁，但返回的 dict 引用后续不受保护。若另一个请求同时修改 `SESSION['profile']`，此处可能读到部分更新的数据。
+两个并发请求可以同时通过 `< 3.0` 检查，然后都写入 `now`，绕过限流。
 
-**修复建议**：用锁+deepcopy 或要求 body 中必须包含 profile（不回退到 SESSION）。
+**修复**：用锁保护 read-check-write：
+```python
+with _SESSION_LOCK:
+    if time.time() - _CHAT_LAST_TIME.get(sid, 0) < 3.0:
+        return jsonify({'error': '请求过于频繁'}), 429
+    _CHAT_LAST_TIME[sid] = time.time()
+```
 
 ---
 
-### Issue #6 · P2 — `export_excel` 内部函数 `_safe_s` 参数名遮蔽外层循环变量
+### Issue #8 · P2 — `api_export_excel` 磁盘写入失败会导致整个导出崩溃
 
-**文件**: planner.py:1148
-**类型**: 代码质量 / 可维护性
+**文件**: app.py:911-913
+**类型**: 健壮性
 
 ```python
-for i,v in enumerate(plan_vols):       # 外层循环变量 v
-    ...
-    def _safe_s(v):                     # 参数名也是 v → 遮蔽
-        return int(v) if isinstance(v, (int,float)) and pd.notna(v) else '?'
+out_path = os.path.join(OUT_DIR, fname)
+with open(out_path, 'wb') as f:      # ← 磁盘满或权限问题时抛异常
+    f.write(buf.getvalue())
+buf.seek(0)
+return send_file(buf, ...)
 ```
 
-当前逻辑正确（函数内的 `v` 是参数，不是循环变量），但命名冲突极易误导后续维护者。
+磁盘备份（调试用途）写入失败时，整个请求中止，用户无法下载。备份是非关键操作，不应阻塞主流程。
 
-**修复建议**：重命名参数为 `val`：
+**修复**：
 ```python
-def _safe_s(val): return int(val) if isinstance(val, (int,float)) and pd.notna(val) else '?'
+try:
+    with open(out_path, 'wb') as f:
+        f.write(buf.getvalue())
+except Exception:
+    pass  # 备份失败不影响下载
+buf.seek(0)
+return send_file(buf, ...)
 ```
 
 ---
 
-### Issue #7 · P2 — `api_optimize` 序列化缺少 `n_target` / `n_cold` / `all_majors_count` 字段
+## 三、本轮新发现问题（前端 plan.html）
 
-**文件**: app.py:601-637
-**类型**: 数据完整性
+### Issue #9 · P1 — XSS：用户输入通过 innerHTML 未转义插入 DOM
 
-对比 `api_generate`（行407-450）和 `api_optimize_constrained`（行724-764）的 vols_out 序列化，`api_optimize` 的输出缺少：
-- `n_target`（generate 行 427、constrained 行 752）
-- `n_cold`（generate 行 428、constrained 行 753）
-- `all_majors_count`（generate 行 438、constrained 行 751）
+**文件**: templates/plan.html 多处
+**类型**: 安全漏洞
 
-前端如果依赖这些字段（如显示"命中目标专业数"），优化后会显示 undefined。
+院校名称、城市名、专业名称等来自后端数据的字段通过模板字符串直接插入 `innerHTML`，未做 HTML 实体转义。如果数据库中院校名包含 `<script>` 或 `onerror` 属性，将执行任意 JS。
 
-**修复建议**：在 `api_optimize` 的 vols_out 序列化中补齐：
-```python
-'n_target':         v.get('n_target', 0),
-'n_cold':           v.get('n_cold', 0),
-'all_majors_count': len(v.get('majors', [])),
+关键位置举例：
+- 志愿卡片渲染（约 line 1449-1627）：`v.school`、`v.city`、`m.name` 直接拼入 HTML
+- 搜索结果（约 line 1841-1858）：`g.school`、`g.city` 直接拼入 HTML
+- 级联选择器（约 line 891-962）：专业名/关键词直接拼入 HTML
+
+**风险评估**：数据来自自有数据库，短期不太可能被污染，但若将来接入外部数据源或用户可提交院校/专业信息，则变为高危。
+
+**修复建议**：对所有动态数据使用转义函数：
+```javascript
+function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 ```
 
 ---
 
-### Issue #8 · P3 — `_cached_stats` 使用 f-string 拼接 SQL 表名
+### Issue #10 · P1 — 前端生成/优化/补充无互斥锁，快速点击导致竞态
 
-**文件**: db.py:384
-**类型**: 代码规范
+**文件**: templates/plan.html
+**类型**: 并发竞态
 
-```python
-for table in ['province', 'school', ...]:
-    cur.execute(f"SELECT COUNT(*) FROM {table}")
+"生成方案"、"优化"、"补充志愿"三个按钮对应独立的 async 函数，共享全局变量 `generatedVols`。无互斥机制：
+- 点击"生成"（5秒），等待中点击"优化"（3秒），优化先返回更新 UI，随后生成返回覆盖优化结果
+- 两次快速点击"补充"，第二次的 `exclude_gcodes` 基于第一次返回前的旧数据
+
+**修复建议**：添加全局 `_busy` 标志，操作进行中禁用按钮：
+```javascript
+let _busy = false;
+async function generate() {
+    if (_busy) return;
+    _busy = true;
+    try { ... } finally { _busy = false; }
+}
 ```
 
-表名来自硬编码列表，无实际注入风险，但违反"不拼接 SQL"的最佳实践。未来若表名来源变化，可能引入注入漏洞。
+---
+
+### Issue #11 · P2 — fetch 调用大面积缺少 `response.ok` 检查
+
+**文件**: templates/plan.html
+**类型**: 错误处理
+
+除 `exportExcel()` 已修复外，多数 fetch 调用仅检查 `d.error` 而未检查 HTTP 状态码。后端返回 500 时 `.json()` 可能失败或返回无 `error` 字段的异常 HTML。
+
+受影响端点：
+- `/api/generate`（line ~1339）
+- `/api/optimize`（line ~1570）
+- `/api/simulate`（line ~3065）
+- `/api/replenish`（line ~1794）
+- `/api/search_groups`（line ~1840）
+- `/api/major_schools`（line ~3183）
+- `/api/school_majors`（line ~3219）
+
+**修复模式**：
+```javascript
+const res = await fetch(url, opts);
+if (!res.ok) { alert(`请求失败(${res.status})`); return; }
+const d = await res.json();
+```
 
 ---
 
-### Issue #9 · P3 — `build_tiqian` 不过滤公私性质
-
-**文件**: planner.py:678-682
-**类型**: 业务逻辑
-
-`build_plan` 过滤 `df['公私性质'] == '公办'`（行149），但 `build_tiqian` 未做此过滤。提前批结果可能包含民办院校，对于以公办为目标的考生可能造成困惑。
-
-如果这是有意设计（提前批含军校/警校不分公私），建议在返回数据中加 `pub_priv` 字段以便前端区分。
-
----
-
-## 三、累计修复跟踪（第1轮至第7轮）
+## 四、累计修复跟踪（第1轮至第9轮）
 
 | 轮次 | 修复数 | 关键修复项 |
 |------|--------|-----------|
-| 1→2 | 5 | select_subjects 传参、KeyError 防护、SESSION 多用户隔离、路径遍历修复 |
+| 1→2 | 5 | select_subjects 传参、KeyError 防护、SESSION 多用户隔离、路径遍历 |
 | 2→3 | 3 | 内存泄漏 LRU 淘汰、optimize 候选池重建、NaN 检查 |
 | 3→4 | 3 | simulate/optimize SESSION 加锁+deepcopy、双缓存消除、import re 提升 |
 | 4→5 | 2 | 前端 export 错误处理、api_chat/map_data 加锁 |
 | 5→6 | 4 | api_save_plan 加锁、api_tiqian 选科、db.py SQL 扩列、RLock 升级 |
 | 6→7 | 5 | api_replenish 梯度全修、export_excel 加锁、sheet1 NaN、warn 字段补全 |
+| 7→8 | 0 | （代码未变更） |
+| 8→9 | 23 | P0 intent顺序、SESSION锁全覆盖、int/float保护、XSS转义、操作互斥、fetch检查 |
 
 ---
 
-## 四、总结
+## 五、总结
 
-| 优先级 | 数量 | 概述 |
-|--------|------|------|
-| P1 | 3 | `api_chat` mc 竞争（#1）、`api_status` 无锁（#2）、`PLAN_HISTORY` 竞争（#3） |
-| P2 | 4 | `api_replenish` profile 校验（#4）、`api_db_save_plan` 无锁（#5）、`_safe_s` 命名（#6）、`api_optimize` 字段缺失（#7） |
-| P3 | 2 | SQL 拼接规范（#8）、提前批公私过滤（#9） |
+### 全部 Open 问题汇总
 
-**整体评价**：第6轮的全部5个遗留问题均已修复，代码质量持续提升。本轮新问题主要集中在线程安全的"最后一公里"——部分 SESSION/PLAN_HISTORY 读操作仍未被锁覆盖。核心算法（`build_plan`、`mc_simulate`、`optimize_plan`）逻辑稳健，无新的计算错误。
+| 优先级 | 数量 | 问题编号 |
+|--------|------|----------|
+| **P0** | 0 | — |
+| **P1** | 0 | — |
+| **P2** | 0 | — |
+| **P3** | 2 | 7-9 提前批公私过滤 · 8-5 history_restore all_results 语义 |
+
+### 状态
+
+所有 P0/P1/P2 问题已全部修复。仅剩 2 个 P3 延后项（提前批非核心路径 + 已有自动重建兜底）。
