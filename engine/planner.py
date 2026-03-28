@@ -141,13 +141,14 @@ def build_plan(profile: dict) -> dict:
     # 空列表=不限（默认），包含'不限'=仅保留选科要求为"不限"的专业组
     select_subjects  = profile.get('select_subjects', [])   # 用户已选的再选科
     student_province = profile.get('student_province', '吉林')
+    batch = profile.get('batch', '本科批')           # 批次（默认本科批）
     student_rank = max(1, int(7806 + (585 - score) * slope))
 
     df = load_raw_df()
     _syd = df['生源地'] if '生源地' in df.columns else None
     d  = df[(df['年份'] == 2025) &
             (df['科类'] == ke_lei) &
-            (df['批次'] == '本科批') &
+            (df['批次'] == batch) &
             (df['公私性质'] == '公办') &
             (_syd == student_province if _syd is not None else True)].copy()
 
@@ -558,11 +559,19 @@ def build_plan(profile: dict) -> dict:
                 used_codes.add(r['gcode']); used_schools.add(r['school'])
         return res
 
-    # ── 吉林省本科批平行志愿上限：40个院校专业组 ──
-    # 冲10 + 稳20 + 保10 = 40，与官方上限对齐；稳区加宽覆盖度，减少漏报风险
-    RUSH_N  = 10
-    STABLE_N = 20
-    SAFE_N  = 10
+    # ── 志愿上限：根据批次 slots 动态调整 ──
+    # 默认本科批 40 (冲10+稳20+保10)，提前批/专科批按 slots 等比缩放
+    _batch_info = _PROVINCE_BATCHES.get(student_province, [])
+    _batch_slots = next((b['slots'] for b in _batch_info if b['key'] == batch), 40)
+    if _batch_slots >= 40:
+        RUSH_N  = 10
+        STABLE_N = 20
+        SAFE_N  = 10
+    else:
+        # 等比缩放：冲25% + 稳50% + 保25%
+        RUSH_N   = max(1, round(_batch_slots * 0.25))
+        STABLE_N = max(1, round(_batch_slots * 0.50))
+        SAFE_N   = max(1, _batch_slots - RUSH_N - STABLE_N)
 
     # 冲志愿：按超分接近优先排序，不做梯度分层
     rush_sel = pick(rush_cands, RUSH_N)
@@ -740,6 +749,55 @@ def build_tiqian(profile: dict) -> dict:
     }
 
 
+# ── 各省可用批次配置 ────────────────────────────────────────────────
+# key: 数据库中 batch 列的精确值; label: 前端标签显示; default: 默认选中
+# slots: 该批次志愿个数上限（0=不限/由引擎决定）
+_PROVINCE_BATCHES = {
+    '吉林': [
+        {'key': '提前批A段',  'label': '提前批A段', 'slots': 10, 'type': 'tiqian'},
+        {'key': '提前批B段',  'label': '提前批B段', 'slots': 10, 'type': 'tiqian'},
+        {'key': '本科批',     'label': '本科批',    'slots': 40, 'type': 'benke', 'default': True},
+        {'key': '专科批',     'label': '专科批',    'slots': 40, 'type': 'zhuanke'},
+    ],
+    '河北': [
+        {'key': '本科提前批A段', 'label': '提前批A段', 'slots': 10, 'type': 'tiqian'},
+        {'key': '本科提前批B段', 'label': '提前批B段', 'slots': 10, 'type': 'tiqian'},
+        {'key': '本科提前批C段', 'label': '提前批C段', 'slots': 10, 'type': 'tiqian'},
+        {'key': '本科批',        'label': '本科批',    'slots': 96, 'type': 'benke', 'default': True},
+        {'key': '专科批',        'label': '专科批',    'slots': 96, 'type': 'zhuanke'},
+        {'key': '专科提前批',    'label': '专科提前批', 'slots': 10, 'type': 'zhuanke'},
+    ],
+    '辽宁': [
+        {'key': '本科提前批', 'label': '提前批',  'slots': 10, 'type': 'tiqian'},
+        {'key': '本科批',     'label': '本科批',  'slots': 112, 'type': 'benke', 'default': True},
+        {'key': '专科批',     'label': '专科批',  'slots': 112, 'type': 'zhuanke'},
+        {'key': '专科提前批', 'label': '专科提前批', 'slots': 10, 'type': 'zhuanke'},
+    ],
+    '重庆': [
+        {'key': '本科提前批A段', 'label': '提前批A段', 'slots': 10, 'type': 'tiqian'},
+        {'key': '本科提前批B段', 'label': '提前批B段', 'slots': 10, 'type': 'tiqian'},
+        {'key': '本科批',        'label': '本科批',    'slots': 96, 'type': 'benke', 'default': True},
+        {'key': '专科批',        'label': '专科批',    'slots': 96, 'type': 'zhuanke'},
+        {'key': '专科提前批',    'label': '专科提前批', 'slots': 10, 'type': 'zhuanke'},
+    ],
+    '山东': [
+        {'key': '提前批',  'label': '提前批',  'slots': 10, 'type': 'tiqian'},
+        {'key': '一段线',  'label': '一段(本科)', 'slots': 96, 'type': 'benke', 'default': True},
+        {'key': '二段线',  'label': '二段(专科)', 'slots': 96, 'type': 'zhuanke'},
+    ],
+    '浙江': [
+        {'key': '一段线',  'label': '一段(本科)', 'slots': 80, 'type': 'benke', 'default': True},
+        {'key': '二段线',  'label': '二段(专科)', 'slots': 80, 'type': 'zhuanke'},
+    ],
+}
+
+def get_province_batches(province: str) -> list:
+    """返回指定省份的可用批次列表"""
+    return _PROVINCE_BATCHES.get(province, [
+        {'key': '本科批', 'label': '本科批', 'slots': 40, 'type': 'benke', 'default': True},
+    ])
+
+
 # ── 各省志愿上限配置（专业+学校直填模式）──────────────────────────────
 # 格式: {省份: (total, rush, stable, safe, mode)}
 # mode: 'direct'=专业+学校; 'group96'=院校+专业组但96个（河北）
@@ -788,18 +846,27 @@ def build_plan_direct(profile: dict) -> dict:
         return {'plan_vols': [], 'stats': {}, 'profile': profile,
                 'mode': 'direct', 'province_cfg': cfg}
 
-    # 过滤年份 + 批次（取2025年本科批/一段线/本科批(一)等）
+    # ── 过滤年份 ──
     df2025 = df[df['年份'] == 2025].copy()
 
-    # 科类过滤（山东/浙江不分科，其他按物理/历史过滤）
+    # ── 过滤批次 ──
+    batch = profile.get('batch', None)
+    if batch and '批次' in df2025.columns:
+        df2025 = df2025[df2025['批次'] == batch]
+    elif '批次' in df2025.columns:
+        # 默认：只保留本科批相关（排除专科批、提前批）
+        _BATCH_OK = {'本科批', '一段线'}
+        df2025 = df2025[df2025['批次'].isin(_BATCH_OK)]
+
+    # ── 科类过滤（山东/浙江不分科，其他按物理/历史过滤）──
     if cfg['ke_split'] and '科类' in df2025.columns:
         df2025 = df2025[df2025['科类'] == ke_lei]
 
-    # 只保留公办（与主引擎一致）
+    # ── 只保留公办（与主引擎一致）──
     if '公私性质' in df2025.columns:
         df2025 = df2025[df2025['公私性质'] == '公办']
 
-    # 分数有效行
+    # ── 分数有效行 ──
     df2025['s25'] = pd.to_numeric(df2025['最低分'], errors='coerce')
     df2025 = df2025[df2025['s25'].notna()].copy()
 
@@ -807,7 +874,38 @@ def build_plan_direct(profile: dict) -> dict:
         return {'plan_vols': [], 'stats': {}, 'profile': profile,
                 'mode': 'direct', 'province_cfg': cfg}
 
-    # 冲稳保区间（同主引擎逻辑）
+    # ── 用户偏好筛选 ──
+    target_kw  = profile.get('target_kw', [])
+    exclude_kw = profile.get('exclude_kw', [])
+    excl_ne    = profile.get('exclude_northeast', False)
+    prov_incl  = profile.get('province_include', [])
+    prov_excl  = profile.get('province_exclude', [])
+    fee_max    = profile.get('fee_max')
+
+    # 排除关键词
+    if exclude_kw:
+        for kw in exclude_kw:
+            mask = df2025['专业名称'].str.contains(kw, na=False)
+            df2025 = df2025[~mask]
+
+    # 排除东北（如果生源地本身就是东北省份，此选项一般不启用）
+    _NE_PROVS = {'黑龙江', '吉林', '辽宁'}
+    if excl_ne and '城市' in df2025.columns:
+        # 通过 school 表的 province 字段或城市判断
+        pass  # 直填模式数据已是本省，跳过
+
+    # 学费上限
+    if fee_max and '学费' in df2025.columns:
+        _fee = pd.to_numeric(df2025['学费'], errors='coerce')
+        df2025 = df2025[_fee.isna() | (_fee <= fee_max)]
+
+    # ── 目标专业加分（优先排序）──
+    df2025['_tgt_score'] = 0
+    if target_kw:
+        for kw in target_kw:
+            df2025.loc[df2025['专业名称'].str.contains(kw, na=False), '_tgt_score'] += 10
+
+    # ── 冲稳保区间（同主引擎逻辑）──
     rush_lo   = score - 2
     rush_hi   = score + 60
     stable_lo = score - 30
@@ -823,40 +921,72 @@ def build_plan_direct(profile: dict) -> dict:
 
     df2025['zone'] = df2025['s25'].apply(_zone)
 
-    # 构建候选列表（每行 = 1个专业志愿单元）
-    def _build_rows(zone_df, zone_label):
+    # ── 构建候选列表（每行 = 1个专业志愿单元）──
+    def _build_rows(zone_df, zone_label, max_n):
+        """从候选中选取 max_n 条，目标专业优先、同校最多选3条避免扎堆"""
+        # 按目标匹配度 + 分数排序
+        sorted_df = zone_df.sort_values(['_tgt_score', 's25'],
+                                         ascending=[False, zone_label != '保'])
         rows = []
-        for _, r in zone_df.iterrows():
+        school_cnt = {}
+        seen = set()
+        for _, r in sorted_df.iterrows():
+            if len(rows) >= max_n:
+                break
+            sch = str(r.get('院校名称', ''))
+            mj  = str(r.get('专业名称', ''))
+            key = f"{sch}|{mj}"
+            if key in seen:
+                continue  # 去重
+            seen.add(key)
+            # 同校最多3条（直填模式下避免同校扎堆）
+            school_cnt[sch] = school_cnt.get(sch, 0) + 1
+            if school_cnt[sch] > 3:
+                continue
+            def _s(val, default=''):
+                """Clean NaN/None to empty string"""
+                if val is None or (isinstance(val, float) and pd.isna(val)):
+                    return default
+                return str(val)
             rows.append({
-                'school':     str(r.get('院校名称', '')),
-                'major':      str(r.get('专业名称', '')),
-                'batch':      str(r.get('批次', '')),
-                'city':       str(r.get('城市', '')),
-                'ke_lei':     str(r.get('科类', '')),
-                'subj_req':   str(r.get('选科要求', '不限')),
+                'school':     sch,
+                'major':      mj,
+                'batch':      _s(r.get('批次')),
+                'city':       _s(r.get('城市')),
+                'ke_lei':     _s(r.get('科类')),
+                'subj_req':   _s(r.get('选科要求'), '不限'),
                 'plan_count': r.get('计划人数'),
                 'tuition':    r.get('学费'),
                 's25':        float(r['s25']),
                 'diff':       round(float(r['s25']) - score, 1),
-                'tags':       str(r.get('院校标签', '')),
-                'city_level': str(r.get('城市等级', '')),
-                'school_lv':  str(r.get('院校层级', '')),
+                'tags':       _s(r.get('院校标签')),
+                'city_level': _s(r.get('城市等级')),
+                'school_lv':  _s(r.get('院校层级')),
                 'ruanke_rank': r.get('软科排名'),
                 'tp':         zone_label,
             })
         return rows
 
-    rush_df   = df2025[df2025['zone'] == '冲'].sort_values('s25', ascending=False)
-    stable_df = df2025[df2025['zone'] == '稳'].sort_values('s25', ascending=False)
-    safe_df   = df2025[df2025['zone'] == '保'].sort_values('s25', ascending=False)
+    rush_df   = df2025[df2025['zone'] == '冲']
+    stable_df = df2025[df2025['zone'] == '稳']
+    safe_df   = df2025[df2025['zone'] == '保']
 
-    RUSH_N   = cfg['rush']
-    STABLE_N = cfg['stable']
-    SAFE_N   = cfg['safe']
+    # ── 根据批次 slots 动态调整冲稳保数量 ──
+    _batch_info = _PROVINCE_BATCHES.get(province, [])
+    _batch_slots = next((b['slots'] for b in _batch_info if b['key'] == batch), cfg['total'])
+    if _batch_slots >= cfg['total']:
+        RUSH_N   = cfg['rush']
+        STABLE_N = cfg['stable']
+        SAFE_N   = cfg['safe']
+    else:
+        # 等比缩放：冲25% + 稳50% + 保25%
+        RUSH_N   = max(1, round(_batch_slots * 0.25))
+        STABLE_N = max(1, round(_batch_slots * 0.50))
+        SAFE_N   = max(1, _batch_slots - RUSH_N - STABLE_N)
 
-    rush_rows   = _build_rows(rush_df.head(RUSH_N),   '冲')
-    stable_rows = _build_rows(stable_df.head(STABLE_N), '稳')
-    safe_rows   = _build_rows(safe_df.head(SAFE_N),   '保')
+    rush_rows   = _build_rows(rush_df,   '冲', RUSH_N)
+    stable_rows = _build_rows(stable_df, '稳', STABLE_N)
+    safe_rows   = _build_rows(safe_df,   '保', SAFE_N)
 
     plan_vols = []
     for i, r in enumerate(rush_rows + stable_rows + safe_rows, 1):
@@ -1405,6 +1535,133 @@ def export_excel(plan_result: dict, mc_result: dict, out_path: str):
 
     # 重排 sheet 顺序：志愿总表 > 专业分数明细 > 提前批A段说明 > 退档规则说明
     wb.move_sheet('提前批A段说明', offset=-(len(wb.worksheets) - 3))
+
+    wb.save(out_path)
+    return out_path
+
+
+def export_excel_direct(plan_result: dict, out_path: str):
+    """直填模式（辽宁/重庆/山东/浙江/河北）Excel导出"""
+    from openpyxl import Workbook
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    profile = plan_result['profile']
+    plan_vols = plan_result['plan_vols']
+    prov_cfg = plan_result.get('province_cfg', {})
+    prov = profile.get('student_province', '?')
+
+    wb = Workbook()
+    wb.properties.lastModifiedBy = ''
+    thin = Side(style='thin', color='00BDBDBD')
+    bdr = Border(left=thin, right=thin, top=thin, bottom=thin)
+    FILL = {
+        '冲': PatternFill('solid', fgColor='FFFFF3E0'),
+        '稳': PatternFill('solid', fgColor='FFE3F2FD'),
+        '保': PatternFill('solid', fgColor='FFE8F5E9'),
+        'hdr': PatternFill('solid', fgColor='FF1565C0'),
+    }
+
+    ws = wb.active
+    ws.title = '志愿总表'
+    score = profile.get('score', '?')
+    ke = profile.get('ke_lei', '综合')
+    tgt = '|'.join(profile.get('target_kw', [])[:6])
+    total = prov_cfg.get('total', len(plan_vols))
+
+    ws.merge_cells('A1:L1')
+    ws['A1'] = f'{prov}高考志愿规划表（专业+学校直填）  {score}分·{ke}·{tgt}'
+    ws['A1'].font = Font(bold=True, size=13, color='FF1A237E')
+    ws['A1'].fill = PatternFill('solid', fgColor='FFE8EAF6')
+    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[1].height = 26
+
+    ws.merge_cells('A2:L2')
+    round_note = plan_result.get('round_note', '')
+    ws['A2'] = (f"模式：专业+学校直填  ·  志愿上限：{total}个  ·  "
+                f"排除：{'|'.join(profile.get('exclude_kw',[])[:4]) or '无'}  ·  "
+                f"{round_note}")
+    ws['A2'].font = Font(size=9, color='FF555555')
+    ws['A2'].fill = PatternFill('solid', fgColor='FFF5F5F5')
+    ws['A2'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.row_dimensions[2].height = 18
+
+    hdrs = ['序号', '梯度', '院校名称', '专业名称', '城市', '层次',
+            '25年最低分', '差值', '科类', '选科要求', '学费', '招生计划']
+    widths = [5, 5, 22, 28, 10, 8, 10, 8, 8, 12, 8, 8]
+    for ci, (h, w) in enumerate(zip(hdrs, widths), 1):
+        c = ws.cell(3, ci, h)
+        c.font = Font(color='FFFFFFFF', bold=True, size=9)
+        c.fill = FILL['hdr']
+        c.alignment = Alignment(horizontal='center', vertical='center')
+        c.border = bdr
+        ws.column_dimensions[get_column_letter(ci)].width = w
+    ws.row_dimensions[3].height = 18
+    ws.freeze_panes = 'A4'
+
+    for i, v in enumerate(plan_vols):
+        row = i + 4
+        tp = v['tp']
+        s25 = v.get('s25')
+        diff = v.get('diff')
+        _s25_display = int(s25) if isinstance(s25, (int, float)) and pd.notna(s25) else '?'
+        _diff_display = ''
+        if isinstance(diff, (int, float)) and pd.notna(diff):
+            _diff_display = f"+{int(diff)}" if diff > 0 else str(int(diff))
+        tuition = v.get('tuition')
+        _fee = int(tuition) if isinstance(tuition, (int, float)) and pd.notna(tuition) else ''
+        plan_count = v.get('plan_count')
+        _pc = int(plan_count) if isinstance(plan_count, (int, float)) and pd.notna(plan_count) else ''
+
+        vals = [i + 1, tp, v.get('school', ''), v.get('major', ''),
+                v.get('city', ''), v.get('school_lv', ''),
+                _s25_display, _diff_display,
+                v.get('ke_lei', ''), v.get('subj_req', ''),
+                _fee, _pc]
+        for ci, val in enumerate(vals, 1):
+            c = ws.cell(row, ci, val)
+            c.fill = FILL.get(tp, FILL['稳'])
+            c.border = bdr
+            c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            c.font = Font(size=9, bold=(ci in (3, 4)))
+        ws.row_dimensions[row].height = 22
+
+    # 规则说明 sheet
+    ws2 = wb.create_sheet('填报规则说明')
+    ws2.column_dimensions['A'].width = 22
+    ws2.column_dimensions['B'].width = 60
+    mode_name = prov_cfg.get('mode', 'direct')
+    ke_split = prov_cfg.get('ke_split', False)
+    multi_round = prov_cfg.get('multi_round', False)
+    rules = [
+        (f'【{prov}高考志愿填报规则】', ''),
+        ('', ''),
+        ('志愿模式', f'专业+学校直填（每条志愿 = 1所学校 + 1个专业）'),
+        ('志愿上限', f'本科批最多 {total} 个志愿'),
+        ('科类分类', f'{"物理类/历史类分开投档" if ke_split else "不分科，全省统一排序（综合）"}'),
+        ('多轮填报', f'{"是 — 落榜后可参加后续批次填报" if multi_round else "否 — 单次填报"}'),
+        ('投档比例', f'{prov_cfg.get("invest_ratio", 1.05):.0%}'),
+        ('', ''),
+        ('【直填模式核心要点】', ''),
+        ('无组内调剂', '每条志愿只对应1个专业，录取即为该专业，不存在"服从调剂"'),
+        ('退档风险低', '不会出现"提档后调剂到不想去的专业"的情况'),
+        ('顺序投档', '系统按志愿顺序逐一检索，一旦投档成功则停止'),
+        ('', ''),
+        ('【冲稳保策略】', ''),
+        ('⚡冲志愿', '历年最低分高于考生分0-15分的院校专业，有冲击可能'),
+        ('✅稳志愿', '历年最低分在考生分-20到+0范围内，录取把握大'),
+        ('🛡保志愿', '历年最低分低于考生分20分以上，确保有学上'),
+    ]
+    for ri, (a, b) in enumerate(rules, 1):
+        ca = ws2.cell(ri, 1, a)
+        cb = ws2.cell(ri, 2, b)
+        ca.font = Font(bold=a.startswith('【'), size=10,
+                       color='FF1A237E' if a.startswith('【') else '000000')
+        cb.font = Font(size=9)
+        if a.startswith('【'):
+            ca.fill = PatternFill('solid', fgColor='FFE8EAF6')
+            cb.fill = PatternFill('solid', fgColor='FFE8EAF6')
+        ws2.row_dimensions[ri].height = 18
 
     wb.save(out_path)
     return out_path
