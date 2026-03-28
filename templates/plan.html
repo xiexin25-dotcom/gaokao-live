@@ -26,6 +26,20 @@ a.back{color:rgba(255,255,255,.4);font-size:20px;text-decoration:none}
 .field-sub{font-size:9px;color:rgba(255,255,255,.3);font-weight:400}
 input[type=number],input[type=text]{width:100%;padding:10px 12px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;font-size:14px;outline:none;transition:.2s}
 input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
+select{width:100%;padding:10px 12px;background:#0e1a2e;border:1.5px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;font-size:14px;outline:none;cursor:pointer;transition:.2s}
+select:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
+select option{background:#0e1a2e;color:#D0DCF0;padding:6px 10px}
+select optgroup{background:#0a1220;color:rgba(255,255,255,.5);font-style:normal;font-weight:700}
+
+/* 批次标签栏 */
+.batch-tabs{display:flex;gap:0;overflow-x:auto;padding:0;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.08)}
+.batch-tab{padding:9px 16px;font-size:12px;font-weight:700;color:rgba(255,255,255,.35);border-bottom:2.5px solid transparent;cursor:pointer;white-space:nowrap;transition:.15s;user-select:none}
+.batch-tab:hover{color:rgba(255,255,255,.6)}
+.batch-tab.active{color:#4A9EFF;border-bottom-color:#4A9EFF}
+.batch-tab .bt-filled{font-size:9px;color:#34C759;margin-left:3px;font-weight:800}
+.batch-tab .bt-type-tiqian{border-left:2px solid #FF9F0A;padding-left:14px}
+.batch-tab .bt-type-zhuanke{border-left:2px solid #BF5AF2;padding-left:14px}
+.batch-empty-hint{text-align:center;padding:50px 20px;color:rgba(255,255,255,.25);font-size:13px}
 
 /* 科类选择 */
 .ke-row{display:flex;gap:8px}
@@ -132,6 +146,7 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 .d-pos{background:rgba(255,69,58,.1);color:#FF453A}
 .d-neg{background:rgba(52,199,89,.1);color:#34C759}
 .d-neu{background:rgba(255,255,255,.06);color:rgba(255,255,255,.35)}
+.school-tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;background:rgba(74,158,255,.1);color:#4A9EFF;margin-right:3px}
 .mj-rate{font-size:10px;font-weight:800;min-width:36px;text-align:right;color:rgba(255,255,255,.3)}
 /* 警告角标 */
 .vol-card{position:relative}
@@ -544,31 +559,10 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 <div class="section">
   <div class="sec-title">① 基本信息</div>
 
-  <div class="field">
-    <div class="field-lbl">高考分数 <span class="field-sub">裸分，不含加分</span></div>
-    <input type="number" id="score" placeholder="例：585" min="300" max="750" oninput="onScoreInput()">
-    <div id="rankEstimate" style="margin-top:5px;font-size:10px;color:rgba(255,255,255,.35);min-height:14px"></div>
-  </div>
-
-  <div class="field">
-    <div class="field-lbl">选科类别</div>
-    <div class="ke-row">
-      <div class="ke-btn on" id="ke物理" onclick="selKe('物理')">物理（理科方向）</div>
-      <div class="ke-btn" id="ke历史" onclick="selKe('历史')">历史（文科方向）</div>
-    </div>
-  </div>
-
-  <!-- P6：细化选科（3+1+2，再选科匹配） -->
-  <div class="field" id="selectSubjField" style="display:none">
-    <div class="field-lbl">再选科目 <span class="field-sub">选择你实际选考的科目（用于过滤选科要求不匹配的专业组）</span></div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px" id="selectSubjBtns"></div>
-    <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">不选则不过滤（含所有选科要求的专业）</div>
-  </div>
-
   <!-- 考生所在省 -->
   <div class="field">
     <div class="field-lbl">考生所在省 <span class="field-sub">高考报名省份</span></div>
-    <select id="studentProvince" onchange="onProvinceChange(this.value)" style="width:100%;padding:10px 12px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;font-size:14px;outline:none;appearance:none;cursor:pointer">
+    <select id="studentProvince" onchange="onProvinceChange(this.value)">
       <optgroup label="东北">
         <option value="吉林" selected>吉林省</option>
         <option value="辽宁">辽宁省</option>
@@ -617,6 +611,27 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
     </select>
     <!-- 特殊省份规则提示 -->
     <div id="provinceRuleHint" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(255,200,0,.12);border:1px solid rgba(255,200,0,.3);border-radius:8px;font-size:12px;color:#ffd060;line-height:1.6"></div>
+  </div>
+
+  <div class="field">
+    <div class="field-lbl">选科类别</div>
+    <div class="ke-row">
+      <div class="ke-btn on" id="ke物理" onclick="selKe('物理')">物理（理科方向）</div>
+      <div class="ke-btn" id="ke历史" onclick="selKe('历史')">历史（文科方向）</div>
+    </div>
+  </div>
+
+  <!-- P6：细化选科（3+1+2，再选科匹配） -->
+  <div class="field" id="selectSubjField" style="display:none">
+    <div class="field-lbl">再选科目 <span class="field-sub">选择你实际选考的科目（用于过滤选科要求不匹配的专业组）</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px" id="selectSubjBtns"></div>
+    <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">不选则不过滤（含所有选科要求的专业）</div>
+  </div>
+
+  <div class="field">
+    <div class="field-lbl">高考分数 <span class="field-sub">裸分，不含加分</span></div>
+    <input type="number" id="score" placeholder="例：585" min="300" max="750" oninput="onScoreInput()">
+    <div id="rankEstimate" style="margin-top:5px;font-size:10px;color:rgba(255,255,255,.35);min-height:14px"></div>
   </div>
 </div>
 
@@ -786,17 +801,25 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
 
 <!-- 结果区 -->
 <div class="result-wrap" id="resultWrap">
-  <!-- P3：新高考首届数据警告 -->
-  <div style="margin:0 0 10px;padding:9px 14px;border-radius:9px;background:rgba(255,159,10,.08);border:1px solid rgba(255,159,10,.3);font-size:11px;line-height:1.6;color:#FF9F0A">
+  <!-- 批次标签栏 -->
+  <div class="batch-tabs" id="batchTabs" style="display:none"></div>
+  <!-- P3：新高考首届数据警告（院校专业组模式才显示） -->
+  <div id="histDataWarn" style="margin:0 0 10px;padding:9px 14px;border-radius:9px;background:rgba(255,159,10,.08);border:1px solid rgba(255,159,10,.3);font-size:11px;line-height:1.6;color:#FF9F0A">
     <b>⚠️ 历史数据参考说明</b>：2025年为吉林省新高考首届（院校专业组模式），
     历史数据中 <b>'24年/'23年</b> 来自老高考（院校平行志愿），录取逻辑和分数体系不同，
     差值仅供趋势参考，<b>请以'25年数据为主要决策依据</b>，老高考年份数据已在志愿卡片中标注「旧」。
   </div>
+  <!-- 直填模式说明（直填省份才显示） -->
+  <div id="directModeWarn" style="display:none;margin:0 0 10px;padding:9px 14px;border-radius:9px;background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.25);font-size:11px;line-height:1.6;color:#4A9EFF">
+    <b>📋 专业+学校直填模式</b>：每条志愿 = 1所学校 + 1个专业，按顺序逐一检索投档。
+    无专业组概念，无组内调剂。录取即为所填专业，志愿顺序极其重要。
+    <span id="directModeProvDetail"></span>
+  </div>
   <div class="r-stats" style="grid-template-columns:repeat(4,1fr)">
-    <div class="r-stat"><div class="r-stat-val" id="rs-cands" style="color:#4A9EFF">-</div><div class="r-stat-lbl">候选专业组</div></div>
-    <div class="r-stat"><div class="r-stat-val" id="rs-rate" style="color:#FF9F0A">-</div><div class="r-stat-lbl">MC总命中率</div></div>
-    <div class="r-stat"><div class="r-stat-val" id="rs-eq" style="color:#BF5AF2">-</div><div class="r-stat-lbl">期望质量</div></div>
-    <div class="r-stat"><div class="r-stat-val" id="rs-rounds" style="color:#30D158">-</div><div class="r-stat-lbl">优化轮次</div></div>
+    <div class="r-stat"><div class="r-stat-val" id="rs-cands" style="color:#4A9EFF">-</div><div class="r-stat-lbl" id="rs-cands-lbl">候选专业组</div></div>
+    <div class="r-stat"><div class="r-stat-val" id="rs-rate" style="color:#FF9F0A">-</div><div class="r-stat-lbl" id="rs-rate-lbl">MC总命中率</div></div>
+    <div class="r-stat"><div class="r-stat-val" id="rs-eq" style="color:#BF5AF2">-</div><div class="r-stat-lbl" id="rs-eq-lbl">期望质量</div></div>
+    <div class="r-stat"><div class="r-stat-val" id="rs-rounds" style="color:#30D158">-</div><div class="r-stat-lbl" id="rs-rounds-lbl">优化轮次</div></div>
   </div>
   <!-- 冲/稳/保分布条 -->
   <div id="tpDistBar" style="display:none;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:9px 14px;margin-bottom:10px;display:flex;gap:0;align-items:center">
@@ -822,6 +845,7 @@ input:focus{border-color:#4A9EFF;background:rgba(74,158,255,.06)}
   </div>
   <!-- 优化历史时间线 -->
   <div id="optHistory" style="display:none;margin:0 0 12px;padding:0 2px"></div>
+  <div id="roundNoteHint" style="display:none;margin:0 0 10px;padding:8px 12px;background:rgba(74,158,255,.1);border:1px solid rgba(74,158,255,.3);border-radius:8px;font-size:12px;color:#4A9EFF;line-height:1.5"></div>
   <div id="volList"></div>
 </div>
 
@@ -1358,24 +1382,141 @@ function onFeeCustomInput(){
   selFeeMax = parseInt(document.getElementById('feeCustomVal').value)||0;
 }
 
-// ── 省份切换规则提示 ──────────────────────────────────────
+// ── 省份切换规则提示 + 表单联动 ──────────────────────────
 const _PROV_RULES = {
-  '河北': {total:96,  mode:'院校+专业组', hint:'河北：志愿模式与吉林相同（院校+专业组），但上限96组（冲20+稳52+保24）。3+1+2，按物理/历史类分别投档。'},
-  '辽宁': {total:112, mode:'专业+学校',   hint:'辽宁：专业+学校直填模式，112个专业志愿（冲28+稳56+保28）。每条志愿精确到1所学校+1个专业，无组内调剂，不服从调剂即退档。'},
-  '重庆': {total:96,  mode:'专业+学校',   hint:'重庆：专业+学校直填模式，本科批96个专业志愿（冲24+稳48+保24）。提前批A段（军事/公安）单独填1个顺序志愿，不占本科批名额。'},
-  '山东': {total:96,  mode:'专业+学校',   hint:'山东：专业+学校直填模式，常规批每次96个志愿，共3次独立填报机会（第1次落榜可在第2次重报）。3+3选考模式，不分物理/历史类，按全省统一总分位次排序。'},
-  '浙江': {total:80,  mode:'专业+学校',   hint:'浙江：专业+学校直填模式，分两段各填80个志愿（1:1精确投档，无调剂）。3+3七选三，不分物理/历史类。一段线未录取可参加二段再填80个。'},
+  '河北': {total:96,  mode:'院校+专业组', direct:true, ke_split:true,
+           hint:'河北：志愿模式与吉林相同（院校+专业组），但上限96组（冲20+稳52+保24）。3+1+2，按物理/历史类分别投档。'},
+  '辽宁': {total:112, mode:'专业+学校',   direct:true, ke_split:true,
+           hint:'辽宁：专业+学校直填模式，112个专业志愿（冲28+稳56+保28）。每条志愿精确到1所学校+1个专业，无组内调剂。'},
+  '重庆': {total:96,  mode:'专业+学校',   direct:true, ke_split:true,
+           hint:'重庆：专业+学校直填模式，本科批96个专业志愿（冲24+稳48+保24）。提前批A段（军事/公安）单独填1个顺序志愿，不占本科批名额。'},
+  '山东': {total:96,  mode:'专业+学校',   direct:true, ke_split:false,
+           hint:'山东：专业+学校直填模式，常规批每次96个志愿，共3次独立填报机会。3+3选考模式，不分物理/历史类，按全省统一总分位次排序。'},
+  '浙江': {total:80,  mode:'专业+学校',   direct:true, ke_split:false,
+           hint:'浙江：专业+学校直填模式，分两段各填80个志愿（1:1精确投档，无调剂）。3+3七选三，不分物理/历史类。一段线未录取可参加二段再填80个。'},
 };
+// 不分科省份集合
+const _NO_KE_SPLIT_PROVS = new Set(['山东','浙江']);
+// 直填省份集合
+const _DIRECT_PROVS = new Set(['河北','辽宁','重庆','山东','浙江']);
+
+function _isDirectProv(prov){ return _DIRECT_PROVS.has(prov); }
+function _getVolTarget(prov){
+  const cfg = _PROV_RULES[prov];
+  return cfg ? cfg.total : 40;
+}
+
+// ── 批次标签管理 ──────────────────────────────────────────
+let availableBatches = [];   // [{key, label, type, slots, default}]
+let activeBatch = null;      // 当前选中的批次 key
+let batchPlans = {};         // {batchKey: {vols, stats, mc, mode, ...}}
+
+async function loadBatches(prov) {
+  try {
+    const res = await fetch(`/api/batches?province=${encodeURIComponent(prov)}`);
+    const d = await res.json();
+    availableBatches = d.batches || [];
+  } catch(e) {
+    availableBatches = [{key:'本科批', label:'本科批', slots:40, type:'benke', 'default':true}];
+  }
+  // 默认选中标记为 default 的批次
+  const def = availableBatches.find(b => b['default']);
+  activeBatch = def ? def.key : (availableBatches[0]?.key || '本科批');
+  batchPlans = {};  // 切换省份时清空缓存
+  renderBatchTabs();
+}
+
+function renderBatchTabs() {
+  const wrap = document.getElementById('batchTabs');
+  if (!wrap) return;
+  if (availableBatches.length <= 1) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+  wrap.innerHTML = availableBatches.map(b => {
+    const isFilled = batchPlans[b.key] && batchPlans[b.key].vols && batchPlans[b.key].vols.length > 0;
+    const filledTag = isFilled ? `<span class="bt-filled">【${batchPlans[b.key].vols.length}个】</span>` : '';
+    const cls = b.key === activeBatch ? 'batch-tab active' : 'batch-tab';
+    return `<div class="${cls}" onclick="switchBatch('${b.key.replace(/'/g,"\\'")}')">` +
+           `${b.label}${filledTag}</div>`;
+  }).join('');
+}
+
+function switchBatch(key) {
+  if (key === activeBatch) return;
+  activeBatch = key;
+  renderBatchTabs();
+  // 如果该批次有缓存方案，直接渲染
+  if (batchPlans[key] && batchPlans[key].vols && batchPlans[key].vols.length > 0) {
+    generatedVols = batchPlans[key].vols;
+    window._lastStats   = batchPlans[key].stats;
+    window._lastProfile = batchPlans[key].profile;
+    renderResult({...batchPlans[key], opt_rounds: undefined});
+    const n = batchPlans[key].vols.length;
+    document.getElementById('statusBadge').textContent = `完成 ${n}志愿 ✓`;
+    document.getElementById('statusBadge').className = 'badge b-green';
+    showReplenishBtn();
+  } else {
+    // 该批次尚无方案，若已有考生信息则自动生成
+    const scoreVal = parseInt(document.getElementById('score').value);
+    if (scoreVal && scoreVal >= 300 && targetKws.length > 0) {
+      generate();  // 自动为当前批次生成方案
+    } else {
+      // 尚未填写考生信息，显示提示
+      document.getElementById('volList').innerHTML =
+        '<div class="batch-empty-hint">点击下方 <b>▶ 重新生成</b> 为 <b>' +
+        (availableBatches.find(b=>b.key===key)?.label || key) +
+        '</b> 批次生成方案</div>';
+      document.getElementById('statusBadge').textContent = key;
+      document.getElementById('statusBadge').className = 'badge b-blue';
+      ['rs-rush','rs-stable','rs-safe','rs-total'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.textContent = '-';
+      });
+    }
+  }
+}
 
 function onProvinceChange(prov) {
   const hint = document.getElementById('provinceRuleHint');
   const cfg  = _PROV_RULES[prov];
+
+  // 1. 规则提示
   if (cfg) {
     hint.style.display = 'block';
     hint.innerHTML = `<b>【${cfg.mode}】</b> ${cfg.hint}`;
   } else {
     hint.style.display = 'none';
   }
+
+  // 2. 科类切换：山东/浙江 不分物理/历史 → 隐藏科类选择行
+  const keRow = document.getElementById('ke物理').parentNode;
+  const keField = keRow.parentNode;
+  if (_NO_KE_SPLIT_PROVS.has(prov)) {
+    keField.style.display = 'none';
+    // 再选科面板也隐藏
+    document.getElementById('selectSubjField').style.display = 'none';
+  } else {
+    keField.style.display = '';
+  }
+
+  // 3. 直填省份：隐藏专项计划开关和严格排除（直填模式无专业组概念）
+  const zxField = document.getElementById('zhuanxiangToggle')?.closest('.field');
+  const seField = document.getElementById('strictExcludeToggle')?.closest('.field');
+  if (_isDirectProv(prov)) {
+    if (zxField) zxField.style.display = 'none';
+    if (seField) seField.style.display = 'none';
+  } else {
+    if (zxField) zxField.style.display = '';
+    if (seField) seField.style.display = '';
+  }
+
+  // 4. 更新历史数据警告文字
+  const histWarn = document.getElementById('resultWrap')?.querySelector('[style*="FF9F0A"]');
+  if (histWarn && _isDirectProv(prov)) {
+    histWarn.style.display = 'none';
+  }
+
+  // 5. 加载该省份的可用批次
+  loadBatches(prov);
 }
 
 // ── 生成方案 ──────────────────────────────────────────
@@ -1409,6 +1550,7 @@ async function generate(){
         school_pref: selSchoolPref,
         fee_max: selFeeMax || null,
         select_subjects: [...selSubjects],   // P6 再选科过滤
+        batch: activeBatch || null,           // 当前批次
       })
     });
     const d = await res.json();
@@ -1418,6 +1560,11 @@ async function generate(){
     window._lastStats   = d.stats;
     window._lastProfile = d.profile;
     renderResult({...d, opt_rounds: undefined});
+
+    // 缓存到批次方案（支持多批次切换）
+    const _bk = activeBatch || '本科批';
+    batchPlans[_bk] = {...d};
+    renderBatchTabs();
 
     document.getElementById('statusBadge').textContent=`完成 ${d.vols.length}志愿 ✓`;
     document.getElementById('statusBadge').className='badge b-green';
@@ -1591,6 +1738,7 @@ function buildVolListHTML(vols, profile){
 // ── 直填模式（专业+学校）志愿列表 ──────────────────────────────
 function buildDirectVolListHTML(vols, profile) {
   const TP_C = {'冲':'#FF9F0A','稳':'#4A9EFF','保':'#34C759'};
+  const _ok = s => s && s !== 'nan' && s !== 'None' && s !== 'null';  // filter NaN strings
   let rushH='', safeH='', baoH='';
   const rushVols = vols.filter(v=>v.tp==='冲');
   const safeVols = vols.filter(v=>v.tp==='稳');
@@ -1598,31 +1746,42 @@ function buildDirectVolListHTML(vols, profile) {
   const ordered  = [...rushVols, ...safeVols, ...baoVols];
   ordered.forEach((v,i) => {
     const c = TP_C[v.tp]||'#fff';
-    const diff = v.diff != null ? (v.diff>0?'+':'')+v.diff : '';
+    const diff = v.diff != null ? (v.diff>0?'+':'')+Math.round(v.diff) : '';
     const dCls = v.diff>0?'d-pos':v.diff<-3?'d-neg':'d-neu';
-    const tags = (v.tags||'').split('/').filter(Boolean).slice(0,3)
+    const tags = (v.tags||'').replace(/nan/g,'').split('/').filter(Boolean).slice(0,3)
                   .map(t=>`<span class="school-tag">${t}</span>`).join('');
+    const vid = v.vol_idx || (i+1);
     const card = `
-      <div class="vol-card" style="border-left:3px solid ${c};margin-bottom:8px;padding:10px 14px;background:rgba(255,255,255,.04);border-radius:8px">
+      <div class="vol-card" data-vid="${vid}" style="border-left:3px solid ${c};margin-bottom:8px;padding:10px 14px;background:rgba(255,255,255,.04);border-radius:8px">
         <div class="vc-hdr" style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span style="font-weight:700;color:${c};min-width:26px">${i+1}</span>
           <span class="tp-badge" style="background:${c}22;color:${c};padding:2px 8px;border-radius:4px;font-size:11px">${v.tp}</span>
-          <span style="font-weight:600;font-size:14px">${v.school||''}</span>
-          <span style="font-size:12px;color:rgba(255,255,255,.5)">▸ ${v.major||''}</span>
+          <span style="font-weight:600;font-size:14px;flex:1">${v.school||''}</span>
+          <div class="vc-edit-ctrl" style="display:flex;gap:4px;margin-left:auto;flex-shrink:0">
+            <button onclick="moveDirectVol(${vid},-1)" style="font-size:10px;padding:2px 6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:rgba(255,255,255,.5);cursor:pointer" title="上移">▲</button>
+            <button onclick="moveDirectVol(${vid},1)" style="font-size:10px;padding:2px 6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:rgba(255,255,255,.5);cursor:pointer" title="下移">▼</button>
+            <button onclick="deleteDirectVol(${vid})" style="font-size:10px;padding:2px 6px;background:rgba(255,69,58,.1);border:1px solid rgba(255,69,58,.2);border-radius:4px;color:#FF453A;cursor:pointer" title="删除">✕</button>
+          </div>
         </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:rgba(255,255,255,.6)">
-          <span>📍 ${v.city||''}${v.city_level?` (${v.city_level})`:''}  </span>
-          <span>批次：${v.batch||''}</span>
-          ${v.ke_lei?`<span>科类：${v.ke_lei}</span>`:''}
-          <span>25年最低：<b style="color:#fff">${v.s25||'?'}分</b></span>
-          <span class="${dCls}">${diff?`差值 ${diff}分`:''}</span>
-          ${v.subj_req&&v.subj_req!=='不限'?`<span style="color:#ffd060">选科：${v.subj_req}</span>`:''}
+        <div style="font-size:13px;color:rgba(255,255,255,.85);margin-bottom:6px;padding-left:34px">▸ ${v.major||''}</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:rgba(255,255,255,.5);padding-left:34px">
+          <span>📍 ${v.city||''}${_ok(v.city_level)?` · ${v.city_level}`:''}</span>
+          ${_ok(v.school_lv)?`<span style="color:#4A9EFF">${v.school_lv}</span>`:''}
+          <span>25年最低：<b style="color:#fff">${v.s25||'?'}</b>分</span>
+          <span class="${dCls}" style="padding:1px 5px;border-radius:3px">${diff?`${diff}分`:''}</span>
+          ${_ok(v.subj_req)&&v.subj_req!=='不限'?`<span style="color:#ffd060">选科：${v.subj_req}</span>`:''}
+          ${v.tuition&&v.tuition>0?`<span>💰 ${v.tuition}元</span>`:''}
+          ${v.plan_count&&v.plan_count>0?`<span>📋 ${v.plan_count}人</span>`:''}
           ${tags?`<span>${tags}</span>`:''}
         </div>
       </div>`;
-    if(v.tp==='冲') rushH+=card;
-    else if(v.tp==='稳') safeH+=card;
-    else baoH+=card;
+    // 插入条
+    const insBar = `<div class="insert-bar" style="text-align:center;margin:2px 0">
+      <button onclick="openInsertPanel(${vid})" style="font-size:10px;padding:3px 12px;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.1);border-radius:6px;color:rgba(255,255,255,.25);cursor:pointer">＋ 在此后插入</button>
+    </div>`;
+    if(v.tp==='冲') rushH+=card+insBar;
+    else if(v.tp==='稳') safeH+=card+insBar;
+    else baoH+=card+insBar;
   });
   const lbl = (t,n) => n>0 ? `<div style="font-size:11px;color:rgba(255,255,255,.4);margin:10px 0 4px;padding-left:4px">${t}（${n}个）</div>` : '';
   return lbl('⚡ 冲志愿',rushVols.length)+rushH+
@@ -1632,11 +1791,34 @@ function buildDirectVolListHTML(vols, profile) {
 
 function renderResult(d){
   const isDirect = d.mode === 'direct';
-  // 统计卡
+  const prov = d.profile?.student_province || '吉林';
+  const volTarget = _getVolTarget(prov);
+
+  // 切换警告区域
+  const histWarn = document.getElementById('histDataWarn');
+  const directWarn = document.getElementById('directModeWarn');
+  if(histWarn) histWarn.style.display = isDirect ? 'none' : '';
+  if(directWarn){
+    directWarn.style.display = isDirect ? '' : 'none';
+    const detail = document.getElementById('directModeProvDetail');
+    if(detail){
+      const cfg = _PROV_RULES[prov];
+      detail.textContent = cfg ? `本省上限 ${cfg.total} 个志愿。` : '';
+    }
+  }
+
+  // 统计卡标签适配
+  document.getElementById('rs-cands-lbl').textContent = isDirect ? '候选专业' : '候选专业组';
+  document.getElementById('rs-rate-lbl').textContent  = isDirect ? '填报模式' : 'MC总命中率';
+  document.getElementById('rs-eq-lbl').textContent    = isDirect ? '志愿上限' : '期望质量';
+  document.getElementById('rs-rounds-lbl').textContent = isDirect ? '投档方式' : '优化轮次';
+
+  // 统计卡数值
   document.getElementById('rs-cands').textContent  = d.stats.total_cands;
-  document.getElementById('rs-rate').textContent   = isDirect ? '—' : (d.mc.rush_rate*100).toFixed(1)+'%';
-  document.getElementById('rs-rounds').textContent = isDirect ? '直填模式' : (d.opt_rounds!==undefined?d.opt_rounds+'轮':'未优化');
-  document.getElementById('rs-eq').textContent     = isDirect ? '—' : (d.mc.exp_q||0).toFixed(1);
+  document.getElementById('rs-rate').textContent   = isDirect ? '专业+学校' : (d.mc.rush_rate*100).toFixed(1)+'%';
+  document.getElementById('rs-rounds').textContent = isDirect ? '顺序投档' : (d.opt_rounds!==undefined?d.opt_rounds+'轮':'未优化');
+  document.getElementById('rs-eq').textContent     = isDirect ? volTarget+'个' : (d.mc.exp_q||0).toFixed(1);
+
   // 冲/稳/保分布条
   const rushN = d.vols.filter(v=>v.tp==='冲').length;
   const safeN = d.vols.filter(v=>v.tp==='稳').length;
@@ -1644,8 +1826,15 @@ function renderResult(d){
   document.getElementById('rs-rush').textContent = rushN+'个';
   document.getElementById('rs-safe').textContent = safeN+'个';
   document.getElementById('rs-bao').textContent  = baoN+'个';
-  document.getElementById('rs-total-rate').textContent = (d.mc.total_rate*100).toFixed(1)+'%';
+  document.getElementById('rs-total-rate').textContent = isDirect ? `共${d.vols.length}个` : (d.mc.total_rate*100).toFixed(1)+'%';
   document.getElementById('tpDistBar').style.display = 'flex';
+  // 直填模式多轮提示
+  const rnEl = document.getElementById('roundNoteHint');
+  if(isDirect && d.round_note){
+    if(rnEl){ rnEl.style.display='block'; rnEl.textContent=d.round_note; }
+  } else {
+    if(rnEl) rnEl.style.display='none';
+  }
 
   // 存储供 rerenderVolList 使用
   window._lastRenderData = d;
@@ -1854,28 +2043,55 @@ function toggleMajors(toggleEl){
   }
 }
 
-// ── 上下移动志愿 ────────────────────────────────────────
+// ── 上下移动志愿（院校专业组模式） ────────────────────
 function moveVol(gcode, dir){
   const idx = generatedVols.findIndex(v=>String(v.gcode)===String(gcode));
   if(idx < 0) return;
   const newIdx = idx + dir;
   if(newIdx < 0 || newIdx >= generatedVols.length) return;
-  // 交换
   [generatedVols[idx], generatedVols[newIdx]] = [generatedVols[newIdx], generatedVols[idx]];
-  // 更新 vol_idx
   generatedVols.forEach((v,i)=>{ v.vol_idx = i+1; });
   rerenderVolList();
   syncPlanToServer();
 }
 
-// ── 已删除的志愿组记录（补充时排除）──────────────────
-let deletedGcodes = [];
+// ── 上下移动志愿（直填模式，按 vol_idx 定位） ────────────
+function moveDirectVol(vid, dir){
+  const idx = generatedVols.findIndex(v=>v.vol_idx===vid);
+  if(idx < 0) return;
+  const newIdx = idx + dir;
+  if(newIdx < 0 || newIdx >= generatedVols.length) return;
+  [generatedVols[idx], generatedVols[newIdx]] = [generatedVols[newIdx], generatedVols[idx]];
+  generatedVols.forEach((v,i)=>{ v.vol_idx = i+1; });
+  rerenderVolList();
+  syncPlanToServer();
+}
 
-// ── 删除志愿组 ────────────────────────────────────────
+// ── 已删除的志愿记录（补充时排除）──────────────────
+let deletedGcodes = [];
+let deletedDirectKeys = [];  // 直填模式：'school|major' key
+
+// ── 删除志愿组（院校专业组模式） ────────────────────────
 function deleteVol(gcode){
   if(!confirm('确认删除该志愿组？')) return;
   deletedGcodes.push(String(gcode));
   generatedVols = generatedVols.filter(v=>String(v.gcode)!==String(gcode));
+  generatedVols.forEach((v,i)=>{ v.vol_idx = i+1; });
+  rerenderVolList();
+  syncPlanToServer();
+  updateVolCounts();
+  showReplenishBtn();
+}
+
+// ── 删除志愿（直填模式） ──────────────────────────────
+function deleteDirectVol(vid){
+  if(!confirm('确认删除该志愿？')) return;
+  const idx = generatedVols.findIndex(v=>v.vol_idx===vid);
+  if(idx<0) return;
+  const v = generatedVols[idx];
+  deletedDirectKeys.push(`${v.school}|${v.major}`);
+  generatedVols.splice(idx, 1);
+  generatedVols.forEach((v,i)=>{ v.vol_idx = i+1; });
   rerenderVolList();
   syncPlanToServer();
   updateVolCounts();
@@ -1895,11 +2111,15 @@ function updateVolCounts(){
 function showReplenishBtn(){
   const btn = document.getElementById('btnReplenish');
   if(!btn) return;
-  const target = 40;
+  const d = window._lastRenderData;
+  const prov = d?.profile?.student_province || document.getElementById('studentProvince')?.value || '吉林';
+  const target = _getVolTarget(prov);
   const current = generatedVols.length;
   if(current < target && current > 0){
-    btn.textContent = '➕ 补充 ' + (target - current) + ' 个志愿';
+    btn.textContent = `➕ 补充 ${target - current} 个志愿（上限${target}）`;
     btn.style.display = '';
+    // 直填模式暂不支持服务端补充，隐藏按钮
+    if(d?.mode === 'direct') btn.style.display = 'none';
   } else {
     btn.style.display = 'none';
   }
@@ -1911,7 +2131,7 @@ function doReplenish(){
   fetch('/api/replenish', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({target_count: 40, exclude_gcodes: deletedGcodes})
+    body: JSON.stringify({target_count: _getVolTarget(window._lastRenderData?.profile?.student_province || '吉林'), exclude_gcodes: deletedGcodes})
   })
   .then(r => r.json())
   .then(d => {
@@ -1929,17 +2149,24 @@ function doReplenish(){
 }
 
 // ── 插入志愿组 ────────────────────────────────────────
-let insertAfterGcode = null;
+let insertAfterGcode = null;  // group mode: gcode; direct mode: vol_idx
 let insertSelTp = '稳';
 
 function openInsertPanel(afterGcode){
   insertAfterGcode = afterGcode;
-  // 根据afterGcode推断默认类型
-  const idx = generatedVols.findIndex(v=>String(v.gcode)===String(afterGcode));
+  const d = window._lastRenderData;
+  const isDirect = d?.mode === 'direct';
+  let idx;
+  if(isDirect){
+    idx = generatedVols.findIndex(v=>v.vol_idx===afterGcode);
+  } else {
+    idx = generatedVols.findIndex(v=>String(v.gcode)===String(afterGcode));
+  }
   insertSelTp = idx>=0 ? generatedVols[idx].tp : '稳';
   setInsTp(insertSelTp);
   document.getElementById('insSearch').value='';
-  document.getElementById('insResults').innerHTML='<div class="ins-hint">搜索院校名称（如"吉林大学"）</div>';
+  const hintText = isDirect ? '搜索院校名称（如"大连理工"）' : '搜索院校名称（如"吉林大学"）';
+  document.getElementById('insResults').innerHTML=`<div class="ins-hint">${hintText}</div>`;
   document.getElementById('insertPanel').classList.add('show');
   setTimeout(()=>document.getElementById('insSearch').focus(), 100);
 }
@@ -1959,39 +2186,101 @@ async function doInsertSearch(){
   const q = (document.getElementById('insSearch').value||'').trim();
   if(q.length<2){ alert('请输入至少2个字'); return; }
   const d = window._lastRenderData;
+  const isDirect = d?.mode === 'direct';
   const ke = d?.profile?.ke_lei || selKeLei;
   const score = d?.profile?.score || 0;
+  const prov = d?.profile?.student_province || '吉林';
   document.getElementById('insResults').innerHTML='<div class="ins-hint">搜索中…</div>';
+
   try{
-    const r = await fetch(`/api/search_groups?q=${encodeURIComponent(q)}&ke=${encodeURIComponent(ke)}&score=${score}`);
-    const data = await r.json();
-    if(data.error){ document.getElementById('insResults').innerHTML=`<div class="ins-empty">${data.error}</div>`; return; }
-    if(!data.groups||!data.groups.length){ document.getElementById('insResults').innerHTML='<div class="ins-empty">未找到匹配院校</div>'; return; }
-    _insGroupCache = data.groups;
-    const existGcodes = new Set(generatedVols.map(v=>String(v.gcode)));
-    document.getElementById('insResults').innerHTML = data.groups.map((g, idx)=>{
-      const alreadyIn = existGcodes.has(String(g.gcode));
-      const lvBadge = g.lv_label && g.lv_label!=='其他' ? `<span class="tag t-gray" style="font-size:9px">${g.lv_label}</span>` : '';
-      const mjPreview = g.majors.slice(0,4).map(m=>m.name).join('、');
-      return `<div class="ins-g${alreadyIn?' ins-g-dup':''}" onclick="${alreadyIn?'alert(\'该院校专业组已在志愿表中\')':'insertGroup('+idx+')'}" title="${alreadyIn?'已在志愿表中':'点击插入'}">
-        <div class="ins-g-hdr">
-          <span class="ins-g-name">${g.school}</span>
-          ${lvBadge}
-          ${alreadyIn?'<span style="font-size:9px;color:#FF9F0A">已填报</span>':''}
-        </div>
-        <div class="ins-g-scores">${g.city}·${g.cr_label} | 组最低分 ${g.gmin25}分 | sc6 ${g.sc6}分</div>
-        <div class="ins-g-mjs">${mjPreview}${g.majors.length>4?` 等${g.majors.length}个专业`:''}</div>
-      </div>`;
-    }).join('');
+    if(isDirect){
+      // 直填模式：搜索单条专业
+      const r = await fetch(`/api/search_direct?q=${encodeURIComponent(q)}&ke=${encodeURIComponent(ke)}&score=${score}&prov=${encodeURIComponent(prov)}`);
+      const data = await r.json();
+      if(data.error){ document.getElementById('insResults').innerHTML=`<div class="ins-empty">${data.error}</div>`; return; }
+      if(!data.results||!data.results.length){ document.getElementById('insResults').innerHTML='<div class="ins-empty">未找到匹配院校专业</div>'; return; }
+      _insDirectCache = data.results;
+      const existKeys = new Set(generatedVols.map(v=>`${v.school}|${v.major}`));
+      document.getElementById('insResults').innerHTML = data.results.map((r, idx)=>{
+        const key = `${r.school}|${r.major}`;
+        const alreadyIn = existKeys.has(key);
+        const diff = r.diff>0?`+${Math.round(r.diff)}`:`${Math.round(r.diff)}`;
+        const dColor = r.diff>0?'#FF453A':r.diff<-3?'#34C759':'rgba(255,255,255,.4)';
+        const lv = r.school_lv&&r.school_lv!=='nan'?`<span style="color:#4A9EFF;font-size:9px">${r.school_lv}</span>`:'';
+        return `<div class="ins-g${alreadyIn?' ins-g-dup':''}" onclick="${alreadyIn?'alert(\'该志愿已在列表中\')':'insertDirect('+idx+')'}" title="${alreadyIn?'已填报':'点击插入'}">
+          <div class="ins-g-hdr">
+            <span class="ins-g-name">${r.school}</span> ${lv}
+            ${alreadyIn?'<span style="font-size:9px;color:#FF9F0A">已填报</span>':''}
+          </div>
+          <div class="ins-g-scores">▸ ${r.major} | ${r.s25}分 <span style="color:${dColor}">(${diff})</span> | ${r.city}</div>
+        </div>`;
+      }).join('');
+    } else {
+      // 院校专业组模式
+      const r = await fetch(`/api/search_groups?q=${encodeURIComponent(q)}&ke=${encodeURIComponent(ke)}&score=${score}`);
+      const data = await r.json();
+      if(data.error){ document.getElementById('insResults').innerHTML=`<div class="ins-empty">${data.error}</div>`; return; }
+      if(!data.groups||!data.groups.length){ document.getElementById('insResults').innerHTML='<div class="ins-empty">未找到匹配院校</div>'; return; }
+      _insGroupCache = data.groups;
+      const existGcodes = new Set(generatedVols.map(v=>String(v.gcode)));
+      document.getElementById('insResults').innerHTML = data.groups.map((g, idx)=>{
+        const alreadyIn = existGcodes.has(String(g.gcode));
+        const lvBadge = g.lv_label && g.lv_label!=='其他' ? `<span class="tag t-gray" style="font-size:9px">${g.lv_label}</span>` : '';
+        const mjPreview = g.majors.slice(0,4).map(m=>m.name).join('、');
+        return `<div class="ins-g${alreadyIn?' ins-g-dup':''}" onclick="${alreadyIn?'alert(\'该院校专业组已在志愿表中\')':'insertGroup('+idx+')'}" title="${alreadyIn?'已在志愿表中':'点击插入'}">
+          <div class="ins-g-hdr">
+            <span class="ins-g-name">${g.school}</span>
+            ${lvBadge}
+            ${alreadyIn?'<span style="font-size:9px;color:#FF9F0A">已填报</span>':''}
+          </div>
+          <div class="ins-g-scores">${g.city}·${g.cr_label} | 组最低分 ${g.gmin25}分 | sc6 ${g.sc6}分</div>
+          <div class="ins-g-mjs">${mjPreview}${g.majors.length>4?` 等${g.majors.length}个专业`:''}</div>
+        </div>`;
+      }).join('');
+    }
   }catch(e){
     document.getElementById('insResults').innerHTML=`<div class="ins-empty">请求失败: ${e.message}</div>`;
   }
 }
 
+let _insDirectCache = [];  // 直填模式搜索结果缓存
+
+// 插入直填模式志愿
+function insertDirect(idx){
+  const r = _insDirectCache[idx];
+  if(!r) return;
+  const newVol = {
+    vol_idx:    0,
+    tp:         insertSelTp,
+    school:     r.school,
+    major:      r.major,
+    city:       r.city,
+    ke_lei:     r.ke_lei||'',
+    batch:      r.batch||'',
+    s25:        r.s25,
+    diff:       r.diff,
+    tags:       r.tags||'',
+    city_level: '',
+    school_lv:  r.school_lv||'',
+    subj_req:   r.subj_req||'',
+    tuition:    r.tuition,
+    plan_count: r.plan_count,
+    ruanke_rank: null,
+  };
+  // 插入到 afterGcode(vol_idx) 之后
+  const afterIdx = generatedVols.findIndex(v=>v.vol_idx===insertAfterGcode);
+  if(afterIdx>=0) generatedVols.splice(afterIdx+1, 0, newVol);
+  else            generatedVols.push(newVol);
+  generatedVols.forEach((v,i)=>{ v.vol_idx = i+1; });
+  closeInsertPanel();
+  rerenderVolList();
+  syncPlanToServer();
+  updateVolCounts();
+}
+
 function insertGroup(idx){
   const g = _insGroupCache[idx];
   if(!g) return;
-  // 构建新的 vols_out 格式 vol
   const profile = window._lastRenderData?.profile || {};
   const sc6ok = g.sc6 && g.sc6 <= (profile.score||0);
   const newVol = {
@@ -2017,15 +2306,13 @@ function insertGroup(idx){
     warn_msg:'', warn_cold_anchor:false, warn_msg_cold:'',
     _rate: 0, _topM: null,
   };
-  // 插入到 afterGcode 之后
   const afterIdx = generatedVols.findIndex(v=>String(v.gcode)===String(insertAfterGcode));
   if(afterIdx>=0) generatedVols.splice(afterIdx+1, 0, newVol);
   else            generatedVols.push(newVol);
   closeInsertPanel();
   rerenderVolList();
   syncPlanToServer();
-  const d = window._lastRenderData;
-  if(d) { const rushN2=generatedVols.filter(v=>v.tp==='冲').length; const safeN2=generatedVols.filter(v=>v.tp==='稳').length; const baoN2=generatedVols.filter(v=>v.tp==='保').length; document.getElementById('rs-rush').textContent=rushN2+'个'; document.getElementById('rs-safe').textContent=safeN2+'个'; document.getElementById('rs-bao').textContent=baoN2+'个'; }
+  updateVolCounts();
 }
 
 // ── 同步到服务器 ──────────────────────────────────────
@@ -2056,6 +2343,8 @@ async function syncPlanToServer(){
 
 // ── 初始化 ────────────────────────────────────────────
 loadKwLib();
+// 加载当前省份的可用批次
+loadBatches(document.getElementById('studentProvince').value || '吉林');
 
 // 检查是否从首页历史记录恢复方案
 if(new URLSearchParams(location.search).get('restored')==='1'){
@@ -2067,12 +2356,17 @@ if(new URLSearchParams(location.search).get('restored')==='1'){
       generatedVols = d.vols;
       window._lastStats   = d.stats;
       window._lastProfile = d.profile;
-      renderResult({vols:d.vols, mc:d.mc, stats:d.stats, profile:d.profile});
+      renderResult({vols:d.vols, mc:d.mc, stats:d.stats, profile:d.profile, mode:d.mode||'group'});
       document.getElementById('statusBadge').textContent='已恢复历史方案 ✓';
       document.getElementById('statusBadge').className='badge b-green';
       document.getElementById('btnExport').style.display='';
-      document.getElementById('btnMC').style.display='';
-      document.getElementById('btnOpt').style.display='';
+      if(d.mode==='direct'){
+        document.getElementById('btnMC').style.display='none';
+        document.getElementById('btnOpt').style.display='none';
+      } else {
+        document.getElementById('btnMC').style.display='';
+        document.getElementById('btnOpt').style.display='';
+      }
       showReplenishBtn();
       document.getElementById('resultWrap').classList.add('show');
       document.getElementById('formWrap').style.display='none';
@@ -3223,12 +3517,17 @@ async function restoreHistory(idx){
     window._lastStats   = d.stats;
     window._lastProfile = d.profile;
     // 构造mc结构（历史记录中已存mc）
-    renderResult({vols:d.vols, mc:d.mc, stats:d.stats, profile:d.profile, opt_rounds:undefined});
+    renderResult({vols:d.vols, mc:d.mc, stats:d.stats, profile:d.profile, mode:d.mode||'group', opt_rounds:undefined});
     document.getElementById('statusBadge').textContent=`已恢复历史方案 ✓`;
     document.getElementById('statusBadge').className='badge b-green';
     document.getElementById('btnExport').style.display='';
-    document.getElementById('btnMC').style.display='';
-    document.getElementById('btnOpt').style.display='';
+    if(d.mode==='direct'){
+      document.getElementById('btnMC').style.display='none';
+      document.getElementById('btnOpt').style.display='none';
+    } else {
+      document.getElementById('btnMC').style.display='';
+      document.getElementById('btnOpt').style.display='';
+    }
     showReplenishBtn();
     document.getElementById('resultWrap').classList.add('show');
     document.getElementById('formWrap').style.display='none';

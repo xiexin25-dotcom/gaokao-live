@@ -8,7 +8,7 @@ from flask import Flask, render_template, request, jsonify, send_file, make_resp
 
 sys.path.insert(0, os.path.dirname(__file__))
 from engine.planner import (build_plan, build_plan_direct, mc_simulate,
-                             optimize_plan, export_excel,
+                             optimize_plan, export_excel, export_excel_direct,
                              KW_LIB, EXCLUDE_PRESETS, load_raw_df,
                              _DIRECT_PROV_CFG)
 from engine.system_prompt import SYSTEM_PROMPT
@@ -197,8 +197,21 @@ def validate_plan(plan_vols, score):
     HIGH_RISK_KWS = ['军事', '军队', '国防', '公安', '警察', '司法', '军医', '海军', '空军',
                      '武警', '飞行', '航海', '轮机', '船舶驾驶', '消防', '特警']
 
+    # 直填模式：简化校验（无 gmin25/sc6/top6 字段）
+    is_direct = any(v.get('major') for v in plan_vols[:1])
     for v in plan_vols:
-        tp = v.get('tp'); gmin = float(v.get('gmin25') or 0)
+        tp = v.get('tp')
+        if is_direct:
+            # 直填模式：检查专业名称中的高风险关键词
+            major_name = v.get('major', '')
+            if tp == '冲' and any(kw in major_name for kw in HIGH_RISK_KWS):
+                v.setdefault('warn_tuidan', True)
+                v.setdefault('warn_msg_tuidan',
+                    f"⚠️ 含高退档风险专业：{major_name}。"
+                    f"此类专业有体检/政审/视力等额外要求，请核实身体条件后再填。")
+            continue
+
+        gmin = float(v.get('gmin25') or 0)
         sc6 = v.get('sc6')
 
         # 冲志愿：退档风险专项提示
@@ -275,6 +288,7 @@ def api_history_restore(idx):
             'stats':       h.get('stats', {}),
             'all_results': {},
             'profile':     h['profile'],
+            'mode':        h.get('mode', 'group'),
         }
     return jsonify({
         'ok':      True,
@@ -282,6 +296,7 @@ def api_history_restore(idx):
         'mc':      h['mc'],
         'profile': h['profile'],
         'stats':   h['stats'],
+        'mode':    h.get('mode', 'group'),
     })
 
 # ── 规划页 ───────────────────────────────────────────────
@@ -312,6 +327,25 @@ def api_keywords():
     """返回专业关键词库和排除预设"""
     return jsonify({'kw_lib': KW_LIB, 'exclude_presets': EXCLUDE_PRESETS})
 
+@app.route('/api/batches')
+def api_batches():
+    """返回指定省份的可用批次列表"""
+    from engine.planner import get_province_batches
+    province = request.args.get('province', '吉林')
+    batches = get_province_batches(province)
+    return jsonify({'province': province, 'batches': batches})
+
+@app.route('/api/batch_status')
+def api_batch_status():
+    """返回当前会话各批次的填报状态"""
+    with _SESSION_LOCK:
+        bp = SESSION.get('batch_plans', {})
+        filled = {}
+        for k, v in bp.items():
+            vols = v.get('plan', {}).get('plan_vols', [])
+            filled[k] = len(vols)
+    return jsonify({'filled': filled, 'active': SESSION.get('active_batch', '')})
+
 @app.route('/api/generate', methods=['POST'])
 def api_generate():
     """
@@ -327,10 +361,15 @@ def api_generate():
             return jsonify({'error': '分数范围应在300~750之间'}), 400
 
         ke_lei = body.get('ke_lei', '物理')
-        if ke_lei not in ('物理', '历史'):
+        student_prov = body.get('student_province', '吉林')
+        # 3+3 省份（山东/浙江）不分物理历史，科类为"综合"
+        if student_prov in _DIRECT_PROV_CFG and not _DIRECT_PROV_CFG[student_prov].get('ke_split'):
+            ke_lei = '综合'
+        elif ke_lei not in ('物理', '历史'):
             return jsonify({'error': f"科类必须为'物理'或'历史'，收到: {ke_lei}"}), 400
 
         fee_max_raw = body.get('fee_max', None)
+        batch_key = body.get('batch', None)          # 批次 key（来自前端标签）
         profile = {
             'score':            score,
             'ke_lei':           ke_lei,
@@ -348,6 +387,7 @@ def api_generate():
             'slope':            float(body.get('slope', 150.0)),
             'fee_max':          int(fee_max_raw) if fee_max_raw else None,
             'select_subjects':  body.get('select_subjects', []),
+            'batch':            batch_key,             # 批次参数传递给引擎
         }
 
         include_zhuanxiang = body.get('include_zhuanxiang', False)
@@ -415,6 +455,13 @@ def api_generate():
             SESSION['plan']    = result
             SESSION['mc']      = mc
             SESSION['profile'] = profile
+            # 按批次存储（支持多批次独立规划）
+            _bk = batch_key or '本科批'
+            SESSION.setdefault('batch_plans', {})
+            SESSION['batch_plans'][_bk] = {
+                'plan': result, 'mc': mc, 'profile': profile,
+            }
+            SESSION['active_batch'] = _bk
 
         def _n(x):
             """Convert NaN/inf to None for JSON safety."""
@@ -498,6 +545,7 @@ def api_generate():
 
         # 保存到历史列表（最多10条，新的在前）
         import datetime
+        plan_mode = result.get('mode', 'group')
         hist_entry = {
             'ts':       datetime.datetime.now().strftime('%m-%d %H:%M'),
             'score':    score,
@@ -509,6 +557,7 @@ def api_generate():
             'mc':       mc,
             'profile':  profile,
             'stats':    stats,
+            'mode':     plan_mode,
         }
         with _HISTORY_LOCK:
             PLAN_HISTORY.insert(0, hist_entry)
@@ -539,6 +588,8 @@ def api_simulate():
     """对当前方案做MC模拟（自定义参数）"""
     if 'plan' not in SESSION:
         return jsonify({'error': '请先生成志愿方案'}), 400
+    if SESSION.get('plan', {}).get('mode') == 'direct':
+        return jsonify({'error': '直填模式暂不支持MC仿真'}), 400
 
     body = request.json or {}
     N         = min(int(body.get('N', 10000)), 300000)
@@ -714,6 +765,8 @@ def api_optimize_constrained():
     """
     if 'plan' not in SESSION:
         return jsonify({'error': '请先生成志愿方案'}), 400
+    if SESSION.get('plan', {}).get('mode') == 'direct':
+        return jsonify({'error': '直填模式不支持约束优化'}), 400
 
     body             = request.json or {}
     locked_codes     = set(body.get('locked_codes', []))
@@ -952,12 +1005,16 @@ def api_export_excel():
         plan_snap    = _copy.deepcopy(SESSION['plan'])
         profile_snap = _copy.deepcopy(SESSION['profile'])
         mc_snap      = _copy.deepcopy(SESSION.get('mc', {}))
-    if plan_snap.get('mode') == 'direct':
-        return jsonify({'error': '直填模式暂不支持Excel导出，请手动记录志愿'}), 400
     score    = profile_snap['score']
-    fname    = f"zhiyuan_{score}fen.xlsx"
-    buf = io.BytesIO()
-    export_excel(plan_snap, mc_snap, buf)
+    if plan_snap.get('mode') == 'direct':
+        prov = profile_snap.get('student_province', '直填')
+        fname = f"zhiyuan_{prov}_{score}fen.xlsx"
+        buf = io.BytesIO()
+        export_excel_direct(plan_snap, buf)
+    else:
+        fname    = f"zhiyuan_{score}fen.xlsx"
+        buf = io.BytesIO()
+        export_excel(plan_snap, mc_snap, buf)
     # 同步写磁盘备份（供调试用）
     out_path = os.path.join(OUT_DIR, fname)
     with open(out_path, 'wb') as f:
@@ -1088,6 +1145,7 @@ def api_major_schools():
         sub = pd.concat([sub_direct, sub_syban], ignore_index=True)
         sub['s25'] = pd.to_numeric(sub['最低分'], errors='coerce')
         sub = sub.dropna(subset=['s25']).sort_values('s25', ascending=False)
+        sub = sub.drop_duplicates(subset=['院校名称'], keep='first')
 
         def lv(tag):
             tag = str(tag)
@@ -1416,6 +1474,58 @@ def api_search_groups():
             })
         groups.sort(key=lambda g: -g['gmin25'])
         return jsonify({'ok': True, 'count': len(groups), 'groups': groups[:40]})
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
+
+@app.route('/api/search_direct')
+def api_search_direct():
+    """搜索直填模式院校专业，用于手动插入志愿"""
+    q     = request.args.get('q', '').strip()
+    ke    = request.args.get('ke', '物理').strip()
+    prov  = request.args.get('prov', '').strip()
+    score = int(request.args.get('score', 0))
+    if not q or len(q) < 2:
+        return jsonify({'error': '请输入至少2个字'}), 400
+    if not prov:
+        return jsonify({'error': '缺少省份参数'}), 400
+    try:
+        from engine.db import load_direct_df
+        df = load_direct_df(prov)
+        _BATCH_OK = {'本科批', '一段线'}
+        sub = df[
+            (df['年份'] == 2025) &
+            (df['批次'].isin(_BATCH_OK)) &
+            (df['院校名称'].str.contains(q, na=False, regex=False))
+        ].copy()
+        # 科类过滤（山东/浙江不分科）
+        cfg = _DIRECT_PROV_CFG.get(prov, {})
+        if cfg.get('ke_split') and '科类' in sub.columns:
+            sub = sub[sub['科类'] == ke]
+        sub['s25'] = pd.to_numeric(sub['最低分'], errors='coerce')
+        sub = sub.dropna(subset=['s25'])
+        # 只取公办
+        if '公私性质' in sub.columns:
+            sub = sub[sub['公私性质'] == '公办']
+        results = []
+        for _, r in sub.sort_values('s25', ascending=False).head(60).iterrows():
+            s25 = float(r['s25'])
+            results.append({
+                'school':    str(r.get('院校名称', '')),
+                'major':     str(r.get('专业名称', '')),
+                'city':      str(r.get('城市', '')),
+                'ke_lei':    str(r.get('科类', '')),
+                'batch':     str(r.get('批次', '')),
+                'subj_req':  str(r.get('选科要求', '不限')),
+                'school_lv': str(r.get('院校层级', '')),
+                'tags':      str(r.get('院校标签', '')),
+                's25':       s25,
+                'diff':      round(s25 - score, 1),
+                'tuition':   r.get('学费'),
+                'plan_count': r.get('计划人数'),
+            })
+        return jsonify({'ok': True, 'count': len(results), 'results': results})
     except Exception as e:
         import traceback
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
