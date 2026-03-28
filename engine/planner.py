@@ -141,16 +141,22 @@ def build_plan(profile: dict) -> dict:
     # 空列表=不限（默认），包含'不限'=仅保留选科要求为"不限"的专业组
     select_subjects  = profile.get('select_subjects', [])   # 用户已选的再选科
     student_province = profile.get('student_province', '吉林')
-    batch = profile.get('batch', '本科批')           # 批次（默认本科批）
+    batch = profile.get('batch') or '本科批'          # 批次（默认本科批）
     student_rank = max(1, int(7806 + (585 - score) * slope))
 
     df = load_raw_df()
+    if df.empty or '最低分' not in df.columns:
+        return {'plan_vols': [], 'stats': {}, 'profile': profile,
+                'mode': 'group', 'all_results': {}}
     _syd = df['生源地'] if '生源地' in df.columns else None
     d  = df[(df['年份'] == 2025) &
             (df['科类'] == ke_lei) &
             (df['批次'] == batch) &
             (df['公私性质'] == '公办') &
             (_syd == student_province if _syd is not None else True)].copy()
+    if d.empty:
+        return {'plan_vols': [], 'stats': {}, 'profile': profile,
+                'mode': 'group', 'all_results': {}}
 
     # ── P6 选科要求细化过滤 ─────────────────────────────────────────────
     # 数据列"选科要求"示例值："物理,化学" / "物理,生物" / "不限" / None
