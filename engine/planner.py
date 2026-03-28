@@ -474,15 +474,22 @@ def build_plan(profile: dict) -> dict:
 
     all_results = {r['gcode']: r for r in rows}
 
+    def _gmin(r):
+        """安全取 gmin25 浮点值，None/NaN → 0"""
+        v = r.get('gmin25')
+        if v is None: return 0.0
+        try: return float(v)
+        except (TypeError, ValueError): return 0.0
+
     if school_pref == 'city':
-        def sort_key(r): return (r.get('spread_risk',0), r['city_rank'], r['school_lv'], r['ruanke_lv'], -float(r['gmin25'] or 0))
+        def sort_key(r): return (r.get('spread_risk',0), r['city_rank'], r['school_lv'], r['ruanke_lv'], -_gmin(r))
     else:
-        def sort_key(r): return (r.get('spread_risk',0), r['school_lv'], r['city_rank'], r['ruanke_lv'], -float(r['gmin25'] or 0))
+        def sort_key(r): return (r.get('spread_risk',0), r['school_lv'], r['city_rank'], r['ruanke_lv'], -_gmin(r))
 
     # Bug①修复：加入提档可达性校验（gmin_rank×1.15 ≥ student_rank）
     # Bug③修复：冲志愿独立排序——先按gmin接近分数线（超分越少越前），同等超分再按院校层次
     def rush_sort_key(r):
-        gmin_diff = float(r['gmin25']) - score          # 超分越少越好（越接近越前）
+        gmin_diff = _gmin(r) - score          # 超分越少越好（越接近越前）
         return (gmin_diff, r['school_lv'], r['city_rank'], r['ruanke_lv'])
 
     # 冲志愿候选：按超分区间 (score, score+60]，不做 gmin_rank 过滤
@@ -499,8 +506,8 @@ def build_plan(profile: dict) -> dict:
         return r['n_cold'] == 0 or (target_kw and r.get('n_cold_over_ref', 0) == 0)
 
     rush_cands = sorted([r for r in rows
-        if float(r['gmin25']) > score
-        and float(r['gmin25']) <= score + 60
+        if _gmin(r) > score
+        and _gmin(r) <= score + 60
         and _cold_ok(r)
     ], key=rush_sort_key)
 
@@ -508,8 +515,8 @@ def build_plan(profile: dict) -> dict:
     if len(rush_cands) < 8:
         used_gcodes_rush = {r['gcode'] for r in rush_cands}
         extra_rush = sorted([r for r in rows
-            if float(r['gmin25']) > score + 60
-            and float(r['gmin25']) <= score + 80
+            if _gmin(r) > score + 60
+            and _gmin(r) <= score + 80
             and _cold_ok(r)
             and r['gcode'] not in used_gcodes_rush
         ], key=rush_sort_key)
@@ -517,13 +524,13 @@ def build_plan(profile: dict) -> dict:
 
     safe_cands = sorted([r for r in rows
         if r['sc6'] and score - 45 <= r['sc6'] <= score - 2   # [score-45, score-2]：稳区有效区间
-        and float(r['gmin25']) <= score and _cold_ok(r)
+        and _gmin(r) <= score and _cold_ok(r)
     ], key=sort_key)
 
     BAO_SC6_FLOOR = score - 50   # 保区 sc6 下限：差距超 50 分几乎不会被选中，视为冗余槽位
     bao_cands = sorted([r for r in rows
         if r['sc6'] and 10 <= score - r['sc6'] <= 50    # 差距 10~50 分：真正的保区
-        and r['gmin25'] and float(r['gmin25']) <= score - 5
+        and _gmin(r) > 0 and _gmin(r) <= score - 5
         and _cold_ok(r)
     ], key=sort_key)
 
@@ -587,7 +594,7 @@ def build_plan(profile: dict) -> dict:
     if len(safe_sel) < 14:
         extra = sorted([r for r in rows
             if r['sc6'] and score - 45 <= r['sc6'] <= score - 2   # 稳区补充也限制下限，防止超低sc6学校溢出
-            and r['gmin25'] and float(r['gmin25']) <= score
+            and _gmin(r) > 0 and _gmin(r) <= score
             and r['n_cold'] == 0
             and r['gcode'] not in used_codes], key=sort_key)
         safe_sel += pick(extra, STABLE_N - len(safe_sel))
@@ -597,7 +604,7 @@ def build_plan(profile: dict) -> dict:
     if len(bao_sel) < 6:
         extra = sorted([r for r in rows
             if r['sc6'] and 5 <= score - r['sc6'] <= 55   # 与 bao_cands 放宽5分
-            and r['gmin25'] and float(r['gmin25']) <= score - 5
+            and _gmin(r) > 0 and _gmin(r) <= score - 5
             and r['n_cold'] == 0
             and r['gcode'] not in used_codes], key=sort_key)
         bao_sel += pick(extra, SAFE_N - len(bao_sel))
