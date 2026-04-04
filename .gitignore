@@ -4,18 +4,15 @@ __pycache__/
 *.pyd
 *.egg-info/
 
-# 数据文件（Excel 可能含个人信息或版权）
-data/*.xlsx
-data/*.xls
-data/*.pkl
-data/*.pickle
-data/*.db
+# 数据文件通过 Git LFS 管理（不再忽略）
+# data/*.xlsx  → tracked by LFS
+# data/*.pkl   → tracked by LFS
+# data/*.db    → tracked by LFS
+data/ai_review/
 
 # 输出文件（生成的志愿表不提交）
 outputs/
 output/
-*.xlsx
-*.xls
 
 # 日志
 *.log
