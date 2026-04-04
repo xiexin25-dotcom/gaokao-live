@@ -169,6 +169,44 @@ select optgroup{background:#0a1220;color:rgba(255,255,255,.5);font-style:normal;
 .btn-replenish{background:rgba(74,158,255,.15);color:#4A9EFF;border:1px solid rgba(74,158,255,.3)}
 .btn-replenish:hover{background:rgba(74,158,255,.25)}
 .btn-replenish:disabled{opacity:.5;cursor:wait}
+/* AI修正按钮 */
+.btn-ai-review{background:linear-gradient(135deg,rgba(191,90,242,.2),rgba(94,92,230,.2));color:#BF5AF2;border:1px solid rgba(191,90,242,.35)}
+.btn-ai-review:hover{background:linear-gradient(135deg,rgba(191,90,242,.35),rgba(94,92,230,.35))}
+.btn-ai-review:disabled{opacity:.5;cursor:wait}
+/* AI修正结果面板 */
+.ai-review-overlay{position:fixed;inset:0;z-index:9700;background:rgba(0,0,0,.75);display:none;align-items:flex-end;justify-content:center}
+.ai-review-panel{background:#0D1E35;border:1px solid rgba(191,90,242,.3);border-radius:16px 16px 0 0;
+  width:100%;max-width:620px;max-height:80vh;display:flex;flex-direction:column;
+  box-shadow:0 -8px 32px rgba(0,0,0,.6);animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.arv-header{padding:14px 18px 10px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;flex-shrink:0}
+.arv-title{font-size:14px;font-weight:900;color:#fff;flex:1}
+.arv-close{font-size:22px;color:rgba(255,255,255,.4);cursor:pointer;line-height:1}
+.arv-body{flex:1;overflow-y:auto;padding:14px 18px 18px}
+.arv-score-bar{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.arv-score-num{font-size:32px;font-weight:900;line-height:1}
+.arv-score-label{font-size:11px;color:rgba(255,255,255,.4)}
+.arv-summary{font-size:13px;color:rgba(255,255,255,.75);line-height:1.6;margin-bottom:16px;
+  padding:10px 12px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.06)}
+.arv-section{margin-bottom:14px}
+.arv-section-title{font-size:12px;font-weight:800;color:#BF5AF2;margin-bottom:8px;letter-spacing:.5px}
+.arv-issue{padding:8px 12px;border-radius:8px;margin-bottom:6px;font-size:12px;line-height:1.55}
+.arv-issue.sev-error{background:rgba(255,69,58,.1);border:1px solid rgba(255,69,58,.25);color:#FF6B6B}
+.arv-issue.sev-warning{background:rgba(255,159,10,.08);border:1px solid rgba(255,159,10,.2);color:#FFB340}
+.arv-issue.sev-info{background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.15);color:#7FB8FF}
+.arv-issue-tag{font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;margin-right:6px;display:inline-block}
+.arv-issue.sev-error .arv-issue-tag{background:rgba(255,69,58,.2);color:#FF453A}
+.arv-issue.sev-warning .arv-issue-tag{background:rgba(255,159,10,.15);color:#FF9F0A}
+.arv-issue.sev-info .arv-issue-tag{background:rgba(74,158,255,.12);color:#4A9EFF}
+.arv-sug{padding:6px 10px;font-size:12px;color:rgba(255,255,255,.65);line-height:1.5;
+  border-left:2px solid rgba(52,199,89,.5);margin-bottom:5px;background:rgba(52,199,89,.04);border-radius:0 6px 6px 0}
+.arv-raw{font-size:12px;color:rgba(255,255,255,.7);line-height:1.7;white-space:pre-wrap}
+/* typing 动画（AI修正等待中复用） */
+.typing{display:inline-flex;gap:4px;align-items:center;padding:4px 2px}
+.typing span{width:6px;height:6px;border-radius:50%;background:#BF5AF2;animation:blink 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
 /* 实验班徽章 */
 .mj-syban{font-size:8px;font-weight:800;padding:1px 5px;border-radius:3px;background:rgba(94,92,230,.2);color:#8E8CF0;border:1px solid rgba(94,92,230,.35);margin-left:4px;white-space:nowrap;cursor:pointer}
 .mj-row.has-syban{cursor:pointer;border-radius:6px;transition:.1s}
@@ -743,7 +781,7 @@ select optgroup{background:#0a1220;color:rgba(255,255,255,.5);font-style:normal;
       <span>快速排除预设 <span class="field-sub">可多选</span></span>
       <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
         <label class="strict-toggle" title="开启后，含排除专业的专业组将整体移除，不出现在志愿表中">
-          <input type="checkbox" id="strictExcludeToggle" onchange="onStrictExcludeChange()">
+          <input type="checkbox" id="strictExcludeToggle" onchange="onStrictExcludeChange()" checked>
           <span class="strict-slider"></span>
           <span class="strict-label">严格排除：含排除专业的组整体移除</span>
         </label>
@@ -805,7 +843,7 @@ select optgroup{background:#0a1220;color:rgba(255,255,255,.5);font-style:normal;
   <div class="batch-tabs" id="batchTabs" style="display:none"></div>
   <!-- P3：新高考首届数据警告（院校专业组模式才显示） -->
   <div id="histDataWarn" style="margin:0 0 10px;padding:9px 14px;border-radius:9px;background:rgba(255,159,10,.08);border:1px solid rgba(255,159,10,.3);font-size:11px;line-height:1.6;color:#FF9F0A">
-    <b>⚠️ 历史数据参考说明</b>：2025年为吉林省新高考首届（院校专业组模式），
+    <b>⚠️ 历史数据参考说明</b>：部分省份2025年为新高考首届（院校专业组模式），
     历史数据中 <b>'24年/'23年</b> 来自老高考（院校平行志愿），录取逻辑和分数体系不同，
     差值仅供趋势参考，<b>请以'25年数据为主要决策依据</b>，老高考年份数据已在志愿卡片中标注「旧」。
   </div>
@@ -854,6 +892,7 @@ select optgroup{background:#0a1220;color:rgba(255,255,255,.5);font-style:normal;
   <button class="btn btn-generate" id="btnGen" onclick="generate()">▶ 生成志愿方案</button>
   <button class="btn btn-opt" id="btnOpt" style="display:none" onclick="optimize()">🔁 迭代优化</button>
   <button class="btn btn-replenish" id="btnReplenish" style="display:none" onclick="doReplenish()">➕ 补充志愿</button>
+  <button class="btn btn-ai-review" id="btnAiReview" style="display:none" onclick="doAiReview()">🤖 AI修正</button>
   <button class="btn btn-export" id="btnExport" style="display:none" onclick="exportExcel()">📥 Excel</button>
   <a class="btn btn-mc" id="btnMC" href="/mc" style="display:none">🎲 仿真</a>
   <button class="btn" id="btnHistory" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);font-size:11px;padding:8px 12px" onclick="openHistory()">📋 历史</button>
@@ -868,6 +907,46 @@ select optgroup{background:#0a1220;color:rgba(255,255,255,.5);font-style:normal;
     </div>
     <div id="historyList" style="flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:6px">
       <div style="text-align:center;padding:24px;color:rgba(255,255,255,.3);font-size:12px">加载中…</div>
+    </div>
+  </div>
+</div>
+
+<!-- AI修正输入对话框 -->
+<div class="ai-review-overlay" id="aiInputOverlay" onclick="if(event.target===this)closeAiInput()">
+  <div class="ai-review-panel" style="max-height:50vh;border-radius:16px">
+    <div class="arv-header">
+      <div class="arv-title">🤖 AI修正 · 输入你的要求</div>
+      <span class="arv-close" onclick="closeAiInput()">×</span>
+    </div>
+    <div class="arv-body" style="padding:16px 18px 18px">
+      <div style="font-size:12px;color:rgba(255,255,255,.45);margin-bottom:10px;line-height:1.5">
+        AI 将审核当前方案并自动修正问题。你可以补充具体要求，也可以留空直接开始。
+      </div>
+      <textarea id="aiUserPrompt" rows="3" placeholder="例如：优先保留985院校、去掉学费超过2万的专业、计算机相关专业往前排…"
+        style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+        border-radius:10px;color:#fff;font-size:13px;padding:10px 12px;resize:vertical;outline:none;
+        font-family:inherit;line-height:1.5"></textarea>
+      <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end">
+        <button onclick="closeAiInput()" style="padding:8px 18px;border-radius:8px;border:1px solid rgba(255,255,255,.12);
+          background:transparent;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer">取消</button>
+        <button onclick="submitAiReview()" style="padding:8px 22px;border-radius:8px;border:none;
+          background:linear-gradient(135deg,#BF5AF2,#5E5CE6);color:#fff;font-size:12px;font-weight:700;cursor:pointer">开始审核</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI修正结果面板 -->
+<div class="ai-review-overlay" id="aiReviewOverlay" onclick="if(event.target===this)closeAiReview()">
+  <div class="ai-review-panel">
+    <div class="arv-header">
+      <div class="arv-title">🤖 AI修正 · 方案审核报告</div>
+      <span class="arv-close" onclick="closeAiReview()">×</span>
+    </div>
+    <div class="arv-body" id="aiReviewBody">
+      <div style="text-align:center;padding:32px;color:rgba(255,255,255,.3);font-size:13px">
+        点击下方按钮开始AI审核…
+      </div>
     </div>
   </div>
 </div>
@@ -903,7 +982,7 @@ const EX_LABELS = {
   law:'🚫 法学类', art:'🚫 艺术类', finance:'🚫 金融/会计',
 };
 let selTargetLibs = new Set(), selExcludePresets = new Set();
-let strictExcludeMode = false;  // 严格排除模式：含排除专业的组整体移除
+let strictExcludeMode = true;   // 严格排除模式：含排除专业的组整体移除（默认开启）
 let includeZhuanxiang = false; // 包含专项计划（默认不包含）
 
 function onStrictExcludeChange(){
@@ -1569,6 +1648,7 @@ async function generate(){
     document.getElementById('statusBadge').textContent=`完成 ${d.vols.length}志愿 ✓`;
     document.getElementById('statusBadge').className='badge b-green';
     document.getElementById('btnExport').style.display='';
+    document.getElementById('btnAiReview').style.display='';
     if(d.mode === 'direct'){
       document.getElementById('btnMC').style.display='none';
       document.getElementById('btnOpt').style.display='none';
@@ -2360,6 +2440,7 @@ if(new URLSearchParams(location.search).get('restored')==='1'){
       document.getElementById('statusBadge').textContent='已恢复历史方案 ✓';
       document.getElementById('statusBadge').className='badge b-green';
       document.getElementById('btnExport').style.display='';
+      document.getElementById('btnAiReview').style.display='';
       if(d.mode==='direct'){
         document.getElementById('btnMC').style.display='none';
         document.getElementById('btnOpt').style.display='none';
@@ -2379,6 +2460,7 @@ document.getElementById('btnGen').addEventListener('click',()=>{
     document.getElementById('resultWrap').classList.remove('show');
     document.getElementById('formWrap').style.display='';
     document.getElementById('btnExport').style.display='none';
+    document.getElementById('btnAiReview').style.display='none';
     document.getElementById('btnMC').style.display='none';
     document.getElementById('btnOpt').style.display='none';
     document.getElementById('btnReplenish').style.display='none';
@@ -3427,7 +3509,7 @@ function simplifyMajorName(name){
 }
 
 // ── 分数→位次估算（吉林物理2025一分一段表）────────────────────────
-// 数据来源：2025年吉林省高考物理类一分一段表（省考试院官方发布）
+// 数据来源：2025年高考物理类一分一段表（省考试院官方发布）
 // 锚定点为真实数据，中间档位由指数插值补齐，仅供参考
 const SCORE_RANK_TABLE = [
   [680, 149],  [675, 256],  [670, 351],  [665, 460],  [660, 640],
@@ -3521,6 +3603,7 @@ async function restoreHistory(idx){
     document.getElementById('statusBadge').textContent=`已恢复历史方案 ✓`;
     document.getElementById('statusBadge').className='badge b-green';
     document.getElementById('btnExport').style.display='';
+    document.getElementById('btnAiReview').style.display='';
     if(d.mode==='direct'){
       document.getElementById('btnMC').style.display='none';
       document.getElementById('btnOpt').style.display='none';
@@ -3729,7 +3812,7 @@ async function showMpTooltip(e, majorName, ke){
   mptVisible = true;
   mptCurrentKey = majorName + '_' + ke;
   mptTit().textContent = majorName;
-  mptSub().textContent = `${ke}选科 · 2025年吉林省招生院校`;
+  mptSub().textContent = `${ke}选科 · 2025年招生院校`;
   mptLst().innerHTML = '<div class="mpt-loading">加载中…</div>';
   const btn = mptAllBtn();
   if(btn) btn.style.display = 'none';
@@ -3866,7 +3949,7 @@ function refreshMptModal(){
   if(subEl){
     const [majorName, ke] = mptCurrentKey.split('_');
     const filterNote = (lo>0||hi<999) ? ` · 筛选 ${filtered.length}/${schools.length} 所` : ` · 共 ${schools.length} 所`;
-    subEl.textContent = `${ke}选科 · 2025年吉林省招生院校${filterNote}`;
+    subEl.textContent = `${ke}选科 · 2025年招生院校${filterNote}`;
   }
   if(countEl) countEl.textContent = (lo>0||hi<999) ? `${filtered.length}/${schools.length}所` : '';
   if(listEl) listEl.innerHTML = filtered.length ? makeRows(filtered) : '<div class="mpt-empty">该分数段暂无院校</div>';
@@ -3955,7 +4038,7 @@ async function showMpTooltipMobile(majorName, ke){
   mptVisible = true;
   mptCurrentKey = majorName + '_' + ke;
   mptTit().textContent = majorName;
-  mptSub().textContent = `${ke}选科 · 2025年吉林省招生院校`;
+  mptSub().textContent = `${ke}选科 · 2025年招生院校`;
   mptLst().innerHTML = '<div class="mpt-loading">加载中…</div>';
   const btn = mptAllBtn();
   if(btn) btn.style.display = 'none';
@@ -3970,6 +4053,168 @@ async function showMpTooltipMobile(majorName, ke){
     mptCache[mptCurrentKey] = d.schools;
     if(mptVisible) renderTooltipList(d.schools);
   }catch(err){ mptLst().innerHTML=`<div class="mpt-empty">请求失败</div>`; }
+}
+
+// ══════════════════════════════════════════════════════════
+// AI修正（全自动：Claude Code CLI 审核 + 自动应用修正）
+// ══════════════════════════════════════════════════════════
+let _aiReviewBusy = false;
+let _aiPollTimer  = null;
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function openAiReview(){ document.getElementById('aiReviewOverlay').style.display='flex'; }
+function closeAiReview(){
+  document.getElementById('aiReviewOverlay').style.display='none';
+  if(_aiPollTimer){ clearInterval(_aiPollTimer); _aiPollTimer=null; }
+}
+
+function openAiInput(){ document.getElementById('aiInputOverlay').style.display='flex'; document.getElementById('aiUserPrompt').focus(); }
+function closeAiInput(){ document.getElementById('aiInputOverlay').style.display='none'; }
+
+async function doAiReview(){
+  if(_aiReviewBusy) return;
+  openAiInput();
+}
+
+async function submitAiReview(){
+  const userPrompt = document.getElementById('aiUserPrompt').value.trim();
+  closeAiInput();
+  _aiReviewBusy = true;
+  const btn = document.getElementById('btnAiReview');
+  btn.textContent = '🤖 审核中…'; btn.disabled = true;
+  openAiReview();
+  document.getElementById('aiReviewBody').innerHTML =
+    '<div style="text-align:center;padding:40px;color:rgba(255,255,255,.4)">' +
+    '<div style="font-size:28px;margin-bottom:12px;animation:spin 1.5s linear infinite">⚙</div>' +
+    '<div style="font-size:14px;font-weight:800;color:#BF5AF2;margin-bottom:8px">Claude Code 正在审核方案…</div>' +
+    '<div style="font-size:12px;color:rgba(255,255,255,.35)">自动完成审核和修正，通常需要 1-3 分钟</div>' +
+    (userPrompt ? '<div style="font-size:11px;color:rgba(255,255,255,.25);margin-top:10px;padding:6px 10px;background:rgba(255,255,255,.04);border-radius:6px">📝 ' + esc(userPrompt) + '</div>' : '') +
+    '<div style="margin-top:18px"><div class="typing"><span></span><span></span><span></span></div></div>' +
+    '</div><style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>';
+
+  try {
+    const res = await fetch('/api/ai_review', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({user_prompt: userPrompt})
+    });
+    const d = await res.json();
+    if(d.error){
+      document.getElementById('aiReviewBody').innerHTML =
+        `<div style="text-align:center;padding:32px;color:#FF453A;font-size:13px">❌ ${esc(d.error)}</div>`;
+      _aiReviewBusy = false; btn.textContent = '🤖 AI修正'; btn.disabled = false;
+      return;
+    }
+    startPolling();
+  } catch(e) {
+    document.getElementById('aiReviewBody').innerHTML =
+      `<div style="text-align:center;padding:32px;color:#FF453A;font-size:13px">❌ 网络错误: ${esc(e.message)}</div>`;
+    _aiReviewBusy = false; btn.textContent = '🤖 AI修正'; btn.disabled = false;
+  }
+}
+
+function startPolling(){
+  if(_aiPollTimer) clearInterval(_aiPollTimer);
+  _aiPollTimer = setInterval(async ()=>{
+    try {
+      const r = await fetch('/api/ai_review_status');
+      const d = await r.json();
+      if(d.status === 'done'){
+        clearInterval(_aiPollTimer); _aiPollTimer = null;
+        _aiReviewBusy = false;
+        const btn = document.getElementById('btnAiReview');
+        btn.textContent = '🤖 AI修正'; btn.disabled = false;
+        // 如果有修正后的方案数据，自动更新页面
+        if(d.vols){
+          generatedVols = d.vols;
+          window._lastStats   = d.stats;
+          window._lastProfile = d.profile;
+          renderResult({vols:d.vols, mc:d.mc, stats:d.stats, profile:d.profile, mode:d.mode||'group'});
+          document.getElementById('statusBadge').textContent = `AI修正完成 ${d.count}志愿 ✓`;
+          document.getElementById('statusBadge').className = 'badge b-green';
+          showReplenishBtn();
+        }
+        renderReviewResult(d.review, d.applied, d.correction_note, d.count);
+      } else if(d.status === 'error'){
+        clearInterval(_aiPollTimer); _aiPollTimer = null;
+        _aiReviewBusy = false;
+        const btn = document.getElementById('btnAiReview');
+        btn.textContent = '🤖 AI修正'; btn.disabled = false;
+        document.getElementById('aiReviewBody').innerHTML =
+          `<div style="text-align:center;padding:32px;color:#FF453A;font-size:13px">❌ ${esc(d.error||'审核失败')}</div>`;
+      }
+    } catch(e){ /* 网络抖动忽略 */ }
+  }, 2000);
+}
+
+function renderReviewResult(review, applied, corrNote, count){
+  const body = document.getElementById('aiReviewBody');
+  if(!review){ body.innerHTML = '<div style="padding:24px;text-align:center;color:rgba(255,255,255,.3)">无审核结果</div>'; return; }
+
+  if(review.raw){
+    body.innerHTML = `<div class="arv-raw">${esc(review.summary || review.text || JSON.stringify(review))}</div>`;
+    return;
+  }
+
+  let html = '';
+
+  // 已自动应用修正提示
+  if(applied && applied.length > 0){
+    html += '<div style="padding:10px 12px;margin-bottom:14px;background:rgba(52,199,89,.08);border:1px solid rgba(52,199,89,.25);border-radius:10px">';
+    html += '<div style="font-size:12px;font-weight:800;color:#34C759;margin-bottom:6px">✅ 已自动应用 ' + applied.length + ' 项修正</div>';
+    html += '<div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.6">';
+    for(const a of applied) html += `<div>• ${esc(a)}</div>`;
+    html += '</div>';
+    if(corrNote) html += `<div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:6px">${esc(corrNote)}</div>`;
+    if(count) html += `<div style="font-size:11px;color:#34C759;margin-top:6px;font-weight:700">当前方案：${count} 个志愿</div>`;
+    html += '</div>';
+  }
+
+  const sc = review.score;
+  let scoreColor = '#34C759';
+  if(sc !== null && sc !== undefined){
+    if(sc < 60) scoreColor = '#FF453A';
+    else if(sc < 80) scoreColor = '#FF9F0A';
+    html += `<div class="arv-score-bar">
+      <div class="arv-score-num" style="color:${scoreColor}">${sc}</div>
+      <div><div class="arv-score-label">修正前评分</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5)">${sc>=90?'优秀':sc>=80?'良好':sc>=60?'一般':'需改进'}</div></div>
+    </div>`;
+  }
+
+  if(review.summary) html += `<div class="arv-summary">${esc(review.summary)}</div>`;
+
+  const issues = review.issues || [];
+  if(issues.length > 0){
+    const errors = issues.filter(i=>i.severity==='error');
+    const warnings = issues.filter(i=>i.severity==='warning');
+    html += '<div class="arv-section"><div class="arv-section-title">';
+    html += `发现 ${issues.length} 个问题`;
+    if(errors.length) html += ` · ${errors.length} 个严重`;
+    if(warnings.length) html += ` · ${warnings.length} 个警告`;
+    if(applied && applied.length) html += ' (严重问题已自动修正)';
+    html += '</div>';
+    for(const issue of issues){
+      const sev = issue.severity || 'info';
+      html += `<div class="arv-issue sev-${esc(sev)}">`;
+      if(issue.vol_idx) html += `<span class="arv-issue-tag">志愿#${esc(issue.vol_idx)}</span>`;
+      if(issue.type) html += `<span class="arv-issue-tag">${esc(issue.type)}</span>`;
+      html += esc(issue.message);
+      html += '</div>';
+    }
+    html += '</div>';
+  } else {
+    html += '<div class="arv-section"><div class="arv-section-title">未发现问题 ✓</div></div>';
+  }
+
+  const suggestions = review.suggestions || [];
+  if(suggestions.length > 0){
+    html += '<div class="arv-section"><div class="arv-section-title">改进建议</div>';
+    for(const sug of suggestions) html += `<div class="arv-sug">${esc(sug)}</div>`;
+    html += '</div>';
+  }
+
+  body.innerHTML = html;
 }
 </script>
 

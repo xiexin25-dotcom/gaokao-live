@@ -1,5 +1,5 @@
 """
-吉林省高考志愿规划系统 · 本地版
+高考志愿规划系统 · 本地版
 python app.py → http://localhost:5000
 """
 import os, sys, json, time, threading
@@ -11,7 +11,7 @@ from engine.planner import (build_plan, build_plan_direct, mc_simulate,
                              optimize_plan, export_excel, export_excel_direct,
                              KW_LIB, EXCLUDE_PRESETS, load_raw_df,
                              _DIRECT_PROV_CFG)
-from engine.system_prompt import SYSTEM_PROMPT
+from engine.system_prompt import SYSTEM_PROMPT, AI_REVIEW_PROMPT
 from engine import db as gaokao_db
 
 # ── PyInstaller 打包路径兼容 ──────────────────────────────
@@ -183,7 +183,7 @@ def validate_plan(plan_vols, score):
     """验证方案合法性，返回 (ok:bool, warnings:list)"""
     warnings = []
 
-    # ── 吉林省平行志愿核心规则提示（信息级，不影响 plan_ok 判定） ──────
+    # ── 平行志愿核心规则提示（信息级，不影响 plan_ok 判定） ──────
     INFO_RULE = (
         "📌【吉林平行志愿铁规】一次投档，不补充投档。"
         "若投档后因体检/单科成绩不达标被退档，本轮所有后续志愿作废，"
@@ -319,6 +319,10 @@ def plan_page():
 @app.route('/mc')
 def mc_page():
     return _no_cache(make_response(render_template('mc.html')))
+
+@app.route('/ai-jobs')
+def ai_jobs_page():
+    return _no_cache(make_response(render_template('ai_jobs.html')))
 
 # ══ API ══════════════════════════════════════════════════
 
@@ -995,6 +999,298 @@ def api_chat():
         return jsonify({'error': str(e)}), 500
 
 
+_AI_REVIEW_DIR = os.path.join(BASE, 'data', 'ai_review')
+os.makedirs(_AI_REVIEW_DIR, exist_ok=True)
+_AI_REVIEW_STATE = {}   # {sid: {status, review, applied, error, ...}}
+_AI_REVIEW_LOCK = threading.Lock()
+
+
+def _build_plan_summary(plan_data, profile, mc_data):
+    """构建方案摘要供 AI 审核用——紧凑单行格式，减少 token 消耗"""
+    plan_vols = plan_data.get('plan_vols', [])
+    mc_rates = mc_data.get('rates', []) if mc_data else []
+    lines = []
+    for i, v in enumerate(plan_vols):
+        if plan_data.get('mode') == 'direct':
+            lines.append(f"#{v['vol_idx']}{v['tp']} {v['school']} {v.get('major','')} s25={v.get('s25')}")
+        else:
+            t6 = v.get('top6', v.get('intent', []))[:6]
+            majors = '/'.join(f"{m['name']}{m.get('s25','')}" for m in t6)
+            rate = mc_rates[i] if i < len(mc_rates) else 0
+            gmin = v.get('gmin25', '?')
+            sc6 = v.get('sc6', '?')
+            lines.append(f"#{v['vol_idx']}{v['tp']} {v['school']}({v.get('lv_label','?')}) "
+                         f"gmin={gmin} sc6={sc6} MC={rate:.0%} top6:[{majors}]")
+    plan_text = '\n'.join(lines)
+    return plan_text, ''  # mc 已内嵌到每行
+
+
+def _apply_corrections_to_session(actions, sid):
+    """将修正指令应用到 SESSION（线程安全）"""
+    applied = []
+    with _SESSION_LOCK:
+        sess = _get_session(sid)
+        if 'plan' not in sess:
+            return ['错误：SESSION 中无方案']
+        plan_vols = sess['plan']['plan_vols']
+
+        for act in actions:
+            if act.get('type') == 'remove_major':
+                idx = act.get('vol_idx')
+                mname = act.get('major_name', '')
+                for v in plan_vols:
+                    if v['vol_idx'] == idx:
+                        orig_len = len(v.get('top6', []))
+                        v['top6'] = [m for m in v.get('top6', []) if m.get('name') != mname]
+                        v['intent'] = [m for m in v.get('intent', []) if m.get('name') != mname]
+                        if len(v.get('top6', [])) < orig_len:
+                            applied.append(f"#{idx} 移除专业「{mname}」")
+                        break
+
+        for act in actions:
+            if act.get('type') == 'reclassify':
+                idx = act.get('vol_idx')
+                new_tp = act.get('new_tp', '稳')
+                for v in plan_vols:
+                    if v['vol_idx'] == idx:
+                        old_tp = v.get('tp', '?')
+                        v['tp'] = new_tp
+                        applied.append(f"#{idx} {v['school']} {old_tp}->{new_tp}")
+                        break
+
+        remove_idxs = {act['vol_idx'] for act in actions if act.get('type') == 'remove_vol'}
+        if remove_idxs:
+            for v in plan_vols:
+                if v['vol_idx'] in remove_idxs:
+                    applied.append(f"移除 #{v['vol_idx']} {v['school']}")
+            plan_vols = [v for v in plan_vols if v['vol_idx'] not in remove_idxs]
+            tp_ord = {'冲': 0, '稳': 1, '保': 2}
+            plan_vols.sort(key=lambda v: (tp_ord.get(v.get('tp', '稳'), 1), -(v.get('sc6') or 0)))
+            for i, v in enumerate(plan_vols):
+                v['vol_idx'] = i + 1
+            sess['plan']['plan_vols'] = plan_vols
+
+    return applied
+
+
+def _serialize_plan(sid):
+    """序列化当前 SESSION 方案为前端格式"""
+    with _SESSION_LOCK:
+        sess = _get_session(sid)
+        from copy import deepcopy
+        plan_vols = deepcopy(sess['plan']['plan_vols'])
+        profile = deepcopy(sess.get('profile', {}))
+        stats = sess['plan'].get('stats', {})
+        mc = deepcopy(sess.get('mc', {}))
+        mode = sess['plan'].get('mode', 'group')
+    is_direct = mode == 'direct'
+
+    def _n(x):
+        import math
+        if x is None: return None
+        try:
+            if math.isnan(x) or math.isinf(x): return None
+        except TypeError: pass
+        return x
+
+    vols_out = []
+    for v in plan_vols:
+        if is_direct:
+            vols_out.append({
+                'vol_idx': v['vol_idx'], 'tp': v['tp'],
+                'school': v['school'], 'major': v.get('major', ''),
+                'city': v.get('city', ''), 's25': _n(v.get('s25')),
+                'diff': _n(v.get('diff')), 'tags': v.get('tags', '') or '',
+                'city_level': v.get('city_level', '') or '',
+                'school_lv': v.get('school_lv', '') or '',
+            })
+        else:
+            intent6 = v.get('top6', v.get('intent', []))[:6]
+            vols_out.append({
+                'vol_idx': v['vol_idx'], 'tp': v['tp'],
+                'school': v['school'], 'city': v['city'],
+                'province': v.get('province', ''),
+                'lv_label': v.get('lv_label', '?'),
+                'cr_label': v.get('cr_label', '?'),
+                'school_lv': v.get('school_lv', 6),
+                'city_rank': v.get('city_rank', 4),
+                'gcode': v.get('gcode', ''),
+                'gmin25': v.get('gmin25'), 'gmin24': v.get('gmin24'),
+                'gmin23': v.get('gmin23'), 'sc6': v.get('sc6'),
+                'safe': v.get('safe', False),
+                'n_target': v.get('n_target', 0), 'n_cold': v.get('n_cold', 0),
+                'gmin_rank': v.get('gmin_rank'),
+                'intent6': [{'name': m['name'], 's25': m.get('s25'),
+                             'diff': m.get('diff'), 'kind': m.get('kind', 'other'),
+                             'fee': m.get('fee'), 'r25': m.get('r25'), 'r24': m.get('r24'),
+                             'syban_majors': m.get('syban_majors', []),
+                             'syban_all': m.get('syban_all', []),
+                             'zhuanxiang': m.get('zhuanxiang', ''),
+                             'full_name': m.get('full_name', '')} for m in intent6],
+                'has_zhuanxiang': v.get('has_zhuanxiang', False),
+                'zhuanxiang_types': v.get('zhuanxiang_types', []),
+                'all_majors_count': len(v.get('majors', [])),
+                'dedup_count': v.get('dedup_count', 0),
+                'diaoji': v.get('diaoji', True),
+                'warn_few_majors': v.get('warn_few_majors', False),
+                'warn_critical': v.get('warn_critical', False),
+                'warn_msg': v.get('warn_msg', ''),
+                'warn_excl_major': v.get('warn_excl_major', False),
+                'warn_msg_excl': v.get('warn_msg_excl', ''),
+                'warn_cold_anchor': v.get('warn_cold_anchor', False),
+                'warn_msg_cold': v.get('warn_msg_cold', ''),
+                'warn_tuidan': v.get('warn_tuidan', False),
+                'warn_msg_tuidan': v.get('warn_msg_tuidan', ''),
+            })
+    return vols_out, stats, mc, profile, mode, len(plan_vols)
+
+
+def _ai_review_worker(sid, prompt_text):
+    """后台线程：调用 claude CLI 完成审核+修正"""
+    import subprocess
+    try:
+        print(f"[AI修正] 开始审核 sid={sid}, prompt={len(prompt_text)}字", flush=True)
+        with _AI_REVIEW_LOCK:
+            _AI_REVIEW_STATE[sid] = {'status': 'running'}
+
+        # 将 prompt 写入文件备份
+        prompt_file = os.path.join(_AI_REVIEW_DIR, '_prompt.txt')
+        with open(prompt_file, 'w', encoding='utf-8') as f:
+            f.write(prompt_text)
+
+        proc = subprocess.run(
+            ['claude', '-p', '--output-format', 'text',
+             '--model', 'haiku',
+             '--tools', '',                          # 禁用内置工具，纯文本对话
+             '--mcp-config', '{"mcpServers":{}}',    # 禁用 MCP servers
+             '--strict-mcp-config',
+             '--dangerously-skip-permissions',        # 跳过权限提示，避免阻塞
+            ],
+            input=prompt_text, capture_output=True, text=True, timeout=120,
+        )
+        print(f"[AI修正] claude 完成 code={proc.returncode} stdout={len(proc.stdout)}字 stderr={len(proc.stderr)}字", flush=True)
+        if proc.returncode != 0:
+            with _AI_REVIEW_LOCK:
+                _AI_REVIEW_STATE[sid] = {'status': 'error',
+                    'error': f'Claude Code 退出码 {proc.returncode}: {proc.stderr[:500]}'}
+            return
+
+        raw = proc.stdout.strip()
+        # 去除可能的 markdown 代码块
+        if raw.startswith('```'):
+            lines = raw.split('\n')
+            if lines[0].startswith('```'):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == '```':
+                lines = lines[:-1]
+            raw = '\n'.join(lines)
+
+        review = json.loads(raw)
+
+        # 自动应用修正
+        corrections = review.get('corrections', [])
+        applied = []
+        if corrections:
+            applied = _apply_corrections_to_session(corrections, sid)
+            # 序列化修正后的方案
+            vols_out, stats, mc, profile, mode, count = _serialize_plan(sid)
+        else:
+            vols_out, stats, mc, profile, mode, count = None, None, None, None, None, None
+
+        with _AI_REVIEW_LOCK:
+            _AI_REVIEW_STATE[sid] = {
+                'status': 'done',
+                'review': {
+                    'summary': review.get('summary', ''),
+                    'score': review.get('score'),
+                    'issues': review.get('issues', []),
+                    'suggestions': review.get('suggestions', []),
+                },
+                'applied': applied,
+                'correction_note': review.get('correction_note', ''),
+                'vols': vols_out,
+                'stats': stats,
+                'mc': mc,
+                'profile': profile,
+                'mode': mode,
+                'count': count,
+            }
+    except json.JSONDecodeError as e:
+        print(f"[AI修正] JSON解析失败: {e}, raw前200字: {raw[:200] if raw else 'empty'}", flush=True)
+        with _AI_REVIEW_LOCK:
+            _AI_REVIEW_STATE[sid] = {
+                'status': 'done',
+                'review': {'summary': raw[:3000] if raw else str(e), 'score': None,
+                           'issues': [], 'suggestions': [], 'raw': True},
+                'applied': [],
+            }
+    except subprocess.TimeoutExpired:
+        print(f"[AI修正] 超时 sid={sid}", flush=True)
+        with _AI_REVIEW_LOCK:
+            _AI_REVIEW_STATE[sid] = {'status': 'error', 'error': 'Claude Code 审核超时（120秒）'}
+    except Exception as e:
+        print(f"[AI修正] 异常 sid={sid}: {e}", flush=True)
+        import traceback; traceback.print_exc()
+        with _AI_REVIEW_LOCK:
+            _AI_REVIEW_STATE[sid] = {'status': 'error', 'error': str(e)}
+
+
+@app.route('/api/ai_review', methods=['POST'])
+def api_ai_review():
+    """AI修正（全自动）：后台调用 claude CLI 审核 + 自动应用修正"""
+    sid = _get_sid()
+    if 'plan' not in SESSION:
+        return jsonify({'error': '请先生成志愿方案'}), 400
+
+    # 防重复提交
+    with _AI_REVIEW_LOCK:
+        cur = _AI_REVIEW_STATE.get(sid, {})
+        if cur.get('status') == 'running':
+            return jsonify({'ok': True, 'message': '审核进行中…'})
+
+    from copy import deepcopy
+    with _SESSION_LOCK:
+        plan_data = deepcopy(SESSION['plan'])
+        profile   = deepcopy(SESSION.get('profile', {}))
+        mc_data   = deepcopy(SESSION.get('mc'))
+
+    score = profile.get('score', 0)
+    plan_json, mc_summary = _build_plan_summary(plan_data, profile, mc_data)
+
+    user_prompt = (request.get_json(silent=True) or {}).get('user_prompt', '').strip()
+
+    prompt_text = AI_REVIEW_PROMPT.format(
+        score=score,
+        ke_lei=profile.get('ke_lei', '物理'),
+        target_kw='、'.join(profile.get('target_kw', [])) or '未指定',
+        exclude_kw='、'.join(profile.get('exclude_kw', [])) or '无',
+        plan_json=plan_json,
+    )
+    if user_prompt:
+        prompt_text += f'\n\n用户额外要求：{user_prompt}'
+
+    t = threading.Thread(target=_ai_review_worker, args=(sid, prompt_text), daemon=True)
+    t.start()
+
+    return jsonify({'ok': True, 'message': '已启动 Claude Code 审核…'})
+
+
+@app.route('/api/ai_review_status')
+def api_ai_review_status():
+    """轮询：检查审核进度"""
+    sid = _get_sid()
+    with _AI_REVIEW_LOCK:
+        state = _AI_REVIEW_STATE.get(sid, {})
+    status = state.get('status', 'idle')
+    if status == 'done':
+        return jsonify(state)
+    if status == 'error':
+        return jsonify({'status': 'error', 'error': state.get('error', '未知错误')})
+    if status == 'running':
+        return jsonify({'status': 'pending'})
+    return jsonify({'status': 'idle'})
+
+
 @app.route('/api/export_excel', methods=['POST'])
 def api_export_excel():
     """导出Excel（内存流，避免 Windows 文件缓冲导致截断）"""
@@ -1092,7 +1388,7 @@ def serve_report(filename):
 
 @app.route('/api/major_schools')
 def api_major_schools():
-    """返回某专业在吉林省2025年各院校的录取最低分数据，用于专业选择器hover浮窗"""
+    """返回某专业在2025年各院校的录取最低分数据，用于专业选择器hover浮窗"""
     import re as _re
     major = request.args.get('name', '').strip()
     ke    = request.args.get('ke', '物理').strip()
@@ -1164,7 +1460,7 @@ def api_major_schools():
             if m: return m.group(1).strip()
             return None
 
-        # 计算吉林省内排名（按院校全国排名升序）
+        # 计算省内排名（按院校全国排名升序）
         jl_df = df[(df['年份'] == 2025) & (df['所在省'] == '吉林')]
         jl_ranks = {}
         if len(jl_df) and '院校排名' in jl_df.columns:
@@ -1707,7 +2003,7 @@ if __name__ == '__main__':
         def _open(): _t2.sleep(2); _wb.open('http://localhost:5000')
         _th2.Thread(target=_open, daemon=True).start()
     print("\n" + "="*52)
-    print("  🎓 吉林省高考志愿规划系统 · 本地版 v3.5")
+    print("  🎓 高考志愿规划系统 · 本地版 v3.5")
     print("="*52)
     # 检测数据源
     _db = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'data', 'gaokao.db')

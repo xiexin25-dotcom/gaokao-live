@@ -1,5 +1,5 @@
 """
-吉林省高考志愿规划引擎 v3
+高考志愿规划引擎 v3
 核心：根据考生信息从数据源生成40志愿方案（10冲+20稳+10保）
 """
 import os, sys, re, pickle, random
@@ -677,10 +677,10 @@ def build_plan(profile: dict) -> dict:
 
 def build_tiqian(profile: dict) -> dict:
     """
-    提前批志愿查询（吉林省）
+    提前批志愿查询
     ─────────────────────────────────────────────────────────────────
-    提前批与本科批完全独立，不占本科批 40 个名额。
-    吉林省提前批包含：A段（公费师范、军队、公安等）、B段（部分特殊高校）。
+    提前批与本科批完全独立，不占本科批名额。
+    提前批包含：A段（公费师范、军队、公安等）、B段（部分特殊高校）。
     本函数返回考生分数区间内可报考的提前批专业组，供参考，不自动写入志愿表。
     ─────────────────────────────────────────────────────────────────
     """
@@ -1041,7 +1041,7 @@ def mc_simulate(plan_vols, N=10000, seed=42, bias_lo=0, bias_hi=0, noise_pct=3.5
     3. 若考生分仅达cold保底专业（⑤⑥）→ 服从调剂，录入该专业（diaoji=True）。
     4. 若考生分低于组内所有专业 → 该组不录取，继续下一组。
 
-    双层噪声模型参数标定（吉林省2023-2025历史数据）：
+    双层噪声模型参数标定（2023-2025历史数据）：
     - 真实年度变动倍数：均值=0.9922，标准差=0.0337，P5=0.9328，P95=1.0419
     - 真实年度分数绝对偏差：均值11.25分，中位7分，P90=27分
     - 年度因子 f：均值偏移0.992（历史平均每年微降0.8%），noise_pct=3.5% → U(0.957, 1.027)
@@ -1412,7 +1412,7 @@ def export_excel(plan_result: dict, mc_result: dict, out_path: str):
     score=profile.get('score','?'); ke=profile.get('ke_lei','物理')
     tgt='|'.join(profile.get('target_kw',[])[:6])
 
-    ws1.merge_cells('A1:R1'); ws1['A1']=f'吉林省高考志愿规划表  {score}分·{ke}选科·{tgt}'
+    ws1.merge_cells('A1:R1'); ws1['A1']=f'高考志愿规划表  {score}分·{ke}选科·{tgt}'
     ws1['A1'].font=Font(bold=True,size=13,color='FF1A237E')
     ws1['A1'].fill=PatternFill('solid',fgColor='FFE8EAF6')
     ws1['A1'].alignment=Alignment(horizontal='center',vertical='center'); ws1.row_dimensions[1].height=26
@@ -1486,7 +1486,7 @@ def export_excel(plan_result: dict, mc_result: dict, out_path: str):
 
     ws3=wb.create_sheet('退档规则说明')
     ws3.column_dimensions['A'].width=22; ws3.column_dimensions['B'].width=60
-    rules=[('【吉林省高考志愿填报核心规则】',''),('',''),
+    rules=[('【高考志愿填报核心规则】',''),('',''),
            ('志愿结构','本科批最多40个专业组，每组最多6个专业'),('本方案','40志愿（冲10+稳20+保10）'),('',''),
            ('【退档机制（核心！）】',''),
            ('档案提取条件','组最低分 ≤ 考生分 → 提档'),('录取条件','考生分 ≥ 某专业2025分 → 录取'),

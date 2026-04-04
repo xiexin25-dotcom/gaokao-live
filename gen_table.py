@@ -87,7 +87,7 @@ ws.row_dimensions[3].height = 18
 # 第1行 标题
 ws.merge_cells('A1:R1')
 t = ws['A1']
-t.value = ('🎓 ' + STUDENT + '  ·  吉林省高考志愿规划表（张雪峰方法论版）'
+t.value = ('🎓 ' + STUDENT + '  ·  高考志愿规划表（张雪峰方法论版）'
            + '    ' + str(SCORE) + '分 · ' + KE + ' · 全省第' + str(RANK) + '名'
            + '    策略：大城市优先 · 冲稳保（10+20+10）= 40志愿')
 t.font      = Font(bold=True, size=13, color='FFFFFFFF', name='微软雅黑')
@@ -207,7 +207,7 @@ ws2.column_dimensions['B'].width = 58
 ws2.row_dimensions[1].height = 32
 ws2.merge_cells('A1:B1')
 h1 = ws2['A1']
-h1.value = STUDENT + ' 志愿填报说明  ·  ' + str(SCORE) + '分  ·  吉林省新高考'
+h1.value = STUDENT + ' 志愿填报说明  ·  ' + str(SCORE) + '分  ·  新高考'
 h1.font      = Font(bold=True, size=12, color='FFFFFFFF', name='微软雅黑')
 h1.fill      = F_TITLE
 h1.alignment = Alignment(horizontal='center', vertical='center')
@@ -232,7 +232,7 @@ notes = [
     ('整体录取率', str(round(mc['total_rate']*100,1)) + '%（至少被某所院校录取概率）'),
     ('质量期望值', str(mc['exp_q']) + '（综合层次×概率，越高越好）'),
     ('', ''),
-    ('【吉林省新高考铁律】', ''),
+    ('【新高考铁律】', ''),
     ('铁律1', '全部勾选【服从专业调剂】，否则退档风险极高'),
     ('铁律2', '专业组内①~⑥务必填满，避免被调剂到未填报专业'),
     ('铁律3', '平行志愿一次投档，退档后本批次所有后续志愿作废'),

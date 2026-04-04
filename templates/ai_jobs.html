@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>中国职业 AI 影响度全景图</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background:#080F1A;color:#D0D8E8;overflow-x:hidden}
+
+/* ── 顶栏 ── */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+.tb-left{display:flex;align-items:center;gap:12px}
+.tb-left a{color:rgba(255,255,255,.4);font-size:20px;text-decoration:none}
+.tb-title{font-size:16px;font-weight:800;color:#fff}
+.tb-sub{font-size:11px;color:rgba(255,255,255,.35)}
+
+/* ── 控制面板 ── */
+.ctrl-bar{display:flex;flex-wrap:wrap;gap:8px;padding:14px 24px;background:rgba(255,255,255,.02);border-bottom:1px solid rgba(255,255,255,.05)}
+.ctrl-group{display:flex;align-items:center;gap:6px}
+.ctrl-label{font-size:11px;color:rgba(255,255,255,.4);white-space:nowrap}
+.ctrl-btn{font-size:11px;font-weight:700;padding:5px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);cursor:pointer;transition:.15s;white-space:nowrap}
+.ctrl-btn:hover{background:rgba(255,255,255,.08);color:#fff}
+.ctrl-btn.active{background:rgba(74,158,255,.15);color:#4A9EFF;border-color:rgba(74,158,255,.3)}
+
+/* ── 图例 ── */
+.legend-bar{display:flex;align-items:center;gap:16px;padding:10px 24px;background:rgba(255,255,255,.015)}
+.legend-gradient{display:flex;align-items:center;gap:8px;flex:1}
+.legend-gradient .bar{height:10px;flex:1;border-radius:5px;max-width:280px}
+.legend-label{font-size:10px;color:rgba(255,255,255,.35)}
+.legend-info{font-size:10px;color:rgba(255,255,255,.3)}
+
+/* ── 统计卡片 ── */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:14px 24px}
+.stat-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:12px;text-align:center}
+.stat-val{font-size:22px;font-weight:900;color:#fff}
+.stat-lbl{font-size:10px;color:rgba(255,255,255,.35);margin-top:2px}
+
+/* ── 树图容器 ── */
+.treemap-wrap{padding:8px 24px 24px;position:relative}
+#treemap{width:100%;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.06)}
+.cell{position:absolute;overflow:hidden;cursor:pointer;transition:opacity .15s}
+.cell:hover{opacity:.85;z-index:10}
+.cell-inner{width:100%;height:100%;padding:4px 6px;display:flex;flex-direction:column;justify-content:center;border:1px solid rgba(0,0,0,.3);position:relative}
+.cell-name{font-size:11px;font-weight:700;color:#fff;line-height:1.2;text-shadow:0 1px 3px rgba(0,0,0,.6);overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.cell-meta{font-size:9px;color:rgba(255,255,255,.7);margin-top:2px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.cell-cat{position:absolute;top:3px;right:5px;font-size:8px;font-weight:800;color:rgba(255,255,255,.45);text-shadow:0 1px 2px rgba(0,0,0,.5)}
+
+/* ── 详情浮窗 ── */
+.tooltip{position:fixed;z-index:200;background:rgba(12,18,32,.96);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px;max-width:340px;pointer-events:none;opacity:0;transition:opacity .12s;backdrop-filter:blur(16px);box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.tooltip.show{opacity:1}
+.tt-title{font-size:15px;font-weight:800;color:#fff;margin-bottom:8px}
+.tt-cat{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:10px}
+.tt-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tt-item{background:rgba(255,255,255,.04);border-radius:8px;padding:8px}
+.tt-item-val{font-size:16px;font-weight:800;color:#fff}
+.tt-item-lbl{font-size:9px;color:rgba(255,255,255,.35);margin-top:1px}
+.tt-ai-bar{margin-top:10px;background:rgba(255,255,255,.06);border-radius:8px;padding:10px}
+.tt-ai-title{font-size:10px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px}
+.tt-ai-track{height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+.tt-ai-fill{height:100%;border-radius:4px;transition:width .3s}
+.tt-ai-score{font-size:20px;font-weight:900;margin-top:6px}
+.tt-desc{font-size:11px;color:rgba(255,255,255,.45);margin-top:8px;line-height:1.5;border-top:1px solid rgba(255,255,255,.06);padding-top:8px}
+.tt-majors{margin-top:8px;border-top:1px solid rgba(255,255,255,.06);padding-top:8px}
+.tt-majors-title{font-size:10px;font-weight:700;color:rgba(255,255,255,.4);margin-bottom:4px}
+.tt-major-tag{display:inline-block;font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px;background:rgba(74,158,255,.1);color:#4A9EFF;margin:2px 3px 2px 0}
+
+/* ── 底部说明 ── */
+.footer{padding:20px 24px;text-align:center}
+.footer p{font-size:11px;color:rgba(255,255,255,.2);line-height:1.8}
+.footer a{color:rgba(74,158,255,.6);text-decoration:none}
+
+/* ── 响应式 ── */
+@media(max-width:767px){
+  .topbar{padding:12px 14px}
+  .ctrl-bar{padding:10px 14px}
+  .stats-row{grid-template-columns:repeat(3,1fr);padding:10px 14px}
+  .treemap-wrap{padding:6px 14px 16px}
+  .legend-bar{padding:8px 14px;gap:10px}
+  .cell-name{font-size:9px}
+  .cell-meta{font-size:8px}
+}
+@media(max-width:480px){
+  .stats-row{grid-template-columns:repeat(2,1fr);gap:6px}
+  .stat-val{font-size:17px}
+  .ctrl-btn{font-size:10px;padding:4px 9px}
+  .tb-title{font-size:14px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-left">
+    <a href="/" title="返回首页">←</a>
+    <div>
+      <div class="tb-title">中国职业 AI 影响度全景图</div>
+      <div class="tb-sub">方块面积 = 就业人数 · 颜色 = AI 暴露度 · 数据来源: 人社部/BLS/学术研究</div>
+    </div>
+  </div>
+</div>
+
+<div class="ctrl-bar">
+  <div class="ctrl-group">
+    <span class="ctrl-label">面积维度</span>
+    <button class="ctrl-btn active" data-size="employment">就业人数</button>
+    <button class="ctrl-btn" data-size="salary">中位薪资</button>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">颜色维度</span>
+    <button class="ctrl-btn active" data-color="ai">AI 暴露度</button>
+    <button class="ctrl-btn" data-color="salary">中位薪资</button>
+    <button class="ctrl-btn" data-color="growth">增长预测</button>
+    <button class="ctrl-btn" data-color="education">学历要求</button>
+  </div>
+</div>
+
+<div class="legend-bar" id="legendBar">
+  <span class="legend-label" id="legendLo">低风险 0</span>
+  <div class="legend-gradient"><div class="bar" id="legendGradient"></div></div>
+  <span class="legend-label" id="legendHi">高风险 10</span>
+  <span class="legend-info" id="legendInfo">点击方块查看详情</span>
+</div>
+
+<div class="stats-row" id="statsRow"></div>
+
+<div class="treemap-wrap">
+  <div id="treemap"></div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<div class="footer">
+  <p>数据说明：AI 暴露度评分 (0-10) 综合参考 Karpathy/Jobs、Eloundou et al. (2023)、OECD AI Exposure Index 等研究<br>
+  就业人数为中国市场估算，薪资为年均中位数（万元），增长率为2024-2030年预测<br>
+  仅供高考志愿规划参考，不构成职业建议 · <a href="https://karpathy.ai/jobs" target="_blank">Karpathy AI Jobs</a></p>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  342 → 精选 120+ 个中国主流职业数据
+// ══════════════════════════════════════════════════════════
+const DATA = [
+  // ── 信息技术 ──
+  {cat:"信息技术", name:"软件开发工程师",     emp:420, salary:22, ai:6.5, growth:12, edu:4, majors:["计算机科学","软件工程"], desc:"AI 辅助编码已普及(Copilot等)，初级开发岗位受冲击，但系统架构和复杂业务逻辑仍需人类"},
+  {cat:"信息技术", name:"AI/机器学习工程师",  emp:85,  salary:38, ai:3.0, growth:28, edu:5, majors:["人工智能","计算机科学","数学"], desc:"AI 领域自身的建设者，需求爆发式增长，短期内不可替代"},
+  {cat:"信息技术", name:"数据分析师",         emp:180, salary:18, ai:7.5, growth:5,  edu:4, majors:["统计学","数据科学","数学"], desc:"数据清洗、报表生成等重复性分析工作已被 AI 大幅替代"},
+  {cat:"信息技术", name:"数据库管理员",       emp:65,  salary:16, ai:7.0, growth:-2, edu:4, majors:["计算机科学","信息管理"], desc:"云数据库和 AI 自动调优减少了人工管理需求"},
+  {cat:"信息技术", name:"网络安全工程师",     emp:110, salary:25, ai:4.5, growth:18, edu:4, majors:["信息安全","网络工程"], desc:"AI 被用于攻防两端，但安全策略制定仍依赖人类判断"},
+  {cat:"信息技术", name:"前端开发工程师",     emp:200, salary:18, ai:7.0, growth:3,  edu:4, majors:["计算机科学","软件工程"], desc:"AI 可生成大量 UI 代码，简单页面开发需求锐减"},
+  {cat:"信息技术", name:"运维/DevOps工程师",  emp:150, salary:20, ai:6.0, growth:6,  edu:4, majors:["计算机科学","网络工程"], desc:"自动化运维工具和 AIOps 减少了人工介入"},
+  {cat:"信息技术", name:"测试工程师",         emp:130, salary:14, ai:8.0, growth:-5, edu:3, majors:["软件工程","计算机科学"], desc:"自动化测试+AI 生成测试用例，手动测试岗位快速萎缩"},
+  {cat:"信息技术", name:"产品经理",           emp:160, salary:22, ai:5.5, growth:8,  edu:4, majors:["信息管理","工商管理"], desc:"需求分析部分可被AI辅助，但用户洞察和商业判断仍需人类"},
+  {cat:"信息技术", name:"游戏开发工程师",     emp:90,  salary:20, ai:5.0, growth:7,  edu:4, majors:["计算机科学","数字媒体"], desc:"AI 生成美术/音效降低成本，但核心玩法设计仍需创意"},
+  {cat:"信息技术", name:"嵌入式系统工程师",   emp:95,  salary:19, ai:3.5, growth:10, edu:4, majors:["电子信息","自动化"], desc:"硬件交互、实时系统调试难以被纯软件 AI 替代"},
+
+  // ── 金融 ──
+  {cat:"金融", name:"银行柜员",             emp:350, salary:8,  ai:8.5, growth:-15, edu:3, majors:["金融学","经济学"], desc:"移动支付+智能柜台已大幅减少人工窗口需求"},
+  {cat:"金融", name:"证券分析师",           emp:60,  salary:35, ai:7.5, growth:-3, edu:5, majors:["金融学","数学"], desc:"量化分析和AI研报自动生成正在替代初级分析师"},
+  {cat:"金融", name:"精算师",               emp:15,  salary:45, ai:6.0, growth:5,  edu:5, majors:["精算学","数学","统计学"], desc:"复杂建模可被 AI 辅助，但风险判断和监管沟通仍需人类"},
+  {cat:"金融", name:"基金经理",             emp:25,  salary:80, ai:5.5, growth:3,  edu:5, majors:["金融学","经济学"], desc:"AI 量化策略占比提升，但宏观判断和客户关系仍是核心"},
+  {cat:"金融", name:"会计",                 emp:600, salary:10, ai:8.0, growth:-10, edu:3, majors:["会计学","财务管理"], desc:"账务处理、凭证录入等已被财务软件+AI高度自动化"},
+  {cat:"金融", name:"审计师",               emp:120, salary:15, ai:7.0, growth:-3, edu:4, majors:["审计学","会计学"], desc:"AI 可自动检查异常交易，但专业判断和现场审计仍需人力"},
+  {cat:"金融", name:"保险代理人",           emp:400, salary:8,  ai:7.5, growth:-12, edu:2, majors:["保险学","金融学"], desc:"智能推荐+在线投保减少了中间人角色"},
+  {cat:"金融", name:"风控专员",             emp:80,  salary:18, ai:6.5, growth:8,  edu:4, majors:["金融学","统计学"], desc:"AI风控模型成为标配，但复杂场景仍需人类决策"},
+
+  // ── 医疗健康 ──
+  {cat:"医疗健康", name:"临床医生(内科)",    emp:280, salary:18, ai:3.5, growth:8, edu:5, majors:["临床医学"], desc:"AI 辅助诊断提升效率，但问诊、手术、医患沟通不可替代"},
+  {cat:"医疗健康", name:"外科医生",          emp:120, salary:25, ai:2.5, growth:6, edu:5, majors:["临床医学"], desc:"手术操作的精细度和应变能力短期内无法被替代"},
+  {cat:"医疗健康", name:"影像科医生",        emp:80,  salary:16, ai:7.5, growth:-2, edu:5, majors:["医学影像学"], desc:"AI 读片准确率已接近甚至超越人类，是医疗AI受冲击最大的领域"},
+  {cat:"医疗健康", name:"药剂师",            emp:150, salary:12, ai:6.5, growth:2,  edu:4, majors:["药学"], desc:"AI 用药推荐和自动配药机减少了人工需求"},
+  {cat:"医疗健康", name:"护士",              emp:500, salary:9,  ai:2.0, growth:12, edu:3, majors:["护理学"], desc:"需要大量人际接触和体力操作，AI 难以替代"},
+  {cat:"医疗健康", name:"心理咨询师",        emp:60,  salary:15, ai:4.0, growth:15, edu:5, majors:["心理学","应用心理学"], desc:"AI 聊天机器人可提供初步支持，但深度心理治疗仍需人类"},
+  {cat:"医疗健康", name:"牙科医生",          emp:70,  salary:22, ai:3.0, growth:8,  edu:5, majors:["口腔医学"], desc:"手工操作为主，AI 主要辅助诊断和方案设计"},
+  {cat:"医疗健康", name:"康复治疗师",        emp:45,  salary:10, ai:2.5, growth:14, edu:4, majors:["康复治疗学"], desc:"一对一物理干预，难以自动化"},
+  {cat:"医疗健康", name:"公共卫生专家",      emp:40,  salary:14, ai:4.5, growth:10, edu:5, majors:["预防医学","公共卫生"], desc:"AI辅助流行病学分析，但政策制定和现场干预需人类"},
+
+  // ── 教育 ──
+  {cat:"教育", name:"中小学教师",           emp:1200, salary:9, ai:4.0, growth:3,  edu:4, majors:["教育学","学科教育"], desc:"AI 个性化学习工具兴起，但课堂管理和情感引导不可替代"},
+  {cat:"教育", name:"大学教授",             emp:180, salary:16, ai:4.5, growth:2,  edu:5, majors:["各学科博士"], desc:"AI 可辅助科研和批改，但原创研究和研究生培养仍需人类"},
+  {cat:"教育", name:"培训讲师",             emp:200, salary:12, ai:6.5, growth:-5, edu:3, majors:["教育学","人力资源"], desc:"在线课程+AI教练正在替代标准化培训"},
+  {cat:"教育", name:"幼儿教师",             emp:350, salary:6,  ai:1.5, growth:5,  edu:3, majors:["学前教育"], desc:"幼儿需要大量情感互动和看护，AI无法替代"},
+  {cat:"教育", name:"特教教师",             emp:30,  salary:8,  ai:2.0, growth:8,  edu:4, majors:["特殊教育"], desc:"高度个性化的教学和关怀，AI仅能辅助"},
+
+  // ── 法律 ──
+  {cat:"法律", name:"律师",                 emp:160, salary:20, ai:5.5, growth:5,  edu:5, majors:["法学"], desc:"AI 法律助手可做合同审查和案例检索，但庭审辩论和客户策略仍需人类"},
+  {cat:"法律", name:"法官",                 emp:40,  salary:16, ai:3.5, growth:2,  edu:5, majors:["法学"], desc:"司法判断涉及社会公义，不太可能交给 AI"},
+  {cat:"法律", name:"法律助理/律师助理",    emp:80,  salary:8,  ai:8.0, growth:-8, edu:3, majors:["法学"], desc:"文书起草、案例研究等高度可自动化"},
+  {cat:"法律", name:"公证员",               emp:25,  salary:12, ai:7.0, growth:-5, edu:4, majors:["法学"], desc:"电子公证和区块链存证减少了人工公证需求"},
+
+  // ── 制造/工程 ──
+  {cat:"制造/工程", name:"机械工程师",       emp:280, salary:15, ai:4.0, growth:5,  edu:4, majors:["机械工程","机械设计"], desc:"AI 辅助设计(CAD/CAE)提升效率，但创新设计仍需工程师"},
+  {cat:"制造/工程", name:"电气工程师",       emp:200, salary:16, ai:4.0, growth:7,  edu:4, majors:["电气工程","自动化"], desc:"与物理系统交互多，AI渗透相对较慢"},
+  {cat:"制造/工程", name:"土木工程师",       emp:250, salary:14, ai:4.5, growth:3,  edu:4, majors:["土木工程"], desc:"AI可优化结构设计，但现场勘察和施工管理需人类"},
+  {cat:"制造/工程", name:"化工工程师",       emp:120, salary:14, ai:4.0, growth:4,  edu:4, majors:["化学工程"], desc:"工艺优化可用AI，但安全管理和实验验证离不开人"},
+  {cat:"制造/工程", name:"工业机器人技师",   emp:60,  salary:12, ai:3.0, growth:20, edu:3, majors:["自动化","机器人工程"], desc:"机器人部署和维护需求激增，与AI互补而非竞争"},
+  {cat:"制造/工程", name:"质量工程师",       emp:150, salary:13, ai:5.5, growth:2,  edu:4, majors:["质量管理","工业工程"], desc:"AI视觉检测替代人工质检，但体系管理仍需人力"},
+  {cat:"制造/工程", name:"焊接技师",         emp:180, salary:10, ai:3.5, growth:4,  edu:2, majors:["焊接技术"], desc:"复杂焊接场景仍需手工，但标准化焊接被机器人替代"},
+  {cat:"制造/工程", name:"CNC数控操作员",    emp:220, salary:9,  ai:5.0, growth:-3, edu:2, majors:["机械制造"], desc:"自动编程和自适应加工减少了操作员需求"},
+  {cat:"制造/工程", name:"新能源工程师",     emp:80,  salary:18, ai:3.5, growth:22, edu:4, majors:["新能源","电气工程"], desc:"新兴领域快速扩张，AI是工具而非替代者"},
+
+  // ── 建筑/房地产 ──
+  {cat:"建筑/房地产", name:"建筑设计师",     emp:120, salary:16, ai:5.5, growth:-2, edu:4, majors:["建筑学"], desc:"AI 生成式设计兴起，概念方案阶段受冲击，但落地需要人类"},
+  {cat:"建筑/房地产", name:"室内设计师",     emp:100, salary:12, ai:6.0, growth:0,  edu:3, majors:["环境设计","室内设计"], desc:"AI 渲染+方案生成降低了入行门槛"},
+  {cat:"建筑/房地产", name:"房产经纪人",     emp:200, salary:8,  ai:6.5, growth:-8, edu:2, majors:["市场营销","房地产"], desc:"线上看房+AI推荐减少了中间环节"},
+  {cat:"建筑/房地产", name:"工程造价师",     emp:90,  salary:13, ai:7.0, growth:-3, edu:4, majors:["工程造价","工程管理"], desc:"BIM+AI算量已相当成熟，人工算量需求大减"},
+  {cat:"建筑/房地产", name:"施工管理员",     emp:300, salary:11, ai:3.0, growth:2,  edu:3, majors:["工程管理","土木工程"], desc:"现场管理和安全监督需要人在场"},
+
+  // ── 文化/传媒 ──
+  {cat:"文化/传媒", name:"记者/编辑",        emp:120, salary:10, ai:7.5, growth:-10, edu:4, majors:["新闻学","传播学"], desc:"AI 可生成新闻稿和摘要，深度调查和评论仍需人类"},
+  {cat:"文化/传媒", name:"翻译",             emp:80,  salary:10, ai:9.0, growth:-20, edu:4, majors:["翻译","英语"], desc:"机器翻译质量飞跃，一般翻译需求几乎被AI覆盖"},
+  {cat:"文化/传媒", name:"平面设计师",       emp:150, salary:10, ai:7.5, growth:-8, edu:3, majors:["视觉传达","平面设计"], desc:"AI 绘图工具(Midjourney等)冲击最大的创意岗位之一"},
+  {cat:"文化/传媒", name:"视频编辑",         emp:100, salary:10, ai:6.5, growth:5,  edu:3, majors:["数字媒体","影视编导"], desc:"AI 自动剪辑和特效生成降低了技术门槛"},
+  {cat:"文化/传媒", name:"文案/内容运营",    emp:200, salary:9,  ai:8.0, growth:-5, edu:3, majors:["中文","新闻学","广告学"], desc:"ChatGPT 等工具对内容创作岗位冲击巨大"},
+  {cat:"文化/传媒", name:"摄影师",           emp:60,  salary:8,  ai:5.0, growth:-3, edu:2, majors:["摄影","数字媒体"], desc:"AI 修图普及，但专业拍摄仍需技术和审美"},
+  {cat:"文化/传媒", name:"导演/编剧",        emp:30,  salary:15, ai:4.0, growth:5,  edu:4, majors:["戏剧影视","编导"], desc:"故事创作的原创性和人文深度短期难被替代"},
+
+  // ── 交通/物流 ──
+  {cat:"交通/物流", name:"快递员/外卖员",    emp:800, salary:7,  ai:5.0, growth:3,  edu:1, majors:[], desc:"无人配送技术发展中，但最后一公里仍依赖人力"},
+  {cat:"交通/物流", name:"货车司机",         emp:600, salary:9,  ai:6.0, growth:-5, edu:1, majors:[], desc:"自动驾驶卡车商业化临近，长途干线首先受冲击"},
+  {cat:"交通/物流", name:"出租车/网约车司机", emp:500, salary:8,  ai:7.0, growth:-10, edu:1, majors:[], desc:"Robotaxi 已在多城市试运营，5-10年内将大规模替代"},
+  {cat:"交通/物流", name:"仓储管理员",       emp:200, salary:7,  ai:6.5, growth:-5, edu:2, majors:["物流管理"], desc:"智能仓储机器人+AI调度大幅减少人工"},
+  {cat:"交通/物流", name:"物流规划师",       emp:40,  salary:15, ai:5.5, growth:8,  edu:4, majors:["物流工程","供应链管理"], desc:"AI优化路径和库存，但战略规划仍需人类"},
+  {cat:"交通/物流", name:"飞行员",           emp:35,  salary:60, ai:3.0, growth:5,  edu:4, majors:["飞行技术"], desc:"安全性要求极高，自动驾驶不会完全取代飞行员"},
+
+  // ── 农林/环保 ──
+  {cat:"农林/环保", name:"农业技术员",       emp:300, salary:7,  ai:4.0, growth:5,  edu:3, majors:["农学","农业工程"], desc:"智慧农业需要技术人才与 AI 协同"},
+  {cat:"农林/环保", name:"环境工程师",       emp:80,  salary:13, ai:4.0, growth:10, edu:4, majors:["环境工程","环境科学"], desc:"环保监测可AI化，但治理方案和现场执行需人力"},
+  {cat:"农林/环保", name:"食品检测员",       emp:60,  salary:9,  ai:5.0, growth:4,  edu:3, majors:["食品科学","食品安全"], desc:"AI视觉检测+快速检测设备减少了人工抽检"},
+  {cat:"农林/环保", name:"园林设计师",       emp:40,  salary:11, ai:5.5, growth:3,  edu:4, majors:["风景园林"], desc:"AI辅助景观方案生成，但场地感知需人类"},
+
+  // ── 商业/管理 ──
+  {cat:"商业/管理", name:"人力资源经理",     emp:150, salary:14, ai:6.0, growth:2,  edu:4, majors:["人力资源管理"], desc:"AI简历筛选+面试评估，但员工关系和组织发展仍需人类"},
+  {cat:"商业/管理", name:"市场营销经理",     emp:120, salary:16, ai:5.5, growth:4,  edu:4, majors:["市场营销","工商管理"], desc:"AI精准投放和内容生成辅助营销，但品牌策略需人类"},
+  {cat:"商业/管理", name:"行政文员",         emp:400, salary:6,  ai:8.5, growth:-15, edu:2, majors:["行政管理"], desc:"文档处理、日程管理等事务性工作被AI大幅自动化"},
+  {cat:"商业/管理", name:"客服代表",         emp:500, salary:5,  ai:9.0, growth:-20, edu:2, majors:[], desc:"AI 客服覆盖了绝大部分标准化咨询，是最易被替代的岗位之一"},
+  {cat:"商业/管理", name:"电商运营",         emp:200, salary:10, ai:6.5, growth:5,  edu:3, majors:["电子商务","市场营销"], desc:"AI选品+自动投放+智能客服，运营工作大幅被工具替代"},
+  {cat:"商业/管理", name:"供应链经理",       emp:60,  salary:18, ai:5.0, growth:6,  edu:4, majors:["物流管理","工业工程"], desc:"AI 预测需求和优化库存，但供应商谈判和风险管理需人类"},
+  {cat:"商业/管理", name:"企业高管/CEO",     emp:40,  salary:80, ai:3.0, growth:3,  edu:5, majors:["MBA","工商管理"], desc:"战略决策、领导力和社会关系是AI最难替代的能力"},
+
+  // ── 公共服务 ──
+  {cat:"公共服务", name:"公务员(综合管理)",  emp:500, salary:10, ai:5.0, growth:0,  edu:4, majors:["公共管理","政治学"], desc:"政策制定需人类判断，但文书和数据统计工作可被AI辅助"},
+  {cat:"公共服务", name:"警察",              emp:200, salary:10, ai:3.0, growth:3,  edu:3, majors:["公安学","法学"], desc:"执法和社会治安需要现场人力，AI用于监控辅助"},
+  {cat:"公共服务", name:"消防员",            emp:80,  salary:9,  ai:1.5, growth:4,  edu:2, majors:["消防工程"], desc:"高危体力工作，机器人仅辅助侦察，灭火救援仍需人类"},
+  {cat:"公共服务", name:"社工",              emp:60,  salary:7,  ai:2.5, growth:12, edu:4, majors:["社会工作","社会学"], desc:"人际关怀和社区服务难以自动化"},
+  {cat:"公共服务", name:"军人",              emp:200, salary:9,  ai:2.0, growth:0,  edu:2, majors:["军事相关"], desc:"国防领域AI化加速，但作战和指挥仍以人为核心"},
+
+  // ── 服务/生活 ──
+  {cat:"服务/生活", name:"厨师/烹饪",        emp:400, salary:7,  ai:2.5, growth:3,  edu:1, majors:["烹饪","食品科学"], desc:"烹饪涉及手工操作和味觉判断，自动化程度低"},
+  {cat:"服务/生活", name:"理发师/美容师",    emp:300, salary:6,  ai:1.5, growth:3,  edu:1, majors:[], desc:"个性化服务+手工操作，几乎不受AI影响"},
+  {cat:"服务/生活", name:"健身教练",         emp:100, salary:8,  ai:3.5, growth:8,  edu:2, majors:["体育教育","运动科学"], desc:"AI健身APP普及，但一对一指导和矫正动作仍需教练"},
+  {cat:"服务/生活", name:"导游",             emp:80,  salary:6,  ai:6.0, growth:-5, edu:2, majors:["旅游管理"], desc:"AI导览和VR旅游冲击标准化讲解，但深度体验仍需人类"},
+  {cat:"服务/生活", name:"家政服务员",       emp:600, salary:5,  ai:1.5, growth:8,  edu:1, majors:[], desc:"家务涉及大量非结构化体力劳动，机器人渗透极慢"},
+  {cat:"服务/生活", name:"酒店前台",         emp:150, salary:5,  ai:7.0, growth:-8, edu:2, majors:["酒店管理"], desc:"自助入住+AI 客服大幅减少前台人员需求"},
+
+  // ── 科研/学术 ──
+  {cat:"科研/学术", name:"科研人员(理工)",   emp:100, salary:18, ai:4.0, growth:10, edu:5, majors:["物理","化学","生物","材料"], desc:"AI加速数据分析和假设生成，但实验设计和理论突破需人类"},
+  {cat:"科研/学术", name:"科研人员(人文社科)",emp:60, salary:12, ai:5.0, growth:3,  edu:5, majors:["哲学","历史","社会学"], desc:"AI文献综述和数据分析冲击部分研究方法"},
+  {cat:"科研/学术", name:"临床试验管理者",   emp:30,  salary:20, ai:4.5, growth:12, edu:5, majors:["临床医学","药学"], desc:"AI优化试验设计和患者筛选，但伦理审查和受试者管理需人类"},
+
+  // ── 艺术/体育 ──
+  {cat:"艺术/体育", name:"音乐人/作曲",      emp:50,  salary:8,  ai:5.5, growth:0,  edu:3, majors:["音乐学","作曲"], desc:"AI作曲工具已能生成背景音乐，但有灵魂的作品仍需人类"},
+  {cat:"艺术/体育", name:"职业运动员",       emp:30,  salary:15, ai:1.0, growth:3,  edu:2, majors:["运动训练"], desc:"竞技体育的核心在人体极限，AI仅用于训练分析"},
+  {cat:"艺术/体育", name:"演员/表演艺术家",  emp:40,  salary:8,  ai:3.5, growth:3,  edu:3, majors:["表演","戏剧"], desc:"AI虚拟人兴起，但现场表演和情感表达仍是独特价值"},
+  {cat:"艺术/体育", name:"插画师/原画师",    emp:60,  salary:10, ai:8.0, growth:-12, edu:3, majors:["美术","数字媒体艺术"], desc:"AI绘图(Stable Diffusion/Midjourney)对商业插画冲击最为剧烈"},
+];
+
+// ══════════════════════════════════════════════════════════
+//  全局状态
+// ══════════════════════════════════════════════════════════
+let sizeMode  = 'employment'; // employment | salary
+let colorMode = 'ai';         // ai | salary | growth | education
+const EDU_LABELS = {1:'初中及以下', 2:'高中/中专', 3:'大专', 4:'本科', 5:'硕士及以上'};
+
+// ── 颜色比例尺 ──
+function getColorScale() {
+  if (colorMode === 'ai')
+    return d3.scaleSequential(d3.interpolateRdYlGn).domain([10, 0]);
+  if (colorMode === 'salary')
+    return d3.scaleSequential(d3.interpolateYlOrRd).domain([5, 80]);
+  if (colorMode === 'growth')
+    return d3.scaleSequential(d3.interpolateRdYlGn).domain([-20, 28]);
+  // education
+  return d3.scaleSequential(d3.interpolatePurples).domain([1, 5]);
+}
+
+function getCellColor(d) {
+  const cs = getColorScale();
+  if (colorMode === 'ai')        return cs(d.ai);
+  if (colorMode === 'salary')    return cs(d.salary);
+  if (colorMode === 'growth')    return cs(d.growth);
+  return cs(d.edu);
+}
+
+// ── 统计 ──
+function renderStats() {
+  const totalEmp = DATA.reduce((s,d) => s + d.emp, 0);
+  const avgAI    = (DATA.reduce((s,d) => s + d.ai * d.emp, 0) / totalEmp).toFixed(1);
+  const avgSal   = (DATA.reduce((s,d) => s + d.salary * d.emp, 0) / totalEmp).toFixed(1);
+  const highRisk = DATA.filter(d => d.ai >= 7).length;
+  const lowRisk  = DATA.filter(d => d.ai <= 3).length;
+  const cats     = new Set(DATA.map(d => d.cat)).size;
+
+  document.getElementById('statsRow').innerHTML = [
+    {v: DATA.length, l: '职业数'},
+    {v: cats, l: '行业分类'},
+    {v: avgAI, l: '加权平均 AI 暴露度'},
+    {v: `${highRisk}`, l: '高风险职业 (≥7)'},
+    {v: `${lowRisk}`, l: '低风险职业 (≤3)'},
+  ].map(s => `<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-lbl">${s.l}</div></div>`).join('');
+}
+
+// ── 图例 ──
+function renderLegend() {
+  const bar = document.getElementById('legendGradient');
+  const lo  = document.getElementById('legendLo');
+  const hi  = document.getElementById('legendHi');
+  if (colorMode === 'ai') {
+    bar.style.background = 'linear-gradient(90deg, #2ca02c, #d4d400, #d62728)';
+    lo.textContent = '低风险 0'; hi.textContent = '高风险 10';
+  } else if (colorMode === 'salary') {
+    bar.style.background = 'linear-gradient(90deg, #ffffb2, #fd8d3c, #bd0026)';
+    lo.textContent = '5万/年'; hi.textContent = '80万/年';
+  } else if (colorMode === 'growth') {
+    bar.style.background = 'linear-gradient(90deg, #d62728, #d4d400, #2ca02c)';
+    lo.textContent = '萎缩 -20%'; hi.textContent = '增长 +28%';
+  } else {
+    bar.style.background = 'linear-gradient(90deg, #f2f0f7, #9e9ac8, #54278f)';
+    lo.textContent = '初中'; hi.textContent = '硕士+';
+  }
+}
+
+// ── 树图渲染 ──
+function renderTreemap() {
+  const container = document.getElementById('treemap');
+  const W = container.clientWidth;
+  const H = Math.max(500, Math.min(W * 0.75, 700));
+  container.style.height = H + 'px';
+  container.innerHTML = '';
+
+  // Build hierarchy: root → category → jobs
+  const nested = d3.group(DATA, d => d.cat);
+  const rootData = {
+    name: 'root',
+    children: Array.from(nested, ([cat, jobs]) => ({
+      name: cat,
+      children: jobs.map(j => ({...j, value: sizeMode === 'employment' ? j.emp : j.salary}))
+    }))
+  };
+
+  const root = d3.hierarchy(rootData)
+    .sum(d => d.value || 0)
+    .sort((a, b) => b.value - a.value);
+
+  d3.treemap()
+    .size([W, H])
+    .padding(2)
+    .paddingTop(16)
+    .round(true)(root);
+
+  // Category labels
+  root.children.forEach(cat => {
+    const label = document.createElement('div');
+    label.style.cssText = `position:absolute;left:${cat.x0}px;top:${cat.y0}px;width:${cat.x1-cat.x0}px;
+      font-size:9px;font-weight:800;color:rgba(255,255,255,.3);padding:1px 4px;overflow:hidden;
+      white-space:nowrap;text-overflow:ellipsis;pointer-events:none;z-index:5`;
+    label.textContent = cat.data.name;
+    container.appendChild(label);
+  });
+
+  // Cells
+  const leaves = root.leaves();
+  leaves.forEach(leaf => {
+    const d = leaf.data;
+    const w = leaf.x1 - leaf.x0;
+    const h = leaf.y1 - leaf.y0;
+    if (w < 2 || h < 2) return;
+
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.style.cssText = `left:${leaf.x0}px;top:${leaf.y0}px;width:${w}px;height:${h}px`;
+
+    const bg = getCellColor(d);
+    const showName = w > 35 && h > 22;
+    const showMeta = w > 50 && h > 36;
+
+    cell.innerHTML = `<div class="cell-inner" style="background:${bg}">
+      ${showName ? `<div class="cell-name">${d.name}</div>` : ''}
+      ${showMeta ? `<div class="cell-meta">${sizeMode==='employment' ? d.emp+'万人' : d.salary+'万/年'}</div>` : ''}
+    </div>`;
+
+    cell.addEventListener('mouseenter', e => showTooltip(e, d));
+    cell.addEventListener('mousemove', e => moveTooltip(e));
+    cell.addEventListener('mouseleave', hideTooltip);
+    cell.addEventListener('click', e => showTooltip(e, d));
+    container.appendChild(cell);
+  });
+}
+
+// ── Tooltip ──
+function showTooltip(e, d) {
+  const tt = document.getElementById('tooltip');
+  const aiPct = (d.ai / 10 * 100).toFixed(0);
+  const aiColor = d.ai >= 7 ? '#FF453A' : d.ai >= 4 ? '#FF9F0A' : '#34C759';
+  const growthColor = d.growth > 0 ? '#34C759' : d.growth < -5 ? '#FF453A' : '#FF9F0A';
+  const majorsHtml = d.majors.length
+    ? d.majors.map(m => `<span class="tt-major-tag">${m}</span>`).join('')
+    : '<span style="font-size:10px;color:rgba(255,255,255,.25)">无特定专业要求</span>';
+
+  tt.innerHTML = `
+    <div class="tt-title">${d.name}</div>
+    <div class="tt-cat">${d.cat}</div>
+    <div class="tt-grid">
+      <div class="tt-item"><div class="tt-item-val">${d.emp}<span style="font-size:11px">万</span></div><div class="tt-item-lbl">就业人数</div></div>
+      <div class="tt-item"><div class="tt-item-val">${d.salary}<span style="font-size:11px">万/年</span></div><div class="tt-item-lbl">中位薪资</div></div>
+      <div class="tt-item"><div class="tt-item-val" style="color:${growthColor}">${d.growth > 0 ? '+' : ''}${d.growth}%</div><div class="tt-item-lbl">增长预测</div></div>
+      <div class="tt-item"><div class="tt-item-val">${EDU_LABELS[d.edu]}</div><div class="tt-item-lbl">学历要求</div></div>
+    </div>
+    <div class="tt-ai-bar">
+      <div class="tt-ai-title">AI 暴露度评分</div>
+      <div class="tt-ai-track"><div class="tt-ai-fill" style="width:${aiPct}%;background:${aiColor}"></div></div>
+      <div class="tt-ai-score" style="color:${aiColor}">${d.ai} <span style="font-size:11px;color:rgba(255,255,255,.3)">/ 10</span></div>
+    </div>
+    <div class="tt-desc">${d.desc}</div>
+    <div class="tt-majors">
+      <div class="tt-majors-title">对口高考专业</div>
+      ${majorsHtml}
+    </div>
+  `;
+  tt.classList.add('show');
+  moveTooltip(e);
+}
+
+function moveTooltip(e) {
+  const tt = document.getElementById('tooltip');
+  const pad = 16;
+  let x = e.clientX + pad;
+  let y = e.clientY + pad;
+  const r = tt.getBoundingClientRect();
+  if (x + r.width > window.innerWidth) x = e.clientX - r.width - pad;
+  if (y + r.height > window.innerHeight) y = e.clientY - r.height - pad;
+  tt.style.left = Math.max(4, x) + 'px';
+  tt.style.top  = Math.max(4, y) + 'px';
+}
+
+function hideTooltip() {
+  document.getElementById('tooltip').classList.remove('show');
+}
+
+// ── 控制按钮 ──
+document.querySelectorAll('.ctrl-btn[data-size]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ctrl-btn[data-size]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    sizeMode = btn.dataset.size;
+    renderTreemap();
+  });
+});
+document.querySelectorAll('.ctrl-btn[data-color]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ctrl-btn[data-color]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    colorMode = btn.dataset.color;
+    renderLegend();
+    renderTreemap();
+  });
+});
+
+// ── 初始化 ──
+renderStats();
+renderLegend();
+// 等待布局完成后再渲染树图（确保容器 clientWidth > 0）
+requestAnimationFrame(() => {
+  renderTreemap();
+});
+window.addEventListener('resize', renderTreemap);
+</script>
+</body>
+</html>
