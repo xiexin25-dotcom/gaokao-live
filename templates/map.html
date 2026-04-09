@@ -2,73 +2,73 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>院校分布地图 · 志愿规划</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'PingFang SC',system-ui,sans-serif;background:#080F1A;color:#D0DCF0;overflow:hidden;height:100vh}
+body{font-family:'PingFang SC',system-ui,sans-serif;background:#FFFFFF;color:#1D1D1F;overflow:hidden;height:100vh;max-width:480px;margin:0 auto;box-shadow:0 0 40px rgba(0,0,0,.08)}
 
 /* ── 顶栏 ── */
-.topbar{background:#0B1525;border-bottom:1px solid rgba(255,255,255,.06);padding:0 14px;height:48px;display:flex;align-items:center;gap:10px;position:fixed;top:0;left:0;right:0;z-index:200}
-a.back{color:rgba(255,255,255,.4);font-size:22px;text-decoration:none;line-height:1;padding:4px}
-.tb-title{font-size:14px;font-weight:800;color:#fff;flex:1}
-.ke-toggle{display:flex;background:rgba(255,255,255,.07);border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
-.ke-tab{padding:5px 13px;font-size:11px;font-weight:700;cursor:pointer;color:rgba(255,255,255,.4);border:none;background:none;transition:.15s;font-family:inherit}
-.ke-tab.on{background:#4A9EFF;color:#fff}
-.stat-chip{font-size:10px;font-weight:700;padding:4px 10px;border-radius:8px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.45);white-space:nowrap}
+.topbar{background:#F5F5F7;border-bottom:1px solid rgba(0,0,0,.06);padding:0 14px;height:48px;display:flex;align-items:center;gap:10px;position:fixed;top:0;left:0;right:0;z-index:200;max-width:480px;margin:0 auto}
+a.back{color:rgba(0,0,0,.4);font-size:28px;text-decoration:none;line-height:1;padding:4px}
+.tb-title{font-size:18px;font-weight:800;color:#1D1D1F;flex:1}
+.ke-toggle{display:flex;background:rgba(0,0,0,.07);border-radius:8px;overflow:hidden;border:1px solid rgba(0,0,0,.08)}
+.ke-tab{padding:5px 13px;font-size:15px;font-weight:700;cursor:pointer;color:rgba(0,0,0,.4);border:none;background:none;transition:.15s;font-family:inherit}
+.ke-tab.on{background:#007AFF;color:#fff}
+.stat-chip{font-size:14px;font-weight:700;padding:4px 10px;border-radius:8px;background:rgba(0,0,0,.06);color:rgba(0,0,0,.45);white-space:nowrap}
 
 /* ── 地图主体 ── */
-#mapChart{position:fixed;top:48px;left:0;right:0;bottom:0}
+#mapChart{position:fixed;top:48px;left:0;right:0;bottom:0;max-width:480px;margin:0 auto}
 
 /* ── 加载遮罩 ── */
-#loadOverlay{position:fixed;inset:0;background:#080F1A;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
-.spin{width:32px;height:32px;border:3px solid rgba(74,158,255,.2);border-top-color:#4A9EFF;border-radius:50%;animation:spin 1s linear infinite}
+#loadOverlay{position:fixed;inset:0;background:#FFFFFF;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;max-width:480px;margin:0 auto}
+.spin{width:32px;height:32px;border:3px solid rgba(0,122,255,.2);border-top-color:#007AFF;border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.load-txt{font-size:13px;color:rgba(255,255,255,.4)}
+.load-txt{font-size:17px;color:rgba(0,0,0,.4)}
 
 /* ── 侧边面板 ── */
-#panel{position:fixed;top:48px;right:-360px;width:340px;bottom:0;background:#0B1525;border-left:1px solid rgba(255,255,255,.08);z-index:150;transition:right .28s cubic-bezier(.4,0,.2,1);overflow-y:auto;display:flex;flex-direction:column}
+#panel{position:fixed;top:48px;right:-360px;width:340px;bottom:0;background:#FFFFFF;border-left:1px solid rgba(0,0,0,.08);z-index:150;transition:right .28s cubic-bezier(.4,0,.2,1);overflow-y:auto;display:flex;flex-direction:column;box-shadow:-2px 0 20px rgba(0,0,0,.06)}
 #panel.open{right:0}
-.ph{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:flex-start;gap:8px;flex-shrink:0}
-.ph-city{font-size:16px;font-weight:900;color:#fff}
-.ph-prov{font-size:10px;color:rgba(255,255,255,.4);margin-top:2px}
-.ph-close{margin-left:auto;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;color:rgba(255,255,255,.4);background:rgba(255,255,255,.06);border:none;flex-shrink:0;transition:.15s}
-.ph-close:hover{background:rgba(255,255,255,.12);color:#fff}
-.ps{padding:10px 16px;display:flex;gap:14px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.05);flex-shrink:0}
+.ph{padding:14px 16px;border-bottom:1px solid rgba(0,0,0,.07);display:flex;align-items:flex-start;gap:8px;flex-shrink:0}
+.ph-city{font-size:22px;font-weight:900;color:#1D1D1F}
+.ph-prov{font-size:14px;color:rgba(0,0,0,.4);margin-top:2px}
+.ph-close{margin-left:auto;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;color:rgba(0,0,0,.4);background:rgba(0,0,0,.06);border:none;flex-shrink:0;transition:.15s}
+.ph-close:hover{background:rgba(0,0,0,.12);color:#1D1D1F}
+.ps{padding:10px 16px;display:flex;gap:14px;background:rgba(0,0,0,.03);border-bottom:1px solid rgba(0,0,0,.05);flex-shrink:0}
 .ps-item{text-align:center}
-.ps-num{font-size:17px;font-weight:900}
-.ps-lbl{font-size:9px;color:rgba(255,255,255,.35);margin-top:2px;letter-spacing:.5px}
+.ps-num{font-size:22px;font-weight:900}
+.ps-lbl{font-size:13px;color:rgba(0,0,0,.35);margin-top:2px;letter-spacing:.5px}
 .panel-body{flex:1;overflow-y:auto}
 .lv-sec{padding:8px 0}
 .lv-hd{display:flex;align-items:center;gap:7px;padding:6px 16px}
 .lv-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.lv-name{font-size:10px;font-weight:800;letter-spacing:1px}
-.lv-cnt{font-size:10px;color:rgba(255,255,255,.3);margin-left:auto}
-.sch-item{padding:7px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.04);cursor:default}
+.lv-name{font-size:14px;font-weight:800;letter-spacing:1px}
+.lv-cnt{font-size:14px;color:rgba(0,0,0,.3);margin-left:auto}
+.sch-item{padding:7px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(0,0,0,.04);cursor:default}
 .sch-item:last-child{border:none}
-.sch-item.plan-hi{background:rgba(74,158,255,.06)}
-.sch-name{font-size:12px;font-weight:600;flex:1;line-height:1.35}
-.sch-score{font-size:11px;font-weight:700;color:#FFD60A;flex-shrink:0}
-.tp-tag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0}
-.tp-rush{background:rgba(255,159,10,.15);color:#FF9F0A}
+.sch-item.plan-hi{background:rgba(0,122,255,.06)}
+.sch-name{font-size:15px;font-weight:600;flex:1;line-height:1.35}
+.sch-score{font-size:15px;font-weight:700;color:#FFD60A;flex-shrink:0}
+.tp-tag{font-size:13px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0}
+.tp-rush{background:rgba(255,149,0,.15);color:#FF9500}
 .tp-steady{background:rgba(52,199,89,.15);color:#34C759}
-.tp-safe{background:rgba(74,158,255,.15);color:#4A9EFF}
-.no-data{padding:24px 16px;text-align:center;font-size:12px;color:rgba(255,255,255,.25)}
+.tp-safe{background:rgba(0,122,255,.15);color:#007AFF}
+.no-data{padding:24px 16px;text-align:center;font-size:15px;color:rgba(0,0,0,.25)}
 
 /* ── 图例 ── */
-.legend{position:fixed;bottom:20px;left:16px;background:rgba(11,21,37,.92);border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:12px 14px;z-index:140;backdrop-filter:blur(10px)}
-.leg-title{font-size:9px;font-weight:800;letter-spacing:2px;color:rgba(255,255,255,.3);margin-bottom:8px}
-.leg-item{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px;color:rgba(255,255,255,.6)}
+.legend{position:fixed;bottom:20px;left:16px;background:rgba(255,255,255,.96);border:1px solid rgba(0,0,0,.09);border-radius:12px;padding:12px 14px;z-index:140;backdrop-filter:blur(10px);box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.leg-title{font-size:13px;font-weight:800;letter-spacing:2px;color:rgba(0,0,0,.3);margin-bottom:8px}
+.leg-item{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:15px;color:rgba(0,0,0,.6)}
 .leg-item:last-child{margin-bottom:0}
 .leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.leg-ring{width:10px;height:10px;border-radius:50%;border:2px solid #4A9EFF;flex-shrink:0}
-.leg-sep{border-top:1px solid rgba(255,255,255,.08);margin:6px 0}
+.leg-ring{width:10px;height:10px;border-radius:50%;border:2px solid #007AFF;flex-shrink:0}
+.leg-sep{border-top:1px solid rgba(0,0,0,.08);margin:6px 0}
 
 /* ── 提示条 ── */
-.tip-bar{position:fixed;top:58px;left:50%;transform:translateX(-50%);background:rgba(11,21,37,.88);border:1px solid rgba(74,158,255,.25);border-radius:20px;padding:5px 14px;font-size:11px;color:#4A9EFF;z-index:160;pointer-events:none;backdrop-filter:blur(8px);transition:opacity .5s;white-space:nowrap}
+.tip-bar{position:fixed;top:58px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.92);border:1px solid rgba(0,122,255,.25);border-radius:20px;padding:5px 14px;font-size:15px;color:#007AFF;z-index:160;pointer-events:none;backdrop-filter:blur(8px);transition:opacity .5s;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.06)}
 
 /* ── 误差提示 ── */
-.offline-warn{position:fixed;bottom:20px;right:16px;background:rgba(255,159,10,.1);border:1px solid rgba(255,159,10,.3);border-radius:10px;padding:8px 12px;font-size:11px;color:#FF9F0A;z-index:140;max-width:220px;display:none}
+.offline-warn{position:fixed;bottom:20px;right:16px;background:rgba(255,149,0,.1);border:1px solid rgba(255,149,0,.3);border-radius:10px;padding:8px 12px;font-size:15px;color:#FF9500;z-index:140;max-width:220px;display:none}
 </style>
 </head>
 <body>
@@ -107,7 +107,7 @@ a.back{color:rgba(255,255,255,.4);font-size:22px;text-decoration:none;line-heigh
 <div class="legend">
   <div class="leg-title">院校层次</div>
   <div class="leg-item"><div class="leg-dot" style="background:#FF375F"></div>985</div>
-  <div class="leg-item"><div class="leg-dot" style="background:#FF9F0A"></div>211+双一流</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#FF9500"></div>211+双一流</div>
   <div class="leg-item"><div class="leg-dot" style="background:#FFD60A"></div>211</div>
   <div class="leg-item"><div class="leg-dot" style="background:#34C759"></div>国重点</div>
   <div class="leg-item"><div class="leg-dot" style="background:#5AC8FA"></div>省重点</div>
@@ -207,7 +207,7 @@ const CC = {
   '海口':[110.33,20.03],'三亚':[109.52,18.25],
 };
 
-const LV_COLOR = {1:'#FF375F',2:'#FF9F0A',3:'#FFD60A',4:'#34C759',5:'#5AC8FA',6:'#636366'};
+const LV_COLOR = {1:'#FF375F',2:'#FF9500',3:'#FFD60A',4:'#34C759',5:'#5AC8FA',6:'#636366'};
 const LV_NAME  = {1:'985',2:'211+',3:'211',4:'国重点',5:'省重点',6:'其他'};
 const TP_CLS   = {'冲':'tp-rush','稳':'tp-steady','保':'tp-safe'};
 
@@ -302,20 +302,21 @@ function renderMap() {
     roam: false,
     silent: true,
     label: { show: false },
-    itemStyle: { areaColor: '#091527', borderColor: '#162a50', borderWidth: 0.8 },
+    itemStyle: { areaColor: '#E8E8ED', borderColor: '#C7C7CC', borderWidth: 0.8 },
     emphasis: { disabled: true },
     select: { disabled: true },
     data: [],
   }] : [];
 
   const option = {
-    backgroundColor: '#080F1A',
+    backgroundColor: '#FFFFFF',
     tooltip: {
       trigger: 'item',
-      backgroundColor: 'rgba(11,21,37,.96)',
-      borderColor: 'rgba(255,255,255,.1)',
-      textStyle: { color: '#D0DCF0', fontSize: 12 },
+      backgroundColor: 'rgba(255,255,255,.96)',
+      borderColor: 'rgba(0,0,0,.1)',
+      textStyle: { color: '#1D1D1F', fontSize: 15 },
       padding: [8, 12],
+      extraCssText: 'box-shadow:0 4px 16px rgba(0,0,0,.1);',
       formatter(params) {
         const d = params.data;
         if (!d) return '';
@@ -340,15 +341,15 @@ function renderMap() {
       center: [105, 36],
       label: { show: false },
       itemStyle: {
-        areaColor: '#091527',
-        borderColor: '#1a3560',
+        areaColor: '#E8E8ED',
+        borderColor: '#C7C7CC',
         borderWidth: 0.8,
-        shadowColor: 'rgba(0,20,60,.4)',
+        shadowColor: 'rgba(0,0,0,.08)',
         shadowBlur: 10,
       },
       emphasis: {
         label: { show: false },
-        itemStyle: { areaColor: '#0e2248' },
+        itemStyle: { areaColor: '#D1D1D6' },
       },
     },
     series: [
@@ -364,7 +365,7 @@ function renderMap() {
         },
         emphasis: {
           scale: 1.5,
-          itemStyle: { borderColor: '#fff', borderWidth: 2, opacity: 1 },
+          itemStyle: { borderColor: '#1D1D1F', borderWidth: 2, opacity: 1 },
         },
         zlevel: 10,
       },
@@ -374,12 +375,12 @@ function renderMap() {
         coordinateSystem: 'geo',
         data: planData,
         symbolSize: 13,
-        rippleEffect: { brushType: 'stroke', scale: 3.5, period: 2.8, color: '#4A9EFF' },
-        itemStyle: { color: '#4A9EFF', opacity: 0.92 },
+        rippleEffect: { brushType: 'stroke', scale: 3.5, period: 2.8, color: '#007AFF' },
+        itemStyle: { color: '#007AFF', opacity: 0.92 },
         label: {
           show: true, position: 'right',
           formatter: '{b}',
-          color: '#4A9EFF', fontSize: 10, fontWeight: 700,
+          color: '#007AFF', fontSize: 14, fontWeight: 700,
         },
         zlevel: 20,
       }] : []),
@@ -409,7 +410,7 @@ function showPanel(cityData, extraPlanSchools) {
   // 统计行
   const lc = cityData.lv_counts || {};
   const statsEl = document.getElementById('phStats');
-  let statsHtml = `<div class="ps-item"><div class="ps-num" style="color:#4A9EFF">${cityData.count}</div><div class="ps-lbl">院校总数</div></div>`;
+  let statsHtml = `<div class="ps-item"><div class="ps-num" style="color:#007AFF">${cityData.count}</div><div class="ps-lbl">院校总数</div></div>`;
   for (let lv = 1; lv <= 3; lv++) {
     const cnt = parseInt(lc[String(lv)] || 0);
     if (cnt) statsHtml += `<div class="ps-item"><div class="ps-num" style="color:${LV_COLOR[lv]}">${cnt}</div><div class="ps-lbl">${LV_NAME[lv]}</div></div>`;

@@ -2,74 +2,74 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>中国职业 AI 影响度全景图</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background:#080F1A;color:#D0D8E8;overflow-x:hidden}
+body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background:#FFFFFF;color:#1D1D1F;overflow-x:hidden;max-width:480px;margin:0 auto;box-shadow:0 0 40px rgba(0,0,0,.08)}
 
 /* ── 顶栏 ── */
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:rgba(255,255,255,.92);border-bottom:1px solid rgba(0,0,0,.06);position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
 .tb-left{display:flex;align-items:center;gap:12px}
-.tb-left a{color:rgba(255,255,255,.4);font-size:20px;text-decoration:none}
-.tb-title{font-size:16px;font-weight:800;color:#fff}
-.tb-sub{font-size:11px;color:rgba(255,255,255,.35)}
+.tb-left a{color:rgba(0,0,0,.4);font-size:26px;text-decoration:none}
+.tb-title{font-size:22px;font-weight:800;color:#1D1D1F}
+.tb-sub{font-size:15px;color:rgba(0,0,0,.35)}
 
 /* ── 控制面板 ── */
-.ctrl-bar{display:flex;flex-wrap:wrap;gap:8px;padding:14px 24px;background:rgba(255,255,255,.02);border-bottom:1px solid rgba(255,255,255,.05)}
+.ctrl-bar{display:flex;flex-wrap:wrap;gap:8px;padding:14px 24px;background:rgba(0,0,0,.02);border-bottom:1px solid rgba(0,0,0,.05)}
 .ctrl-group{display:flex;align-items:center;gap:6px}
-.ctrl-label{font-size:11px;color:rgba(255,255,255,.4);white-space:nowrap}
-.ctrl-btn{font-size:11px;font-weight:700;padding:5px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);cursor:pointer;transition:.15s;white-space:nowrap}
-.ctrl-btn:hover{background:rgba(255,255,255,.08);color:#fff}
-.ctrl-btn.active{background:rgba(74,158,255,.15);color:#4A9EFF;border-color:rgba(74,158,255,.3)}
+.ctrl-label{font-size:15px;color:rgba(0,0,0,.4);white-space:nowrap}
+.ctrl-btn{font-size:15px;font-weight:700;padding:5px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.08);background:rgba(0,0,0,.04);color:rgba(0,0,0,.55);cursor:pointer;transition:.15s;white-space:nowrap}
+.ctrl-btn:hover{background:rgba(0,0,0,.08);color:#1D1D1F}
+.ctrl-btn.active{background:rgba(0,122,255,.15);color:#007AFF;border-color:rgba(0,122,255,.3)}
 
 /* ── 图例 ── */
-.legend-bar{display:flex;align-items:center;gap:16px;padding:10px 24px;background:rgba(255,255,255,.015)}
+.legend-bar{display:flex;align-items:center;gap:16px;padding:10px 24px;background:rgba(0,0,0,.015)}
 .legend-gradient{display:flex;align-items:center;gap:8px;flex:1}
 .legend-gradient .bar{height:10px;flex:1;border-radius:5px;max-width:280px}
-.legend-label{font-size:10px;color:rgba(255,255,255,.35)}
-.legend-info{font-size:10px;color:rgba(255,255,255,.3)}
+.legend-label{font-size:14px;color:rgba(0,0,0,.35)}
+.legend-info{font-size:14px;color:rgba(0,0,0,.3)}
 
 /* ── 统计卡片 ── */
 .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:14px 24px}
-.stat-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:12px;text-align:center}
-.stat-val{font-size:22px;font-weight:900;color:#fff}
-.stat-lbl{font-size:10px;color:rgba(255,255,255,.35);margin-top:2px}
+.stat-card{background:#FFFFFF;border:1px solid rgba(0,0,0,.06);border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.stat-val{font-size:26px;font-weight:900;color:#1D1D1F}
+.stat-lbl{font-size:14px;color:rgba(0,0,0,.35);margin-top:2px}
 
 /* ── 树图容器 ── */
 .treemap-wrap{padding:8px 24px 24px;position:relative}
-#treemap{width:100%;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.06)}
+#treemap{width:100%;border-radius:12px;overflow:hidden;border:1px solid rgba(0,0,0,.06)}
 .cell{position:absolute;overflow:hidden;cursor:pointer;transition:opacity .15s}
 .cell:hover{opacity:.85;z-index:10}
 .cell-inner{width:100%;height:100%;padding:4px 6px;display:flex;flex-direction:column;justify-content:center;border:1px solid rgba(0,0,0,.3);position:relative}
-.cell-name{font-size:11px;font-weight:700;color:#fff;line-height:1.2;text-shadow:0 1px 3px rgba(0,0,0,.6);overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
-.cell-meta{font-size:9px;color:rgba(255,255,255,.7);margin-top:2px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
-.cell-cat{position:absolute;top:3px;right:5px;font-size:8px;font-weight:800;color:rgba(255,255,255,.45);text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.cell-name{font-size:15px;font-weight:700;color:#fff;line-height:1.2;text-shadow:0 1px 3px rgba(0,0,0,.6);overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.cell-meta{font-size:13px;color:rgba(255,255,255,.7);margin-top:2px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.cell-cat{position:absolute;top:3px;right:5px;font-size:12px;font-weight:800;color:rgba(255,255,255,.45);text-shadow:0 1px 2px rgba(0,0,0,.5)}
 
 /* ── 详情浮窗 ── */
-.tooltip{position:fixed;z-index:200;background:rgba(12,18,32,.96);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px;max-width:340px;pointer-events:none;opacity:0;transition:opacity .12s;backdrop-filter:blur(16px);box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.tooltip{position:fixed;z-index:200;background:rgba(255,255,255,.98);border:1px solid rgba(0,0,0,.1);border-radius:14px;padding:16px;max-width:340px;pointer-events:none;opacity:0;transition:opacity .12s;backdrop-filter:blur(16px);box-shadow:0 8px 32px rgba(0,0,0,.12)}
 .tooltip.show{opacity:1}
-.tt-title{font-size:15px;font-weight:800;color:#fff;margin-bottom:8px}
-.tt-cat{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:10px}
+.tt-title{font-size:20px;font-weight:800;color:#1D1D1F;margin-bottom:8px}
+.tt-cat{font-size:15px;color:rgba(0,0,0,.4);margin-bottom:10px}
 .tt-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.tt-item{background:rgba(255,255,255,.04);border-radius:8px;padding:8px}
-.tt-item-val{font-size:16px;font-weight:800;color:#fff}
-.tt-item-lbl{font-size:9px;color:rgba(255,255,255,.35);margin-top:1px}
-.tt-ai-bar{margin-top:10px;background:rgba(255,255,255,.06);border-radius:8px;padding:10px}
-.tt-ai-title{font-size:10px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px}
-.tt-ai-track{height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+.tt-item{background:rgba(0,0,0,.04);border-radius:8px;padding:8px}
+.tt-item-val{font-size:22px;font-weight:800;color:#1D1D1F}
+.tt-item-lbl{font-size:13px;color:rgba(0,0,0,.35);margin-top:1px}
+.tt-ai-bar{margin-top:10px;background:rgba(0,0,0,.04);border-radius:8px;padding:10px}
+.tt-ai-title{font-size:14px;font-weight:700;color:rgba(0,0,0,.5);margin-bottom:6px}
+.tt-ai-track{height:8px;background:rgba(0,0,0,.06);border-radius:4px;overflow:hidden}
 .tt-ai-fill{height:100%;border-radius:4px;transition:width .3s}
-.tt-ai-score{font-size:20px;font-weight:900;margin-top:6px}
-.tt-desc{font-size:11px;color:rgba(255,255,255,.45);margin-top:8px;line-height:1.5;border-top:1px solid rgba(255,255,255,.06);padding-top:8px}
-.tt-majors{margin-top:8px;border-top:1px solid rgba(255,255,255,.06);padding-top:8px}
-.tt-majors-title{font-size:10px;font-weight:700;color:rgba(255,255,255,.4);margin-bottom:4px}
-.tt-major-tag{display:inline-block;font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px;background:rgba(74,158,255,.1);color:#4A9EFF;margin:2px 3px 2px 0}
+.tt-ai-score{font-size:26px;font-weight:900;margin-top:6px}
+.tt-desc{font-size:15px;color:rgba(0,0,0,.45);margin-top:8px;line-height:1.5;border-top:1px solid rgba(0,0,0,.06);padding-top:8px}
+.tt-majors{margin-top:8px;border-top:1px solid rgba(0,0,0,.06);padding-top:8px}
+.tt-majors-title{font-size:14px;font-weight:700;color:rgba(0,0,0,.4);margin-bottom:4px}
+.tt-major-tag{display:inline-block;font-size:13px;font-weight:600;padding:2px 7px;border-radius:4px;background:rgba(0,122,255,.1);color:#007AFF;margin:2px 3px 2px 0}
 
 /* ── 底部说明 ── */
 .footer{padding:20px 24px;text-align:center}
-.footer p{font-size:11px;color:rgba(255,255,255,.2);line-height:1.8}
-.footer a{color:rgba(74,158,255,.6);text-decoration:none}
+.footer p{font-size:15px;color:rgba(0,0,0,.2);line-height:1.8}
+.footer a{color:rgba(0,122,255,.6);text-decoration:none}
 
 /* ── 响应式 ── */
 @media(max-width:767px){
@@ -78,14 +78,14 @@ body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background
   .stats-row{grid-template-columns:repeat(3,1fr);padding:10px 14px}
   .treemap-wrap{padding:6px 14px 16px}
   .legend-bar{padding:8px 14px;gap:10px}
-  .cell-name{font-size:9px}
-  .cell-meta{font-size:8px}
+  .cell-name{font-size:13px}
+  .cell-meta{font-size:12px}
 }
 @media(max-width:480px){
   .stats-row{grid-template-columns:repeat(2,1fr);gap:6px}
-  .stat-val{font-size:17px}
-  .ctrl-btn{font-size:10px;padding:4px 9px}
-  .tb-title{font-size:14px}
+  .stat-val{font-size:22px}
+  .ctrl-btn{font-size:14px;padding:4px 9px}
+  .tb-title{font-size:18px}
 }
 </style>
 </head>
@@ -93,7 +93,7 @@ body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background
 
 <div class="topbar">
   <div class="tb-left">
-    <a href="{{ API_BASE }}/" title="返回首页">←</a>
+    <a href="{{ API_BASE }}/" title="返回首页">&larr;</a>
     <div>
       <div class="tb-title">中国职业 AI 影响度全景图</div>
       <div class="tb-sub">方块面积 = 就业人数 · 颜色 = AI 暴露度 · 数据来源: 人社部/BLS/学术研究</div>
@@ -364,7 +364,7 @@ function renderTreemap() {
   root.children.forEach(cat => {
     const label = document.createElement('div');
     label.style.cssText = `position:absolute;left:${cat.x0}px;top:${cat.y0}px;width:${cat.x1-cat.x0}px;
-      font-size:9px;font-weight:800;color:rgba(255,255,255,.3);padding:1px 4px;overflow:hidden;
+      font-size:13px;font-weight:800;color:rgba(0,0,0,.3);padding:1px 4px;overflow:hidden;
       white-space:nowrap;text-overflow:ellipsis;pointer-events:none;z-index:5`;
     label.textContent = cat.data.name;
     container.appendChild(label);
@@ -403,25 +403,25 @@ function renderTreemap() {
 function showTooltip(e, d) {
   const tt = document.getElementById('tooltip');
   const aiPct = (d.ai / 10 * 100).toFixed(0);
-  const aiColor = d.ai >= 7 ? '#FF453A' : d.ai >= 4 ? '#FF9F0A' : '#34C759';
-  const growthColor = d.growth > 0 ? '#34C759' : d.growth < -5 ? '#FF453A' : '#FF9F0A';
+  const aiColor = d.ai >= 7 ? '#FF3B30' : d.ai >= 4 ? '#FF9500' : '#34C759';
+  const growthColor = d.growth > 0 ? '#34C759' : d.growth < -5 ? '#FF3B30' : '#FF9500';
   const majorsHtml = d.majors.length
     ? d.majors.map(m => `<span class="tt-major-tag">${m}</span>`).join('')
-    : '<span style="font-size:10px;color:rgba(255,255,255,.25)">无特定专业要求</span>';
+    : '<span style="font-size:14px;color:rgba(0,0,0,.25)">无特定专业要求</span>';
 
   tt.innerHTML = `
     <div class="tt-title">${d.name}</div>
     <div class="tt-cat">${d.cat}</div>
     <div class="tt-grid">
-      <div class="tt-item"><div class="tt-item-val">${d.emp}<span style="font-size:11px">万</span></div><div class="tt-item-lbl">就业人数</div></div>
-      <div class="tt-item"><div class="tt-item-val">${d.salary}<span style="font-size:11px">万/年</span></div><div class="tt-item-lbl">中位薪资</div></div>
+      <div class="tt-item"><div class="tt-item-val">${d.emp}<span style="font-size:15px">万</span></div><div class="tt-item-lbl">就业人数</div></div>
+      <div class="tt-item"><div class="tt-item-val">${d.salary}<span style="font-size:15px">万/年</span></div><div class="tt-item-lbl">中位薪资</div></div>
       <div class="tt-item"><div class="tt-item-val" style="color:${growthColor}">${d.growth > 0 ? '+' : ''}${d.growth}%</div><div class="tt-item-lbl">增长预测</div></div>
       <div class="tt-item"><div class="tt-item-val">${EDU_LABELS[d.edu]}</div><div class="tt-item-lbl">学历要求</div></div>
     </div>
     <div class="tt-ai-bar">
       <div class="tt-ai-title">AI 暴露度评分</div>
       <div class="tt-ai-track"><div class="tt-ai-fill" style="width:${aiPct}%;background:${aiColor}"></div></div>
-      <div class="tt-ai-score" style="color:${aiColor}">${d.ai} <span style="font-size:11px;color:rgba(255,255,255,.3)">/ 10</span></div>
+      <div class="tt-ai-score" style="color:${aiColor}">${d.ai} <span style="font-size:15px;color:rgba(0,0,0,.3)">/ 10</span></div>
     </div>
     <div class="tt-desc">${d.desc}</div>
     <div class="tt-majors">
