@@ -120,6 +120,8 @@ def load_raw_df():
     return df
 
 def build_plan(profile: dict) -> dict:
+    if 'score' not in profile or profile['score'] is None:
+        raise ValueError("考生分数(score)不能为空")
     score      = int(profile['score'])
     ke_lei     = profile.get('ke_lei', '物理')
     if ke_lei not in ('物理', '历史'):
@@ -843,6 +845,8 @@ def build_plan_direct(profile: dict) -> dict:
     """
     from engine.db import load_direct_df
 
+    if 'score' not in profile or profile['score'] is None:
+        raise ValueError("考生分数(score)不能为空")
     score    = int(profile['score'])
     province = profile.get('student_province', '吉林')
     cfg      = _DIRECT_PROV_CFG.get(province)
@@ -1049,6 +1053,8 @@ def mc_simulate(plan_vols, N=10000, seed=42, bias_lo=0, bias_hi=0, noise_pct=3.5
     - 合并 f_eff = f×g ∈ [0.938, 1.048]，|偏差|均值≈11.5分 ≈ 真实11.25分 ✓
     - 降级模式：student_score=None 时回落旧 rank-based 模型（兼容性保留）。
     """
+    if N <= 0:
+        N = 10000
     # 冲区志愿数（与 build_plan.RUSH_N 保持一致，用于 rush_rate 统计）
     RUSH_N      = 10
     # 院校级独立波动幅度：±2%（招生计划变动、专业调整等校内因子）

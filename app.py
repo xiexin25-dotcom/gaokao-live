@@ -6,6 +6,13 @@ import os, sys, json, time, threading
 import pandas as pd
 from flask import Flask, render_template, request, jsonify, send_file, make_response
 
+def _safe_int(val, default=0):
+    """安全的 int 转换，非数字时返回默认值"""
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return default
+
 sys.path.insert(0, os.path.dirname(__file__))
 from engine.planner import (build_plan, build_plan_direct, mc_simulate,
                              optimize_plan, export_excel, export_excel_direct,
@@ -87,6 +94,13 @@ class _SessionProxy(dict):
     def setdefault(self, k, d=None): return self._target().setdefault(k, d)
 
 SESSION = _SessionProxy()   # 全局变量保持不变，底层按 session_id 隔离
+
+# ── 全局模板变量：API_BASE 支持子路径部署 ──────────────────
+API_BASE = os.environ.get('API_BASE', '').rstrip('/')
+
+@app.context_processor
+def _inject_api_base():
+    return {'API_BASE': API_BASE}
 
 @app.after_request
 def _set_session_cookie(response):
@@ -583,8 +597,8 @@ def api_generate():
         })
 
     except Exception as e:
-        import traceback
-        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/simulate', methods=['POST'])
@@ -751,8 +765,8 @@ def api_optimize():
         })
 
     except Exception as e:
-        import traceback
-        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 
@@ -883,8 +897,8 @@ def api_optimize_constrained():
         })
 
     except Exception as e:
-        import traceback
-        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 
@@ -1728,7 +1742,7 @@ def api_search_groups():
     """搜索院校专业组，用于手动插入志愿"""
     q     = request.args.get('q', '').strip()
     ke    = request.args.get('ke', '物理').strip()
-    score = int(request.args.get('score', 0))
+    score = _safe_int(request.args.get('score', 0))
     if not q or len(q) < 2:
         return jsonify({'error': '请输入至少2个字'}), 400
     try:
@@ -1771,8 +1785,8 @@ def api_search_groups():
         groups.sort(key=lambda g: -g['gmin25'])
         return jsonify({'ok': True, 'count': len(groups), 'groups': groups[:40]})
     except Exception as e:
-        import traceback
-        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/search_direct')
@@ -1781,7 +1795,7 @@ def api_search_direct():
     q     = request.args.get('q', '').strip()
     ke    = request.args.get('ke', '物理').strip()
     prov  = request.args.get('prov', '').strip()
-    score = int(request.args.get('score', 0))
+    score = _safe_int(request.args.get('score', 0))
     if not q or len(q) < 2:
         return jsonify({'error': '请输入至少2个字'}), 400
     if not prov:
@@ -1823,8 +1837,8 @@ def api_search_direct():
             })
         return jsonify({'ok': True, 'count': len(results), 'results': results})
     except Exception as e:
-        import traceback
-        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 # ── 地图页 ─────────────────────────────────────────────────
@@ -1922,8 +1936,8 @@ def api_map_data():
             'total_schools': sum(d['count'] for d in cities),
         })
     except Exception as e:
-        import traceback
-        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 # ══ 数据库增强 API ═════════════════════════════════════════
@@ -1956,14 +1970,14 @@ def api_db_search_schools():
     kw = request.args.get('q', '')
     prov = request.args.get('province', '')
     tags = request.args.get('tags', '')
-    limit = int(request.args.get('limit', 50))
+    limit = _safe_int(request.args.get('limit', 50), 50)
     return jsonify(gaokao_db.search_schools(kw, prov, tags, limit))
 
 @app.route('/api/db/school_detail')
 def api_db_school_detail():
     """查询院校的专业组和专业详情"""
     name = request.args.get('name', '')
-    year = int(request.args.get('year', 2025))
+    year = _safe_int(request.args.get('year', 2025), 2025)
     ke = request.args.get('ke_lei', '物理')
     if not name:
         return jsonify({'error': '请提供院校名称'}), 400
@@ -1981,7 +1995,7 @@ def api_db_save_plan():
 @app.route('/api/db/plans')
 def api_db_plans():
     """读取历史方案列表"""
-    limit = int(request.args.get('limit', 10))
+    limit = _safe_int(request.args.get('limit', 10), 10)
     return jsonify(gaokao_db.load_plans(limit=limit))
 
 @app.route('/api/db/plans/<int:plan_id>', methods=['DELETE'])

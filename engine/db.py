@@ -540,10 +540,18 @@ def load_plans(user_id: int = None, limit: int = 10) -> list[dict]:
                        ORDER BY created_at DESC LIMIT ?""", (limit,))
     results = []
     for r in cur.fetchall():
+        try:
+            profile = json.loads(r['profile']) if r['profile'] else {}
+        except (json.JSONDecodeError, TypeError):
+            profile = {}
+        try:
+            plan_json = json.loads(r['plan_json']) if r['plan_json'] else {}
+        except (json.JSONDecodeError, TypeError):
+            plan_json = {}
         results.append({
             'id': r['id'],
-            'profile': json.loads(r['profile']) if r['profile'] else {},
-            'plan_json': json.loads(r['plan_json']) if r['plan_json'] else {},
+            'profile': profile,
+            'plan_json': plan_json,
             'created_at': r['created_at'],
         })
     return results

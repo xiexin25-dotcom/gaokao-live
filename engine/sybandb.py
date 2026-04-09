@@ -62,25 +62,27 @@ def load_syban_map() -> dict:
     # 从 Excel 重建
     import openpyxl
     wb = openpyxl.load_workbook(_XLSX_PATH, read_only=True, data_only=True)
-    ws = wb.worksheets[0]
-    headers = [cell.value for cell in ws[3]]
+    try:
+        ws = wb.worksheets[0]
+        headers = [cell.value for cell in ws[3]]
 
-    tmp: dict[tuple, set] = defaultdict(set)
-    for row in ws.iter_rows(min_row=4, values_only=True):
-        d = dict(zip(headers, row))
-        school   = str(d.get('院校名称') or '').strip()
-        cls_name = str(d.get('实验班名称') or '').strip()
-        if not school or not cls_name:
-            continue
-        key = (school, cls_name)
-        # 1. 显式分流专业字段
-        fen_liu = str(d.get('分流专业') or '').strip()
-        if fen_liu and fen_liu != 'None':
-            tmp[key].add(fen_liu)
-        # 2. 从全称括号中解析
-        for m in _extract_majors(d.get('实验班全称') or ''):
-            tmp[key].add(m)
-    wb.close()
+        tmp: dict[tuple, set] = defaultdict(set)
+        for row in ws.iter_rows(min_row=4, values_only=True):
+            d = dict(zip(headers, row))
+            school   = str(d.get('院校名称') or '').strip()
+            cls_name = str(d.get('实验班名称') or '').strip()
+            if not school or not cls_name:
+                continue
+            key = (school, cls_name)
+            # 1. 显式分流专业字段
+            fen_liu = str(d.get('分流专业') or '').strip()
+            if fen_liu and fen_liu != 'None':
+                tmp[key].add(fen_liu)
+            # 2. 从全称括号中解析
+            for m in _extract_majors(d.get('实验班全称') or ''):
+                tmp[key].add(m)
+    finally:
+        wb.close()
 
     _syban_cache = {k: frozenset(v) for k, v in tmp.items()}
 
