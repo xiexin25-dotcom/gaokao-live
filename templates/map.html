@@ -79,7 +79,7 @@ a.back{color:rgba(255,255,255,.4);font-size:22px;text-decoration:none;line-heigh
 </div>
 
 <div class="topbar">
-  <a class="back" href="/" title="返回首页">&#8592;</a>
+  <a class="back" href="{{ API_BASE }}/" title="返回首页">&#8592;</a>
   <div class="tb-title">院校分布地图</div>
   <span class="stat-chip" id="totalChip">加载中…</span>
   <div class="ke-toggle">
@@ -119,8 +119,9 @@ a.back{color:rgba(255,255,255,.4);font-size:22px;text-decoration:none;line-heigh
 <div class="tip-bar" id="tipBar">点击圆点查看院校详情 &nbsp;· 滚轮缩放地图</div>
 <div class="offline-warn" id="offlineWarn">底图加载失败（离线模式）<br>院校数据点仍可正常显示</div>
 
-<script src="/static/echarts.min.js"></script>
+<script src="{{ API_BASE }}/static/echarts.min.js"></script>
 <script>
+const API_BASE = '{{ API_BASE|default("") }}';
 // ── 城市坐标表 [lon, lat] ────────────────────────────────
 const CC = {
   '北京':[116.46,39.92],'上海':[121.47,31.23],'天津':[117.19,39.13],'重庆':[106.53,29.53],
@@ -222,7 +223,7 @@ async function init() {
 
   // 加载中国地图 GeoJSON
   try {
-    const geoResp = await fetch('/static/china_geo.json');
+    const geoResp = await fetch(API_BASE + '/static/china_geo.json');
     const geoJson = await geoResp.json();
     echarts.registerMap('china', geoJson);
     geoLoaded = true;
@@ -256,7 +257,7 @@ function switchKe(ke) {
 // ── 拉取数据 ──────────────────────────────────────────────
 async function loadData(ke) {
   try {
-    const r = await fetch('/api/map_data?ke=' + encodeURIComponent(ke));
+    const r = await fetch(API_BASE + '/api/map_data?ke=' + encodeURIComponent(ke));
     mapData = await r.json();
     if (!mapData.ok) throw new Error(mapData.error || '未知错误');
     document.getElementById('totalChip').textContent =

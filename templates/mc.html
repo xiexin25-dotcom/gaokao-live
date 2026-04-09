@@ -141,7 +141,7 @@ a.np-btn{display:inline-block;padding:10px 20px;border-radius:12px;background:rg
 </head>
 <body>
 <div class="topbar">
-  <a class="back" href="/">←</a>
+  <a class="back" href="{{ API_BASE }}/">←</a>
   <div class="tb-title">🎲 蒙特卡洛仿真</div>
   <span class="badge b-blue" id="statusBadge">检查方案…</span>
 </div>
@@ -151,7 +151,7 @@ a.np-btn{display:inline-block;padding:10px 20px;border-radius:12px;background:rg
   <div class="no-plan">
     <div class="np-icon">📝</div>
     <div class="np-text">尚未生成志愿方案<br>请先填写考生信息</div>
-    <a class="np-btn" href="/plan">前往生成方案 →</a>
+    <a class="np-btn" href="{{ API_BASE }}/plan">前往生成方案 →</a>
   </div>
 </div>
 
@@ -246,6 +246,7 @@ a.np-btn{display:inline-block;padding:10px 20px;border-radius:12px;background:rg
 </div><!-- /hasPlan -->
 
 <script>
+const API_BASE = '{{ API_BASE|default("") }}';
 const N_STEPS   = [1000,5000,10000,30000,50000,100000,200000,500000];
 const SEED_VALS = [42,1,2,7,13,21,99,123,777,2026];
 const PRESETS   = [{n:2,vol:0,seed:0},{n:2,vol:20,seed:0},{n:2,vol:-20,seed:0},{n:5,vol:0,seed:0}];
@@ -388,7 +389,7 @@ async function runSim(){
   document.getElementById('statusBadge').className='badge b-orange';
   const N=N_STEPS[pN];
   try {
-    const res=await fetch('/api/simulate',{
+    const res=await fetch(API_BASE + '/api/simulate',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({N, seed:SEED_VALS[pSeed],
@@ -399,7 +400,7 @@ async function runSim(){
     if(res.status===400){
       const d=await res.json();
       alert(d.error||'请先生成志愿方案');
-      window.location.href='/plan';
+      window.location.href=API_BASE+'/plan';
       return;
     }
     const d=await res.json();
@@ -551,7 +552,7 @@ async function runConstrainedOptimize(){
   }).filter(Boolean);
 
   try {
-    const res = await fetch('/api/optimize_constrained', {
+    const res = await fetch(API_BASE + '/api/optimize_constrained', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -566,7 +567,7 @@ async function runConstrainedOptimize(){
     const newGcodes = new Set(d.diff.map(di => di.new_gcode));
 
     // 跑一次正式MC，拿带专业命中率的结果
-    const mcRes = await fetch('/api/simulate', {
+    const mcRes = await fetch(API_BASE + '/api/simulate', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({N: 10000, seed: SEED_VALS[pSeed],
@@ -649,7 +650,7 @@ function switchTab(i){
 
 // ── 初始化 ──
 async function init(){
-  const st=await fetch('/api/status').then(r=>r.json());
+  const st=await fetch(API_BASE + '/api/status').then(r=>r.json());
   if(!st.has_plan){
     document.getElementById('noPlan').style.display='';
     document.getElementById('statusBadge').textContent='无方案';

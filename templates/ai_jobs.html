@@ -93,7 +93,7 @@ body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background
 
 <div class="topbar">
   <div class="tb-left">
-    <a href="/" title="返回首页">←</a>
+    <a href="{{ API_BASE }}/" title="返回首页">←</a>
     <div>
       <div class="tb-title">中国职业 AI 影响度全景图</div>
       <div class="tb-sub">方块面积 = 就业人数 · 颜色 = AI 暴露度 · 数据来源: 人社部/BLS/学术研究</div>
@@ -138,6 +138,7 @@ body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background
 </div>
 
 <script>
+const API_BASE = '{{ API_BASE|default("") }}';
 // ══════════════════════════════════════════════════════════
 //  342 → 精选 120+ 个中国主流职业数据
 // ══════════════════════════════════════════════════════════

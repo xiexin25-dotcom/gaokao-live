@@ -581,7 +581,7 @@ select optgroup{background:#0a1220;color:rgba(255,255,255,.5);font-style:normal;
 </head>
 <body>
 <div class="topbar">
-  <a class="back" href="/">←</a>
+  <a class="back" href="{{ API_BASE }}/">←</a>
   <div class="tb-title">📝 考生信息 · 生成志愿方案</div>
   <span class="badge b-blue" id="statusBadge">就绪</span>
 </div>
@@ -894,7 +894,7 @@ select optgroup{background:#0a1220;color:rgba(255,255,255,.5);font-style:normal;
   <button class="btn btn-replenish" id="btnReplenish" style="display:none" onclick="doReplenish()">➕ 补充志愿</button>
   <button class="btn btn-ai-review" id="btnAiReview" style="display:none" onclick="doAiReview()">🤖 AI修正</button>
   <button class="btn btn-export" id="btnExport" style="display:none" onclick="exportExcel()">📥 Excel</button>
-  <a class="btn btn-mc" id="btnMC" href="/mc" style="display:none">🎲 仿真</a>
+  <a class="btn btn-mc" id="btnMC" href="{{ API_BASE }}/mc" style="display:none">🎲 仿真</a>
   <button class="btn" id="btnHistory" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);font-size:11px;padding:8px 12px" onclick="openHistory()">📋 历史</button>
 </div>
 
@@ -952,6 +952,7 @@ select optgroup{background:#0a1220;color:rgba(255,255,255,.5);font-style:normal;
 </div>
 
 <script>
+const API_BASE = '{{ API_BASE|default("") }}';
 // ── 状态 ──────────────────────────────────────────────
 let kwLib = {}, exPresets = {};
 let selKeLei = '物理', selSchoolPref = 'school';
@@ -1125,7 +1126,7 @@ initCascader();
 async function loadKwLib(){
   for(let attempt = 1; attempt <= 5; attempt++){
     try {
-      const r = await fetch('/api/keywords');
+      const r = await fetch(API_BASE + '/api/keywords');
       if(!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
       kwLib = d.kw_lib; exPresets = d.exclude_presets;
@@ -1613,7 +1614,7 @@ async function generate(){
   document.getElementById('statusBadge').className='badge b-orange b-run';
 
   try {
-    const res = await fetch('/api/generate',{
+    const res = await fetch(API_BASE + '/api/generate',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
@@ -1958,7 +1959,7 @@ async function optimize(){
 
   try {
     const extended = btn._extended || false;
-    const res = await fetch('/api/optimize',{
+    const res = await fetch(API_BASE + '/api/optimize',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ max_rounds:15, mc_n:extended?12000:8000, noise_pct:3.5 })
@@ -2028,7 +2029,7 @@ function exportExcel(){
   const f=document.createElement('a');
   f.href='/api/export_excel';
   // 用POST触发download
-  fetch('/api/export_excel',{method:'POST'})
+  fetch(API_BASE + '/api/export_excel',{method:'POST'})
     .then(r=>{
       if(!r.ok) return r.json().then(d=>{ alert(d.error||'导出失败'); throw new Error('export failed'); });
       const cd = r.headers.get('content-disposition')||'';
@@ -2208,7 +2209,7 @@ function showReplenishBtn(){
 function doReplenish(){
   const btn = document.getElementById('btnReplenish');
   if(btn) { btn.textContent = '补充中...'; btn.disabled = true; }
-  fetch('/api/replenish', {
+  fetch(API_BASE + '/api/replenish', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({target_count: _getVolTarget(window._lastRenderData?.profile?.student_province || '吉林'), exclude_gcodes: deletedGcodes})
@@ -2399,7 +2400,7 @@ function insertGroup(idx){
 async function syncPlanToServer(){
   if(!generatedVols||!generatedVols.length) return;
   try{
-    await fetch('/api/save_plan',{
+    await fetch(API_BASE + '/api/save_plan',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ vols: generatedVols.map(v=>({
@@ -3389,8 +3390,8 @@ function openReportFloat(major, ke){
   _rfCurrentKe    = ke || '物理';
   // 优先匹配 专业_科类.html，回退 专业.html
   const candidates = [
-    `/reports/${encodeURIComponent(major)}_${_rfCurrentKe}.html`,
-    `/reports/${encodeURIComponent(major)}.html`
+    API_BASE + `/reports/${encodeURIComponent(major)}_${_rfCurrentKe}.html`,
+    API_BASE + `/reports/${encodeURIComponent(major)}.html`
   ];
   document.getElementById('rfTitle').textContent   = major;
   document.getElementById('rfFilename').textContent = `${major}_${_rfCurrentKe}.html`;
@@ -3423,13 +3424,13 @@ function closeReportFloat(){
 
 function openReportPage(){
   const ke  = _rfCurrentKe || '物理';
-  const url = `/reports/${encodeURIComponent(_rfCurrentMajor)}_${ke}.html`;
+  const url = API_BASE + `/reports/${encodeURIComponent(_rfCurrentMajor)}_${ke}.html`;
   window.open(url, '_blank');
 }
 
 // 页面加载时预取报告列表，存入 Set 供卡片渲染使用
 window.MP_REPORTS = new Set();
-fetch('/api/reports').then(r=>r.json()).then(d=>{
+fetch(API_BASE + '/api/reports').then(r=>r.json()).then(d=>{
   (d.reports||[]).forEach(name => window.MP_REPORTS.add(name));
 }).catch(()=>{});
 // ──────────────────────────────────────────────────────────
@@ -3564,7 +3565,7 @@ async function loadHistory(){
   const list = document.getElementById('historyList');
   list.innerHTML='<div style="text-align:center;padding:24px;color:rgba(255,255,255,.3);font-size:12px">加载中…</div>';
   try{
-    const r = await fetch('/api/history');
+    const r = await fetch(API_BASE + '/api/history');
     const d = await r.json();
     const items = d.history||[];
     if(!items.length){
@@ -3591,7 +3592,7 @@ async function loadHistory(){
 }
 async function restoreHistory(idx){
   try{
-    const r = await fetch('/api/history/'+idx, {method:'POST'});
+    const r = await fetch(API_BASE + '/api/history/'+idx, {method:'POST'});
     const d = await r.json();
     if(d.error){ alert('恢复失败：'+d.error); return; }
     closeHistory();
@@ -4094,7 +4095,7 @@ async function submitAiReview(){
     '</div><style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>';
 
   try {
-    const res = await fetch('/api/ai_review', {
+    const res = await fetch(API_BASE + '/api/ai_review', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({user_prompt: userPrompt})
     });
@@ -4117,7 +4118,7 @@ function startPolling(){
   if(_aiPollTimer) clearInterval(_aiPollTimer);
   _aiPollTimer = setInterval(async ()=>{
     try {
-      const r = await fetch('/api/ai_review_status');
+      const r = await fetch(API_BASE + '/api/ai_review_status');
       const d = await r.json();
       if(d.status === 'done'){
         clearInterval(_aiPollTimer); _aiPollTimer = null;

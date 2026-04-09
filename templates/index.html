@@ -68,7 +68,7 @@ body{font-family:'PingFang SC',system-ui,sans-serif;background:#080F1A;color:#D0
 </div>
 
 <div class="nav-cards">
-  <a class="card highlight" href="/plan">
+  <a class="card highlight" href="{{ API_BASE }}/plan">
     <div class="card-icon">📝</div>
     <div class="card-body">
       <div class="card-title">生成志愿方案</div>
@@ -77,7 +77,7 @@ body{font-family:'PingFang SC',system-ui,sans-serif;background:#080F1A;color:#D0
     </div>
     <div class="card-arrow">›</div>
   </a>
-  <a class="card" href="/map">
+  <a class="card" href="{{ API_BASE }}/map">
     <div class="card-icon">🗺️</div>
     <div class="card-body">
       <div class="card-title">院校分布地图</div>
@@ -86,7 +86,7 @@ body{font-family:'PingFang SC',system-ui,sans-serif;background:#080F1A;color:#D0
     </div>
     <div class="card-arrow">›</div>
   </a>
-  <a class="card" href="/mc" id="mcCard">
+  <a class="card" href="{{ API_BASE }}/mc" id="mcCard">
     <div class="card-icon">🎲</div>
     <div class="card-body">
       <div class="card-title">蒙特卡洛仿真</div>
@@ -95,7 +95,7 @@ body{font-family:'PingFang SC',system-ui,sans-serif;background:#080F1A;color:#D0
     </div>
     <div class="card-arrow">›</div>
   </a>
-  <a class="card" href="/ai-jobs">
+  <a class="card" href="{{ API_BASE }}/ai-jobs">
     <div class="card-icon">🤖</div>
     <div class="card-body">
       <div class="card-title">职业 AI 影响度全景图</div>
@@ -148,9 +148,10 @@ body{font-family:'PingFang SC',system-ui,sans-serif;background:#080F1A;color:#D0
 </div>
 
 <script>
+const API_BASE = '{{ API_BASE|default("") }}';
 async function checkStatus(){
   try {
-    const r = await fetch('/api/status');
+    const r = await fetch(API_BASE + '/api/status');
     const d = await r.json();
     if(d.has_plan){
       document.getElementById('sbText').textContent=`已有方案：${d.score}分 · ${d.plan_count}志愿`;
@@ -162,7 +163,7 @@ async function checkStatus(){
 
 async function loadHistory(){
   try {
-    const r = await fetch('/api/history');
+    const r = await fetch(API_BASE + '/api/history');
     const d = await r.json();
     const list = d.history || [];
     const el = document.getElementById('histList');
@@ -184,12 +185,12 @@ async function loadHistory(){
 
 async function restoreHistory(idx){
   try {
-    const r = await fetch('/api/history/'+idx, {method:'POST'});
+    const r = await fetch(API_BASE + '/api/history/'+idx, {method:'POST'});
     const d = await r.json();
     if(d.ok){
       // 把恢复的数据存到 sessionStorage，由 plan.html 读取后展示
       sessionStorage.setItem('restored_plan', JSON.stringify(d));
-      window.location.href = '/plan?restored=1';
+      window.location.href = API_BASE + '/plan?restored=1';
     }
   } catch(e){ alert('恢复失败'); }
 }
