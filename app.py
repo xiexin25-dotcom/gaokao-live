@@ -1068,6 +1068,57 @@ def _build_plan_summary(plan_data, profile, mc_data):
     return plan_text, ''  # mc 已内嵌到每行
 
 
+def _replenish_plan_session(sid, target_count=40):
+    """AI修正后自动补足志愿到目标数量（复用 build_plan 逻辑）"""
+    from copy import deepcopy
+    with _SESSION_LOCK:
+        sess = _get_session(sid)
+        if 'plan' not in sess:
+            return 0
+        current_vols = sess['plan']['plan_vols']
+        profile = deepcopy(sess.get('profile', {}))
+
+    if len(current_vols) >= target_count:
+        return 0
+
+    need = target_count - len(current_vols)
+    existing_gcodes = {str(v['gcode']) for v in current_vols}
+
+    try:
+        full_result = build_plan(profile)
+        full_vols = full_result.get('plan_vols', [])
+        candidates = [v for v in full_vols if str(v['gcode']) not in existing_gcodes]
+        added = candidates[:need]
+        if not added:
+            return 0
+
+        merged = list(current_vols) + added
+        score = profile.get('score', 500)
+        for v in merged:
+            sc6 = v.get('sc6')
+            gmin = v.get('gmin25')
+            gmin_f = float(gmin) if gmin is not None else 0
+            if gmin_f > score:
+                v['tp'] = '冲'
+            elif sc6 is not None:
+                diff = score - sc6
+                v['tp'] = '冲' if diff < 0 else ('稳' if diff < 10 else '保')
+            else:
+                v['tp'] = '稳' if gmin_f <= score else '冲'
+
+        tp_order = {'冲': 0, '稳': 1, '保': 2}
+        merged.sort(key=lambda v: (tp_order.get(v.get('tp', '稳'), 1), -(v.get('sc6') or 0)))
+        for i, v in enumerate(merged):
+            v['vol_idx'] = i + 1
+
+        with _SESSION_LOCK:
+            _get_session(sid)['plan']['plan_vols'] = merged
+        return len(added)
+    except Exception as e:
+        print(f"[AI修正] 自动补充志愿失败: {e}", flush=True)
+        return 0
+
+
 def _apply_corrections_to_session(actions, sid):
     """将修正指令应用到 SESSION（线程安全）"""
     applied = []
@@ -1276,12 +1327,19 @@ def _ai_review_worker(sid, prompt_text, ai_model='claude'):
 
         review = json.loads(raw)
 
-        # 自动应用修正
+        # 自动应用修正（删除不合理志愿 + 重分类）
         corrections = review.get('corrections', [])
         applied = []
         if corrections:
             applied = _apply_corrections_to_session(corrections, sid)
-            # 序列化修正后的方案
+
+        # 删除后自动补充志愿到40个
+        replenished = _replenish_plan_session(sid, target_count=40)
+        if replenished > 0:
+            applied.append(f"自动补充 {replenished} 个志愿至40个")
+
+        # 只要有任何修改（删除/补充/重分类），都序列化返回给前端刷新
+        if corrections or replenished > 0:
             vols_out, stats, mc, profile, mode, count = _serialize_plan(sid)
         else:
             vols_out, stats, mc, profile, mode, count = None, None, None, None, None, None
