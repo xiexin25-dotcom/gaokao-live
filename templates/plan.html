@@ -1745,7 +1745,7 @@ function buildVolListHTML(vols, profile){
       const r25txt = m.r25 ? m.r25.toLocaleString() : '';
       return `<div class="mj-row${sybanAll?' has-syban':''}" ${sybanAll?'onclick="event.stopPropagation();toggleSyban(this)"':''}>
         <span class="mj-idx">${mi+1}</span>
-        <span class="mj-name" title="${m.name}">${simplifyMajorName(m.name)}${coldTag}${zxTag}${sybanTag}</span>
+        <span class="mj-name" title="${m.full_name||m.name}">${simplifyMajorName(m.name)}${m.sub_name?`<span style="font-size:11px;color:rgba(0,0,0,.4);margin-left:3px">(${esc(m.sub_name)})</span>`:''}${coldTag}${zxTag}${sybanTag}</span>
         ${feeTxt?`<span class="mj-fee">${feeTxt}</span>`:''}
         <span class="mj-s">${m.s25||'?'}分</span>
         ${r25txt?`<span class="mj-rank">${r25txt}位</span>`:''}

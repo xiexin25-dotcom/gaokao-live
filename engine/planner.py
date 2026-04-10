@@ -309,6 +309,13 @@ def build_plan(profile: dict) -> dict:
         elif '地方专项计划' in _zx_text:
             _zx_type = '地方专项'
 
+        # 提取备注中第一个括号内的分类标签作为副标题（区分同名试验班）
+        _sub_name = ''
+        if _remark:
+            _paren = re.search(r'[（(]([^）)]{2,20})[）)]', _remark)
+            if _paren:
+                _sub_name = _paren.group(1)
+
         g['majors'].append({
             'name': _major_name, 's25': row['s25'],
             's24': row['s24'],   's23': row['s23'],
@@ -319,6 +326,7 @@ def build_plan(profile: dict) -> dict:
             'syban_all':    _syban_all,   # 全量分流专业
             'zhuanxiang': _zx_type,       # 专项计划类型（空=非专项）
             'full_name': _full_name if _full_name != _major_name else '',
+            'sub_name': _sub_name,        # 备注分类标签（如"电气类""计算机科学技术类"）
         })
         # 推算组级多年最低分（取组内所有专业的年度最低值）
         s24v = row['s24'] if pd.notna(row['s24']) else None
