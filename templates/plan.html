@@ -2288,7 +2288,7 @@ async function doInsertSearch(){
       // 直填模式：搜索单条专业
       const r = await fetch(`/api/search_direct?q=${encodeURIComponent(q)}&ke=${encodeURIComponent(ke)}&score=${score}&prov=${encodeURIComponent(prov)}`);
       const data = await r.json();
-      if(data.error){ document.getElementById('insResults').innerHTML=`<div class="ins-empty">${data.error}</div>`; return; }
+      if(data.error){ document.getElementById('insResults').innerHTML=`<div class="ins-empty">${esc(data.error)}</div>`; return; }
       if(!data.results||!data.results.length){ document.getElementById('insResults').innerHTML='<div class="ins-empty">未找到匹配院校专业</div>'; return; }
       _insDirectCache = data.results;
       const existKeys = new Set(generatedVols.map(v=>`${v.school}|${v.major}`));
@@ -2297,40 +2297,40 @@ async function doInsertSearch(){
         const alreadyIn = existKeys.has(key);
         const diff = r.diff>0?`+${Math.round(r.diff)}`:`${Math.round(r.diff)}`;
         const dColor = r.diff>0?'#FF3B30':r.diff<-3?'#34C759':'rgba(0,0,0,.4)';
-        const lv = r.school_lv&&r.school_lv!=='nan'?`<span style="color:#007AFF;font-size:13px">${r.school_lv}</span>`:'';
+        const lv = r.school_lv&&r.school_lv!=='nan'?`<span style="color:#007AFF;font-size:13px">${esc(r.school_lv)}</span>`:'';
         return `<div class="ins-g${alreadyIn?' ins-g-dup':''}" onclick="${alreadyIn?'alert(\'该志愿已在列表中\')':'insertDirect('+idx+')'}" title="${alreadyIn?'已填报':'点击插入'}">
           <div class="ins-g-hdr">
-            <span class="ins-g-name">${r.school}</span> ${lv}
+            <span class="ins-g-name">${esc(r.school)}</span> ${lv}
             ${alreadyIn?'<span style="font-size:13px;color:#FF9500">已填报</span>':''}
           </div>
-          <div class="ins-g-scores">▸ ${r.major} | ${r.s25}分 <span style="color:${dColor}">(${diff})</span> | ${r.city}</div>
+          <div class="ins-g-scores">▸ ${esc(r.major)} | ${r.s25}分 <span style="color:${dColor}">(${diff})</span> | ${esc(r.city)}</div>
         </div>`;
       }).join('');
     } else {
       // 院校专业组模式
       const r = await fetch(`/api/search_groups?q=${encodeURIComponent(q)}&ke=${encodeURIComponent(ke)}&score=${score}`);
       const data = await r.json();
-      if(data.error){ document.getElementById('insResults').innerHTML=`<div class="ins-empty">${data.error}</div>`; return; }
+      if(data.error){ document.getElementById('insResults').innerHTML=`<div class="ins-empty">${esc(data.error)}</div>`; return; }
       if(!data.groups||!data.groups.length){ document.getElementById('insResults').innerHTML='<div class="ins-empty">未找到匹配院校</div>'; return; }
       _insGroupCache = data.groups;
       const existGcodes = new Set(generatedVols.map(v=>String(v.gcode)));
       document.getElementById('insResults').innerHTML = data.groups.map((g, idx)=>{
         const alreadyIn = existGcodes.has(String(g.gcode));
-        const lvBadge = g.lv_label && g.lv_label!=='其他' ? `<span class="tag t-gray" style="font-size:13px">${g.lv_label}</span>` : '';
-        const mjPreview = g.majors.slice(0,4).map(m=>m.name).join('、');
+        const lvBadge = g.lv_label && g.lv_label!=='其他' ? `<span class="tag t-gray" style="font-size:13px">${esc(g.lv_label)}</span>` : '';
+        const mjPreview = g.majors.slice(0,4).map(m=>esc(m.name)).join('、');
         return `<div class="ins-g${alreadyIn?' ins-g-dup':''}" onclick="${alreadyIn?'alert(\'该院校专业组已在志愿表中\')':'insertGroup('+idx+')'}" title="${alreadyIn?'已在志愿表中':'点击插入'}">
           <div class="ins-g-hdr">
-            <span class="ins-g-name">${g.school}</span>
+            <span class="ins-g-name">${esc(g.school)}</span>
             ${lvBadge}
             ${alreadyIn?'<span style="font-size:13px;color:#FF9500">已填报</span>':''}
           </div>
-          <div class="ins-g-scores">${g.city}·${g.cr_label} | 组最低分 ${g.gmin25}分 | sc6 ${g.sc6}分</div>
+          <div class="ins-g-scores">${esc(g.city)}·${esc(g.cr_label)} | 组最低分 ${g.gmin25}分 | sc6 ${g.sc6}分</div>
           <div class="ins-g-mjs">${mjPreview}${g.majors.length>4?` 等${g.majors.length}个专业`:''}</div>
         </div>`;
       }).join('');
     }
   }catch(e){
-    document.getElementById('insResults').innerHTML=`<div class="ins-empty">请求失败: ${e.message}</div>`;
+    document.getElementById('insResults').innerHTML=`<div class="ins-empty">请求失败: ${esc(e.message||'请求失败')}</div>`;
   }
 }
 

@@ -13,6 +13,15 @@ def _safe_int(val, default=0):
     except (TypeError, ValueError):
         return default
 
+def _sanitize_prompt_input(text, max_len=200):
+    """清理用户输入，防止 prompt 注入（去除控制字符、截断长度）"""
+    if not isinstance(text, str):
+        return ''
+    # 移除可能破坏 prompt 结构的字符
+    import re
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)  # 控制字符
+    return text.strip()[:max_len]
+
 sys.path.insert(0, os.path.dirname(__file__))
 from engine.planner import (build_plan, build_plan_direct, mc_simulate,
                              optimize_plan, export_excel, export_excel_direct,
@@ -53,7 +62,7 @@ def _get_sid():
         return g._gaokao_sid
     sid = request.cookies.get('gaokao_sid') or request.headers.get('X-Session-Id')
     if not sid:
-        sid = str(_uuid.uuid4())[:12]
+        sid = str(_uuid.uuid4())
     g._gaokao_sid = sid
     return sid
 
@@ -95,6 +104,18 @@ class _SessionProxy(dict):
 
 SESSION = _SessionProxy()   # 全局变量保持不变，底层按 session_id 隔离
 
+# ── 全局限流（计算密集接口，每 session 2秒冷却）──────────────
+_API_LAST_TIME = {}  # {sid: timestamp}
+
+def _rate_limit(cooldown=2.0):
+    """限流检查，返回 (通过, 错误响应)"""
+    sid = _get_sid()
+    now = time.time()
+    if now - _API_LAST_TIME.get(sid, 0) < cooldown:
+        return False, jsonify({'error': '请求过于频繁，请稍后再试'}), 429
+    _API_LAST_TIME[sid] = now
+    return True, None, None
+
 # ── 全局模板变量：API_BASE 支持子路径部署 ──────────────────
 API_BASE = os.environ.get('API_BASE', '').rstrip('/')
 
@@ -103,11 +124,18 @@ def _inject_api_base():
     return {'API_BASE': API_BASE}
 
 @app.after_request
-def _set_session_cookie(response):
-    """首次访问时设置 gaokao_sid cookie"""
+def _set_security_headers(response):
+    """安全头 + 首次访问时设置 gaokao_sid cookie"""
+    # 安全 Headers
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    # Session Cookie
     if not request.cookies.get('gaokao_sid'):
         sid = _get_sid()
-        response.set_cookie('gaokao_sid', sid, max_age=86400*30, httponly=True, samesite='Lax')
+        response.set_cookie('gaokao_sid', sid, max_age=86400*7, httponly=True,
+                            samesite='Strict', secure=request.is_secure)
     return response
 
 # ── 历史方案持久化（双通道：SQLite 优先，JSON 文件回退）────
@@ -366,12 +394,9 @@ def api_batch_status():
 
 @app.route('/api/generate', methods=['POST'])
 def api_generate():
-    """
-    根据考生信息生成志愿方案
-    Body JSON:
-      score, ke_lei, target_kw, exclude_kw,
-      exclude_northeast, min_city_rank, school_pref
-    """
+    """根据考生信息生成志愿方案"""
+    ok, *err = _rate_limit(2.0)
+    if not ok: return err[0], err[1]
     body = request.json or {}
     try:
         score = int(body.get('score', 0))
@@ -604,6 +629,8 @@ def api_generate():
 @app.route('/api/simulate', methods=['POST'])
 def api_simulate():
     """对当前方案做MC模拟（自定义参数）"""
+    ok, *err = _rate_limit(1.0)
+    if not ok: return err[0], err[1]
     if 'plan' not in SESSION:
         return jsonify({'error': '请先生成志愿方案'}), 400
     if SESSION.get('plan', {}).get('mode') == 'direct':
@@ -671,6 +698,8 @@ def api_optimize():
     多轮MC迭代优化：替换无效志愿，逼近对话版效果。
     Body: { max_rounds: 10, mc_n: 8000, noise_pct: 15 }
     """
+    ok, *err = _rate_limit(2.0)
+    if not ok: return err[0], err[1]
     if 'plan' not in SESSION:
         return jsonify({'error': '请先生成志愿方案'}), 400
     with _SESSION_LOCK:
@@ -992,9 +1021,10 @@ def api_chat():
         'generationConfig': {'maxOutputTokens': 1024, 'temperature': 0.7},
     }).encode('utf-8')
 
-    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}'
+    url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
     req = urllib.request.Request(url, data=payload,
-                                 headers={'Content-Type': 'application/json'},
+                                 headers={'Content-Type': 'application/json',
+                                          'x-goog-api-key': api_key},
                                  method='POST')
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
@@ -1003,14 +1033,9 @@ def api_chat():
         reply = result['candidates'][0]['content']['parts'][0]['text']
         return jsonify({'ok': True, 'reply': reply})
     except urllib.error.HTTPError as e:
-        err_body = e.read().decode('utf-8')
-        try:
-            err_msg = json.loads(err_body).get('error', {}).get('message', err_body)
-        except Exception:
-            err_msg = err_body
-        return jsonify({'error': f'Gemini API错误 {e.code}: {err_msg}'}), 502
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'AI 服务暂时不可用（错误码 {e.code}），请稍后重试'}), 502
+    except Exception:
+        return jsonify({'error': 'AI 服务请求失败，请检查网络或 API Key'}), 500
 
 
 _AI_REVIEW_DIR = os.path.join(BASE, 'data', 'ai_review')
@@ -1276,15 +1301,20 @@ def api_ai_review():
     review_mode = body.get('mode', 'standard')  # standard | zhangxuefeng
 
     base_prompt = ZXF_REVIEW_PROMPT if review_mode == 'zhangxuefeng' else AI_REVIEW_PROMPT
+    # 清理用户输入防止 prompt 注入
+    safe_target = _sanitize_prompt_input('、'.join(profile.get('target_kw', [])) or '未指定', 300)
+    safe_exclude = _sanitize_prompt_input('、'.join(profile.get('exclude_kw', [])) or '无', 300)
+    safe_user_prompt = _sanitize_prompt_input(user_prompt, 500)
+
     prompt_text = base_prompt.format(
         score=score,
         ke_lei=profile.get('ke_lei', '物理'),
-        target_kw='、'.join(profile.get('target_kw', [])) or '未指定',
-        exclude_kw='、'.join(profile.get('exclude_kw', [])) or '无',
+        target_kw=safe_target,
+        exclude_kw=safe_exclude,
         plan_json=plan_json,
     )
-    if user_prompt:
-        prompt_text += f'\n\n用户额外要求：{user_prompt}'
+    if safe_user_prompt:
+        prompt_text += f'\n\n用户额外要求：{safe_user_prompt}'
 
     t = threading.Thread(target=_ai_review_worker, args=(sid, prompt_text), daemon=True)
     t.start()
@@ -1746,8 +1776,8 @@ def api_search_groups():
     q     = request.args.get('q', '').strip()
     ke    = request.args.get('ke', '物理').strip()
     score = _safe_int(request.args.get('score', 0))
-    if not q or len(q) < 2:
-        return jsonify({'error': '请输入至少2个字'}), 400
+    if not q or len(q) < 2 or len(q) > 50:
+        return jsonify({'error': '搜索词长度需在2-50字之间'}), 400
     try:
         from engine.planner import school_level, city_rank as cr_fn, LV_LABEL, CR_LABEL
         df  = load_raw_df()
@@ -1799,8 +1829,8 @@ def api_search_direct():
     ke    = request.args.get('ke', '物理').strip()
     prov  = request.args.get('prov', '').strip()
     score = _safe_int(request.args.get('score', 0))
-    if not q or len(q) < 2:
-        return jsonify({'error': '请输入至少2个字'}), 400
+    if not q or len(q) < 2 or len(q) > 50:
+        return jsonify({'error': '搜索词长度需在2-50字之间'}), 400
     if not prov:
         return jsonify({'error': '缺少省份参数'}), 400
     try:

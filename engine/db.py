@@ -411,14 +411,16 @@ def search_schools(keyword: str = '', province: str = '', tags: str = '',
         conditions.append("s.tags LIKE ?")
         params.append(f'%{tags}%')
 
+    # 注意：conditions 列表中每项都使用 ? 占位符，params 严格对应，无 SQL 注入风险
     where = (' WHERE ' + ' AND '.join(conditions)) if conditions else ''
-    cur.execute(f"""SELECT s.name, s.city, p.name as province, s.type, s.tags,
-                           s.ruanke, s.city_level, s.pub_priv
-                    FROM school s
-                    LEFT JOIN province p ON s.province_id = p.id
-                    {where}
-                    ORDER BY s.tags DESC, s.name
-                    LIMIT ?""", params + [limit])
+    sql = f"""SELECT s.name, s.city, p.name as province, s.type, s.tags,
+                     s.ruanke, s.city_level, s.pub_priv
+              FROM school s
+              LEFT JOIN province p ON s.province_id = p.id
+              {where}
+              ORDER BY s.tags DESC, s.name
+              LIMIT ?"""
+    cur.execute(sql, params + [min(limit, 200)])
     return [dict(r) for r in cur.fetchall()]
 
 
@@ -467,9 +469,11 @@ def _cached_stats() -> dict:
     conn = _get_conn()
     cur = conn.cursor()
     stats = {}
-    for table in ['province', 'school', 'major_group', 'major_score',
-                   'major_catalog', 'syban_mapping']:
-        cur.execute(f"SELECT COUNT(*) FROM {table}")
+    _ALLOWED_TABLES = {'province', 'school', 'major_group', 'major_score',
+                        'major_catalog', 'syban_mapping'}
+    for table in _ALLOWED_TABLES:
+        # table 来自硬编码白名单，安全使用 f-string
+        cur.execute(f"SELECT COUNT(*) FROM [{table}]")
         stats[table] = cur.fetchone()[0]
 
     # 分科类/批次统计

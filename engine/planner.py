@@ -95,11 +95,33 @@ def load_raw_df():
     if _df_cache_fallback is not None:
         return _df_cache_fallback
 
-    # ── 回退：pickle 缓存 ──
+    # ── 回退：pickle 缓存（仅信任本地生成的文件） ──
     if os.path.exists(CACHE_PATH):
+        import hashlib, hmac
+        _cache_dir = os.path.dirname(CACHE_PATH)
+        _sig_path = CACHE_PATH + '.sig'
         with open(CACHE_PATH, 'rb') as f:
-            _df_cache_fallback = pickle.load(f)
-        return _df_cache_fallback
+            data = f.read()
+        # 校验签名（首次无签名时自动信任并生成）
+        _secret = hashlib.sha256(os.path.abspath(_cache_dir).encode()).digest()
+        expected_sig = hmac.new(_secret, data, hashlib.sha256).hexdigest()
+        if os.path.exists(_sig_path):
+            with open(_sig_path, 'r') as sf:
+                stored_sig = sf.read().strip()
+            if not hmac.compare_digest(stored_sig, expected_sig):
+                print("  ⚠️ pickle 缓存签名不匹配，已跳过（可能被篡改）")
+            else:
+                _df_cache_fallback = pickle.loads(data)
+                return _df_cache_fallback
+        else:
+            # 首次加载：信任并生成签名
+            _df_cache_fallback = pickle.loads(data)
+            try:
+                with open(_sig_path, 'w') as sf:
+                    sf.write(expected_sig)
+            except Exception:
+                pass
+            return _df_cache_fallback
 
     # ── 回退：直读 Excel（首次运行 / 无DB时） ──
     import openpyxl

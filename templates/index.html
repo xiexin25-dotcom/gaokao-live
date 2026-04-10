@@ -150,6 +150,7 @@ body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background
 
 <script>
 const API_BASE = '{{ API_BASE|default("") }}';
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 async function checkStatus(){
   try {
     const r = await fetch(API_BASE + '/api/status');
@@ -176,8 +177,8 @@ async function loadHistory(){
       <div class="hist-item" onclick="restoreHistory(${h.idx})">
         <div class="hist-score">${h.score}分</div>
         <div class="hist-info">
-          <div style="font-size:17px;font-weight:700;color:#1D1D1F">${h.ke}选科 · ${h.tgt||'未指定方向'}</div>
-          <div class="hist-meta">${h.ts} · ${h.n_vols}个志愿 · 冲击率${h.rush_rate}%</div>
+          <div style="font-size:17px;font-weight:700;color:#1D1D1F">${esc(h.ke)}选科 · ${esc(h.tgt||'未指定方向')}</div>
+          <div class="hist-meta">${esc(h.ts)} · ${h.n_vols}个志愿 · 冲击率${h.rush_rate}%</div>
         </div>
         <div class="hist-badge">恢复方案 ›</div>
       </div>`).join('');

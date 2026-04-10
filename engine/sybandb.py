@@ -48,14 +48,25 @@ def load_syban_map() -> dict:
     if _syban_cache is not None:
         return _syban_cache
 
-    # 尝试加载 pickle 缓存
+    # 尝试加载 pickle 缓存（带签名校验）
     if os.path.exists(_CACHE_PATH):
         try:
+            import hashlib, hmac
+            _sig_path = _CACHE_PATH + '.sig'
             with open(_CACHE_PATH, 'rb') as f:
-                cached = pickle.load(f)
-            if isinstance(cached, dict) and cached.get('_ver') == _CACHE_VER:
-                _syban_cache = cached['map']
-                return _syban_cache
+                data = f.read()
+            _secret = hashlib.sha256(os.path.abspath(os.path.dirname(_CACHE_PATH)).encode()).digest()
+            computed = hmac.new(_secret, data, hashlib.sha256).hexdigest()
+            if os.path.exists(_sig_path):
+                with open(_sig_path, 'r') as sf:
+                    stored = sf.read().strip()
+                if not hmac.compare_digest(stored, computed):
+                    data = None  # 签名不匹配，跳过
+            if data:
+                cached = pickle.loads(data)
+                if isinstance(cached, dict) and cached.get('_ver') == _CACHE_VER:
+                    _syban_cache = cached['map']
+                    return _syban_cache
         except Exception:
             pass
 
@@ -86,10 +97,16 @@ def load_syban_map() -> dict:
 
     _syban_cache = {k: frozenset(v) for k, v in tmp.items()}
 
-    # 写缓存
+    # 写缓存（附带 HMAC 签名）
     try:
+        import hashlib, hmac as _hmac
+        data = pickle.dumps({'_ver': _CACHE_VER, 'map': _syban_cache})
         with open(_CACHE_PATH, 'wb') as f:
-            pickle.dump({'_ver': _CACHE_VER, 'map': _syban_cache}, f)
+            f.write(data)
+        _secret = hashlib.sha256(os.path.abspath(os.path.dirname(_CACHE_PATH)).encode()).digest()
+        sig = _hmac.new(_secret, data, hashlib.sha256).hexdigest()
+        with open(_CACHE_PATH + '.sig', 'w') as sf:
+            sf.write(sig)
     except Exception:
         pass
 

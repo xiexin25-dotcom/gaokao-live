@@ -139,6 +139,7 @@ body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background
 
 <script>
 const API_BASE = '{{ API_BASE|default("") }}';
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 // ══════════════════════════════════════════════════════════
 //  342 → 精选 120+ 个中国主流职业数据
 // ══════════════════════════════════════════════════════════
@@ -387,7 +388,7 @@ function renderTreemap() {
     const showMeta = w > 50 && h > 36;
 
     cell.innerHTML = `<div class="cell-inner" style="background:${bg}">
-      ${showName ? `<div class="cell-name">${d.name}</div>` : ''}
+      ${showName ? `<div class="cell-name">${esc(d.name)}</div>` : ''}
       ${showMeta ? `<div class="cell-meta">${sizeMode==='employment' ? d.emp+'万人' : d.salary+'万/年'}</div>` : ''}
     </div>`;
 
@@ -406,12 +407,12 @@ function showTooltip(e, d) {
   const aiColor = d.ai >= 7 ? '#FF3B30' : d.ai >= 4 ? '#FF9500' : '#34C759';
   const growthColor = d.growth > 0 ? '#34C759' : d.growth < -5 ? '#FF3B30' : '#FF9500';
   const majorsHtml = d.majors.length
-    ? d.majors.map(m => `<span class="tt-major-tag">${m}</span>`).join('')
+    ? d.majors.map(m => `<span class="tt-major-tag">${esc(m)}</span>`).join('')
     : '<span style="font-size:14px;color:rgba(0,0,0,.25)">无特定专业要求</span>';
 
   tt.innerHTML = `
-    <div class="tt-title">${d.name}</div>
-    <div class="tt-cat">${d.cat}</div>
+    <div class="tt-title">${esc(d.name)}</div>
+    <div class="tt-cat">${esc(d.cat)}</div>
     <div class="tt-grid">
       <div class="tt-item"><div class="tt-item-val">${d.emp}<span style="font-size:15px">万</span></div><div class="tt-item-lbl">就业人数</div></div>
       <div class="tt-item"><div class="tt-item-val">${d.salary}<span style="font-size:15px">万/年</span></div><div class="tt-item-lbl">中位薪资</div></div>
@@ -423,7 +424,7 @@ function showTooltip(e, d) {
       <div class="tt-ai-track"><div class="tt-ai-fill" style="width:${aiPct}%;background:${aiColor}"></div></div>
       <div class="tt-ai-score" style="color:${aiColor}">${d.ai} <span style="font-size:15px;color:rgba(0,0,0,.3)">/ 10</span></div>
     </div>
-    <div class="tt-desc">${d.desc}</div>
+    <div class="tt-desc">${esc(d.desc)}</div>
     <div class="tt-majors">
       <div class="tt-majors-title">对口高考专业</div>
       ${majorsHtml}

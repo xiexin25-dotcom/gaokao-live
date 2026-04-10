@@ -189,6 +189,7 @@ textarea::placeholder{color:rgba(0,0,0,.25)}
 
 <script>
 const API_BASE = '{{ API_BASE|default("") }}';
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 let history = [];
 let hasKey  = false;
 let hasPlan = false;
@@ -308,7 +309,7 @@ async function send(preset){
     });
     const d = await res.json();
     if(d.error){
-      typingBubble.innerHTML = `<span style="color:#FF3B30">❌ ${d.error}</span>`;
+      typingBubble.innerHTML = `<span style="color:#FF3B30">&#x274C; ${esc(d.error)}</span>`;
       return;
     }
     typingBubble.innerHTML = renderMd(d.reply);
@@ -317,7 +318,7 @@ async function send(preset){
     history.push({role:'assistant', content:d.reply});
     if(history.length > 40) history = history.slice(-40);
   } catch(e){
-    typingBubble.innerHTML = `<span style="color:#FF3B30">❌ 网络错误: ${e.message}</span>`;
+    typingBubble.innerHTML = `<span style="color:#FF3B30">&#x274C; 网络错误: ${esc(e.message)}</span>`;
   } finally {
     document.getElementById('sendBtn').disabled = false;
     document.getElementById('msgList').scrollTop = 9999;
