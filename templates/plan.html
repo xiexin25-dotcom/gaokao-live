@@ -919,17 +919,30 @@ select optgroup{background:#F0F0F2;color:rgba(0,0,0,.5);font-style:normal;font-w
       <span class="arv-close" onclick="closeAiInput()">×</span>
     </div>
     <div class="arv-body" style="padding:16px 18px 18px">
-      <div style="font-size:15px;color:rgba(0,0,0,.45);margin-bottom:10px;line-height:1.5">
-        AI 将审核当前方案并自动修正问题。你可以补充具体要求，也可以留空直接开始。
+      <!-- 模式选择 -->
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button id="aiModeStd" onclick="setAiReviewMode('standard')"
+          style="flex:1;padding:10px;border-radius:10px;border:2px solid #007AFF;background:rgba(0,122,255,.08);
+          color:#007AFF;font-size:15px;font-weight:800;cursor:pointer;transition:.15s">
+          🤖 标准审核
+        </button>
+        <button id="aiModeZxf" onclick="setAiReviewMode('zhangxuefeng')"
+          style="flex:1;padding:10px;border-radius:10px;border:2px solid rgba(0,0,0,.1);background:#fff;
+          color:rgba(0,0,0,.4);font-size:15px;font-weight:800;cursor:pointer;transition:.15s">
+          🔥 张雪峰模式
+        </button>
       </div>
-      <textarea id="aiUserPrompt" rows="3" placeholder="例如：优先保留985院校、去掉学费超过2万的专业、计算机相关专业往前排…"
+      <div id="aiModeDesc" style="font-size:14px;color:rgba(0,0,0,.4);margin-bottom:10px;line-height:1.5;padding:8px 10px;background:rgba(0,0,0,.03);border-radius:8px">
+        标准模式：按冲稳保规则、退档风险、排除专业等技术维度审核方案。
+      </div>
+      <textarea id="aiUserPrompt" rows="3" placeholder="补充具体要求（可留空）：优先保留985院校、去掉学费超2万的专业…"
         style="width:100%;box-sizing:border-box;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.12);
-        border-radius:10px;color:#1D1D1F;font-size:17px;padding:10px 12px;resize:vertical;outline:none;
+        border-radius:10px;color:#1D1D1F;font-size:16px;padding:10px 12px;resize:vertical;outline:none;
         font-family:inherit;line-height:1.5"></textarea>
       <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end">
         <button onclick="closeAiInput()" style="padding:8px 18px;border-radius:8px;border:1px solid rgba(0,0,0,.12);
           background:transparent;color:rgba(0,0,0,.5);font-size:15px;cursor:pointer">取消</button>
-        <button onclick="submitAiReview()" style="padding:8px 22px;border-radius:8px;border:none;
+        <button onclick="submitAiReview()" id="aiSubmitBtn" style="padding:8px 22px;border-radius:8px;border:none;
           background:linear-gradient(135deg,#AF52DE,#5E5CE6);color:#fff;font-size:15px;font-weight:700;cursor:pointer">开始审核</button>
       </div>
     </div>
@@ -4067,6 +4080,28 @@ function closeAiReview(){
   if(_aiPollTimer){ clearInterval(_aiPollTimer); _aiPollTimer=null; }
 }
 
+let _aiReviewMode = 'standard';
+function setAiReviewMode(mode){
+  _aiReviewMode = mode;
+  const stdBtn = document.getElementById('aiModeStd');
+  const zxfBtn = document.getElementById('aiModeZxf');
+  const desc   = document.getElementById('aiModeDesc');
+  const submit = document.getElementById('aiSubmitBtn');
+  const prompt = document.getElementById('aiUserPrompt');
+  if(mode === 'zhangxuefeng'){
+    zxfBtn.style.borderColor='#FF3B30'; zxfBtn.style.background='rgba(255,59,48,.08)'; zxfBtn.style.color='#FF3B30';
+    stdBtn.style.borderColor='rgba(0,0,0,.1)'; stdBtn.style.background='#fff'; stdBtn.style.color='rgba(0,0,0,.4)';
+    desc.innerHTML='🔥 <b>张雪峰模式</b>：用就业倒推法审核。天坑专业预警、城市优先、阶层现实主义视角。语气直接犀利。';
+    submit.style.background='linear-gradient(135deg,#FF3B30,#FF9500)';
+    prompt.placeholder='补充要求（可留空）：家里条件一般想稳就业、想留在一线城市…';
+  } else {
+    stdBtn.style.borderColor='#007AFF'; stdBtn.style.background='rgba(0,122,255,.08)'; stdBtn.style.color='#007AFF';
+    zxfBtn.style.borderColor='rgba(0,0,0,.1)'; zxfBtn.style.background='#fff'; zxfBtn.style.color='rgba(0,0,0,.4)';
+    desc.innerHTML='标准模式：按冲稳保规则、退档风险、排除专业等技术维度审核方案。';
+    submit.style.background='linear-gradient(135deg,#AF52DE,#5E5CE6)';
+    prompt.placeholder='补充具体要求（可留空）：优先保留985院校、去掉学费超2万的专业…';
+  }
+}
 function openAiInput(){ document.getElementById('aiInputOverlay').style.display='flex'; document.getElementById('aiUserPrompt').focus(); }
 function closeAiInput(){ document.getElementById('aiInputOverlay').style.display='none'; }
 
@@ -4077,6 +4112,10 @@ async function doAiReview(){
 
 async function submitAiReview(){
   const userPrompt = document.getElementById('aiUserPrompt').value.trim();
+  const mode = _aiReviewMode;
+  const isZxf = mode === 'zhangxuefeng';
+  const modeLabel = isZxf ? '🔥 张雪峰' : '🤖 Claude';
+  const modeColor = isZxf ? '#FF3B30' : '#AF52DE';
   closeAiInput();
   _aiReviewBusy = true;
   const btn = document.getElementById('btnAiReview');
@@ -4085,7 +4124,7 @@ async function submitAiReview(){
   document.getElementById('aiReviewBody').innerHTML =
     '<div style="text-align:center;padding:40px;color:rgba(0,0,0,.4)">' +
     '<div style="font-size:28px;margin-bottom:12px;animation:spin 1.5s linear infinite">⚙</div>' +
-    '<div style="font-size:18px;font-weight:800;color:#AF52DE;margin-bottom:8px">Claude Code 正在审核方案…</div>' +
+    '<div style="font-size:18px;font-weight:800;color:'+modeColor+';margin-bottom:8px">'+modeLabel+' 正在审核方案…</div>' +
     '<div style="font-size:15px;color:rgba(0,0,0,.35)">自动完成审核和修正，通常需要 1-3 分钟</div>' +
     (userPrompt ? '<div style="font-size:15px;color:rgba(0,0,0,.25);margin-top:10px;padding:6px 10px;background:rgba(0,0,0,.04);border-radius:6px">📝 ' + esc(userPrompt) + '</div>' : '') +
     '<div style="margin-top:18px"><div class="typing"><span></span><span></span><span></span></div></div>' +
@@ -4094,7 +4133,7 @@ async function submitAiReview(){
   try {
     const res = await fetch(API_BASE + '/api/ai_review', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({user_prompt: userPrompt})
+      body: JSON.stringify({user_prompt: userPrompt, mode: mode})
     });
     const d = await res.json();
     if(d.error){

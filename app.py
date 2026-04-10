@@ -18,7 +18,7 @@ from engine.planner import (build_plan, build_plan_direct, mc_simulate,
                              optimize_plan, export_excel, export_excel_direct,
                              KW_LIB, EXCLUDE_PRESETS, load_raw_df,
                              _DIRECT_PROV_CFG)
-from engine.system_prompt import SYSTEM_PROMPT, AI_REVIEW_PROMPT
+from engine.system_prompt import SYSTEM_PROMPT, AI_REVIEW_PROMPT, ZXF_REVIEW_PROMPT
 from engine import db as gaokao_db
 
 # ── PyInstaller 打包路径兼容 ──────────────────────────────
@@ -1271,9 +1271,12 @@ def api_ai_review():
     score = profile.get('score', 0)
     plan_json, mc_summary = _build_plan_summary(plan_data, profile, mc_data)
 
-    user_prompt = (request.get_json(silent=True) or {}).get('user_prompt', '').strip()
+    body = request.get_json(silent=True) or {}
+    user_prompt = body.get('user_prompt', '').strip()
+    review_mode = body.get('mode', 'standard')  # standard | zhangxuefeng
 
-    prompt_text = AI_REVIEW_PROMPT.format(
+    base_prompt = ZXF_REVIEW_PROMPT if review_mode == 'zhangxuefeng' else AI_REVIEW_PROMPT
+    prompt_text = base_prompt.format(
         score=score,
         ke_lei=profile.get('ke_lei', '物理'),
         target_kw='、'.join(profile.get('target_kw', [])) or '未指定',
