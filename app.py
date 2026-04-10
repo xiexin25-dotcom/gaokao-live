@@ -939,17 +939,21 @@ def chat_page():
 
 @app.route('/api/settings', methods=['GET', 'POST'])
 def api_settings():
-    """获取/保存用户设置（Gemini API Key）"""
+    """获取/保存用户设置（API Keys）"""
     global SETTINGS
     if request.method == 'POST':
         body = request.json or {}
         if 'api_key' in body:
             SETTINGS['api_key'] = body['api_key'].strip()
+        if 'qwen_api_key' in body:
+            SETTINGS['qwen_api_key'] = body['qwen_api_key'].strip()
         return jsonify({'ok': True})
     key = SETTINGS.get('api_key', '')
+    qwen_key = os.environ.get('DASHSCOPE_API_KEY') or SETTINGS.get('qwen_api_key', '')
     return jsonify({
         'has_key':     bool(key),
         'key_preview': ('AIza...' + key[-6:]) if key else '',
+        'has_qwen_key': bool(qwen_key),
     })
 
 
@@ -1184,11 +1188,69 @@ def _serialize_plan(sid):
     return vols_out, stats, mc, profile, mode, len(plan_vols)
 
 
-def _ai_review_worker(sid, prompt_text):
-    """后台线程：调用 claude CLI 完成审核+修正"""
+# ── Claude Code 可用性检测 ─────────────────────────────────
+_CLAUDE_AVAILABLE = None  # None=未检测, True/False
+
+def _check_claude_available():
+    """检测 claude CLI 是否可用（仅检测一次，结果缓存）"""
+    global _CLAUDE_AVAILABLE
+    if _CLAUDE_AVAILABLE is not None:
+        return _CLAUDE_AVAILABLE
+    import shutil
+    _CLAUDE_AVAILABLE = shutil.which('claude') is not None
+    if not _CLAUDE_AVAILABLE:
+        print("[AI修正] claude CLI 未找到，Claude Code 模式不可用", flush=True)
+    return _CLAUDE_AVAILABLE
+
+
+def _call_qwen_api(prompt_text, timeout=90):
+    """调用通义千问 API（OpenAI 兼容接口），返回原始文本"""
+    import urllib.request, urllib.error
+    qwen_key = os.environ.get('DASHSCOPE_API_KEY') or SETTINGS.get('qwen_api_key', '')
+    if not qwen_key:
+        raise ValueError('未配置通义千问 API Key（设置环境变量 DASHSCOPE_API_KEY 或在设置页输入）')
+
+    payload = json.dumps({
+        'model': 'qwen-max',
+        'messages': [{'role': 'user', 'content': prompt_text}],
+        'response_format': {'type': 'json_object'},
+        'temperature': 0.3,
+        'max_tokens': 4096,
+    }).encode('utf-8')
+
+    url = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
+    req = urllib.request.Request(url, data=payload, headers={
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {qwen_key}',
+    }, method='POST')
+
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        result = json.loads(resp.read().decode('utf-8'))
+    return result['choices'][0]['message']['content'].strip()
+
+
+def _call_claude_cli(prompt_text, timeout=120):
+    """调用 Claude Code CLI，返回原始文本"""
     import subprocess
+    proc = subprocess.run(
+        ['claude', '-p', '--output-format', 'text',
+         '--model', 'haiku',
+         '--tools', '',
+         '--mcp-config', '{"mcpServers":{}}',
+         '--strict-mcp-config',
+         '--dangerously-skip-permissions',
+        ],
+        input=prompt_text, capture_output=True, text=True, timeout=timeout,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f'Claude Code 退出码 {proc.returncode}: {proc.stderr[:300]}')
+    return proc.stdout.strip()
+
+
+def _ai_review_worker(sid, prompt_text, ai_model='claude'):
+    """后台线程：调用 AI 完成审核+修正（支持 claude / qwen）"""
     try:
-        print(f"[AI修正] 开始审核 sid={sid}, prompt={len(prompt_text)}字", flush=True)
+        print(f"[AI修正] 开始审核 sid={sid}, model={ai_model}, prompt={len(prompt_text)}字", flush=True)
         with _AI_REVIEW_LOCK:
             _AI_REVIEW_STATE[sid] = {'status': 'running'}
 
@@ -1197,24 +1259,12 @@ def _ai_review_worker(sid, prompt_text):
         with open(prompt_file, 'w', encoding='utf-8') as f:
             f.write(prompt_text)
 
-        proc = subprocess.run(
-            ['claude', '-p', '--output-format', 'text',
-             '--model', 'haiku',
-             '--tools', '',                          # 禁用内置工具，纯文本对话
-             '--mcp-config', '{"mcpServers":{}}',    # 禁用 MCP servers
-             '--strict-mcp-config',
-             '--dangerously-skip-permissions',        # 跳过权限提示，避免阻塞
-            ],
-            input=prompt_text, capture_output=True, text=True, timeout=120,
-        )
-        print(f"[AI修正] claude 完成 code={proc.returncode} stdout={len(proc.stdout)}字 stderr={len(proc.stderr)}字", flush=True)
-        if proc.returncode != 0:
-            with _AI_REVIEW_LOCK:
-                _AI_REVIEW_STATE[sid] = {'status': 'error',
-                    'error': f'Claude Code 退出码 {proc.returncode}: {proc.stderr[:500]}'}
-            return
-
-        raw = proc.stdout.strip()
+        if ai_model == 'qwen':
+            raw = _call_qwen_api(prompt_text)
+            print(f"[AI修正] 通义千问完成 len={len(raw)}字", flush=True)
+        else:
+            raw = _call_claude_cli(prompt_text)
+            print(f"[AI修正] Claude完成 len={len(raw)}字", flush=True)
         # 去除可能的 markdown 代码块
         if raw.startswith('```'):
             lines = raw.split('\n')
@@ -1263,10 +1313,13 @@ def _ai_review_worker(sid, prompt_text):
                            'issues': [], 'suggestions': [], 'raw': True},
                 'applied': [],
             }
-    except subprocess.TimeoutExpired:
-        print(f"[AI修正] 超时 sid={sid}", flush=True)
-        with _AI_REVIEW_LOCK:
-            _AI_REVIEW_STATE[sid] = {'status': 'error', 'error': 'Claude Code 审核超时（120秒）'}
+    except Exception as _timeout_or_runtime:
+        import subprocess as _sp
+        if isinstance(_timeout_or_runtime, _sp.TimeoutExpired):
+            print(f"[AI修正] 超时 sid={sid}", flush=True)
+            with _AI_REVIEW_LOCK:
+                _AI_REVIEW_STATE[sid] = {'status': 'error', 'error': 'AI 审核超时，请稍后重试'}
+            return
     except Exception as e:
         print(f"[AI修正] 异常 sid={sid}: {e}", flush=True)
         import traceback; traceback.print_exc()
@@ -1316,11 +1369,32 @@ def api_ai_review():
     if safe_user_prompt:
         prompt_text += f'\n\n用户额外要求：{safe_user_prompt}'
 
-    t = threading.Thread(target=_ai_review_worker, args=(sid, prompt_text), daemon=True)
+    ai_model = body.get('ai_model', 'claude')  # claude | qwen
+    if ai_model == 'claude' and not _check_claude_available():
+        return jsonify({'error': 'Claude Code 在当前服务器不可用，请选择通义千问'}), 400
+    if ai_model == 'qwen':
+        qwen_key = os.environ.get('DASHSCOPE_API_KEY') or SETTINGS.get('qwen_api_key', '')
+        if not qwen_key:
+            return jsonify({'error': '未配置通义千问 API Key（请设置环境变量 DASHSCOPE_API_KEY）'}), 400
+
+    model_label = '通义千问' if ai_model == 'qwen' else 'Claude Code'
+    t = threading.Thread(target=_ai_review_worker, args=(sid, prompt_text, ai_model), daemon=True)
     t.start()
 
-    return jsonify({'ok': True, 'message': '已启动 Claude Code 审核…'})
+    return jsonify({'ok': True, 'message': f'已启动 {model_label} 审核…'})
 
+
+@app.route('/api/ai_models')
+def api_ai_models():
+    """返回可用的 AI 模型列表（前端用于渲染选择器）"""
+    claude_ok = _check_claude_available()
+    qwen_key = os.environ.get('DASHSCOPE_API_KEY') or SETTINGS.get('qwen_api_key', '')
+    return jsonify({
+        'models': [
+            {'id': 'qwen',  'name': '通义千问', 'available': bool(qwen_key), 'reason': '' if qwen_key else '未配置 API Key'},
+            {'id': 'claude', 'name': 'Claude Code', 'available': claude_ok, 'reason': '' if claude_ok else '服务器未安装 Claude CLI'},
+        ]
+    })
 
 @app.route('/api/ai_review_status')
 def api_ai_review_status():
