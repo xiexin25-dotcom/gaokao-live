@@ -27,7 +27,7 @@ from engine.planner import (build_plan, build_plan_direct, mc_simulate,
                              optimize_plan, export_excel, export_excel_direct,
                              KW_LIB, EXCLUDE_PRESETS, load_raw_df,
                              _DIRECT_PROV_CFG)
-from engine.system_prompt import SYSTEM_PROMPT, AI_REVIEW_PROMPT, ZXF_REVIEW_PROMPT
+from engine.system_prompt import SYSTEM_PROMPT, AI_REVIEW_PROMPT, ZXF_REVIEW_PROMPT, AI_SCREEN_PROMPT
 from engine import db as gaokao_db
 
 # ── PyInstaller 打包路径兼容 ──────────────────────────────
@@ -1119,13 +1119,13 @@ def _replenish_plan_session(sid, target_count=40):
         return 0
 
 
-def _apply_corrections_to_session(actions, sid):
-    """将修正指令应用到 SESSION（线程安全）"""
+def _apply_deletions(actions, sid):
+    """第一阶段：仅执行删除操作（remove_vol + remove_major）"""
     applied = []
     with _SESSION_LOCK:
         sess = _get_session(sid)
         if 'plan' not in sess:
-            return ['错误：SESSION 中无方案']
+            return applied
         plan_vols = sess['plan']['plan_vols']
 
         for act in actions:
@@ -1141,6 +1141,26 @@ def _apply_corrections_to_session(actions, sid):
                             applied.append(f"#{idx} 移除专业「{mname}」")
                         break
 
+        remove_idxs = {act['vol_idx'] for act in actions if act.get('type') == 'remove_vol'}
+        if remove_idxs:
+            for v in plan_vols:
+                if v['vol_idx'] in remove_idxs:
+                    applied.append(f"移除 #{v['vol_idx']} {v['school']}")
+            plan_vols = [v for v in plan_vols if v['vol_idx'] not in remove_idxs]
+            for i, v in enumerate(plan_vols):
+                v['vol_idx'] = i + 1
+            sess['plan']['plan_vols'] = plan_vols
+    return applied
+
+
+def _apply_reclassify(actions, sid):
+    """第三阶段：执行重分类（reclassify），在补充+二次筛选之后"""
+    applied = []
+    with _SESSION_LOCK:
+        sess = _get_session(sid)
+        if 'plan' not in sess:
+            return applied
+        plan_vols = sess['plan']['plan_vols']
         for act in actions:
             if act.get('type') == 'reclassify':
                 idx = act.get('vol_idx')
@@ -1151,19 +1171,12 @@ def _apply_corrections_to_session(actions, sid):
                         v['tp'] = new_tp
                         applied.append(f"#{idx} {v['school']} {old_tp}->{new_tp}")
                         break
-
-        remove_idxs = {act['vol_idx'] for act in actions if act.get('type') == 'remove_vol'}
-        if remove_idxs:
-            for v in plan_vols:
-                if v['vol_idx'] in remove_idxs:
-                    applied.append(f"移除 #{v['vol_idx']} {v['school']}")
-            plan_vols = [v for v in plan_vols if v['vol_idx'] not in remove_idxs]
-            tp_ord = {'冲': 0, '稳': 1, '保': 2}
-            plan_vols.sort(key=lambda v: (tp_ord.get(v.get('tp', '稳'), 1), -(v.get('sc6') or 0)))
-            for i, v in enumerate(plan_vols):
-                v['vol_idx'] = i + 1
-            sess['plan']['plan_vols'] = plan_vols
-
+        # 重新排序
+        tp_ord = {'冲': 0, '稳': 1, '保': 2}
+        plan_vols.sort(key=lambda v: (tp_ord.get(v.get('tp', '稳'), 1), -(v.get('sc6') or 0)))
+        for i, v in enumerate(plan_vols):
+            v['vol_idx'] = i + 1
+        sess['plan']['plan_vols'] = plan_vols
     return applied
 
 
@@ -1326,20 +1339,93 @@ def _ai_review_worker(sid, prompt_text, ai_model='claude'):
             raw = '\n'.join(lines)
 
         review = json.loads(raw)
-
-        # 自动应用修正（删除不合理志愿 + 重分类）
         corrections = review.get('corrections', [])
         applied = []
-        if corrections:
-            applied = _apply_corrections_to_session(corrections, sid)
+        changed = False
 
-        # 删除后自动补充志愿到40个
+        # ══ 第1步：删除不合理志愿 ══
+        del_actions = [a for a in corrections if a.get('type') in ('remove_vol', 'remove_major')]
+        if del_actions:
+            applied += _apply_deletions(del_actions, sid)
+            changed = True
+            print(f"[AI修正] 第1步完成：删除 {len(del_actions)} 项", flush=True)
+
+        # ══ 第2步：补充志愿到40个 ══
         replenished = _replenish_plan_session(sid, target_count=40)
         if replenished > 0:
-            applied.append(f"自动补充 {replenished} 个志愿至40个")
+            applied.append(f"补充 {replenished} 个候选志愿")
+            changed = True
+            print(f"[AI修正] 第2步完成：补充 {replenished} 个", flush=True)
 
-        # 只要有任何修改（删除/补充/重分类），都序列化返回给前端刷新
-        if corrections or replenished > 0:
+        # ══ 第3步：AI 二次筛选补充的志愿 + 全量重分类 ══
+        if replenished > 0:
+            print(f"[AI修正] 第3步：AI筛选新补充志愿…", flush=True)
+            from copy import deepcopy
+            with _SESSION_LOCK:
+                sess = _get_session(sid)
+                cur_vols = deepcopy(sess['plan']['plan_vols'])
+                cur_profile = deepcopy(sess.get('profile', {}))
+            # 构建二次筛选 prompt
+            new_start = len(cur_vols) - replenished
+            new_vols_text = []
+            full_plan_text = []
+            for v in cur_vols:
+                line = f"#{v['vol_idx']}{v.get('tp','?')} {v['school']}({v.get('lv_label','?')}) gmin={v.get('gmin25',0)} sc6={v.get('sc6',0)}"
+                if v['vol_idx'] > new_start:
+                    new_vols_text.append('★' + line)
+                full_plan_text.append(line)
+            screen_prompt = AI_SCREEN_PROMPT.format(
+                score=cur_profile.get('score', 0),
+                ke_lei=cur_profile.get('ke_lei', '物理'),
+                target_kw=_sanitize_prompt_input('、'.join(cur_profile.get('target_kw', [])) or '未指定', 200),
+                exclude_kw=_sanitize_prompt_input('、'.join(cur_profile.get('exclude_kw', [])) or '无', 200),
+                new_vols='\n'.join(new_vols_text),
+                full_plan='\n'.join(full_plan_text),
+            )
+            try:
+                if ai_model == 'qwen':
+                    screen_raw = _call_qwen_api(screen_prompt, timeout=60)
+                else:
+                    screen_raw = _call_claude_cli(screen_prompt, timeout=60)
+                # 去 markdown 代码块
+                if screen_raw.startswith('```'):
+                    sl = screen_raw.split('\n')
+                    if sl[0].startswith('```'): sl = sl[1:]
+                    if sl and sl[-1].strip() == '```': sl = sl[:-1]
+                    screen_raw = '\n'.join(sl)
+                screen = json.loads(screen_raw)
+                # 执行二次删除
+                s_remove = screen.get('screened_remove', [])
+                if s_remove:
+                    rm_acts = [{'type': 'remove_vol', 'vol_idx': r['vol_idx']} for r in s_remove]
+                    applied += _apply_deletions(rm_acts, sid)
+                    # 再补一次（把被二次筛掉的坑位补回来）
+                    re_rep = _replenish_plan_session(sid, target_count=40)
+                    if re_rep > 0:
+                        applied.append(f"二次筛选后再补 {re_rep} 个")
+                # 执行全量重分类
+                s_reclass = screen.get('reclassify', [])
+                if s_reclass:
+                    rc_acts = [{'type': 'reclassify', 'vol_idx': r['vol_idx'], 'new_tp': r['new_tp']} for r in s_reclass]
+                    applied += _apply_reclassify(rc_acts, sid)
+                note2 = screen.get('note', '')
+                if note2:
+                    applied.append(f"AI筛选：{note2[:100]}")
+                print(f"[AI修正] 第3步完成：筛掉{len(s_remove)}个 重分类{len(s_reclass)}个", flush=True)
+            except Exception as e2:
+                print(f"[AI修正] 第3步二次筛选失败（降级跳过）: {e2}", flush=True)
+                # 降级：用原始 corrections 中的 reclassify
+                rc_actions = [a for a in corrections if a.get('type') == 'reclassify']
+                if rc_actions:
+                    applied += _apply_reclassify(rc_actions, sid)
+        else:
+            # 没有补充，直接用第一次AI的 reclassify
+            rc_actions = [a for a in corrections if a.get('type') == 'reclassify']
+            if rc_actions:
+                applied += _apply_reclassify(rc_actions, sid)
+                changed = True
+
+        if changed:
             vols_out, stats, mc, profile, mode, count = _serialize_plan(sid)
         else:
             vols_out, stats, mc, profile, mode, count = None, None, None, None, None, None
