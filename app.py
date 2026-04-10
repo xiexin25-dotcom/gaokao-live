@@ -1779,11 +1779,17 @@ def api_school_majors():
         sub['s25'] = pd.to_numeric(sub['最低分'], errors='coerce')
         sub['r25'] = pd.to_numeric(sub['最低位次'], errors='coerce')
         sub = sub.dropna(subset=['s25']).sort_values('s25', ascending=False)
+        import re as _re
+        def _extract_sub(remark):
+            if not remark: return ''
+            pm = _re.search(r'[（(]([^）)]{2,20})[）)]', str(remark))
+            return pm.group(1) if pm else ''
         majors = [{
             'name':  str(r['专业名称']),
             'score': int(r['s25']),
             'rank':  int(r['r25']) if pd.notna(r['r25']) else None,
             'plan':  int(r['计划人数']) if ('计划人数' in sub.columns and pd.notna(r.get('计划人数'))) else None,
+            'sub_name': _extract_sub(r.get('专业备注', '')),
         } for _, r in sub.iterrows()]
         school = str(sub.iloc[0]['院校名称']) if len(sub) else gcode
         return jsonify({'school': school, 'ke': ke, 'count': len(majors), 'majors': majors})
