@@ -128,7 +128,11 @@ def _set_security_headers(response):
     """安全头 + 首次访问时设置 gaokao_sid cookie"""
     # 安全 Headers
     response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY'
+    # reports/ 路由允许同源 iframe 嵌入（专业报告浮窗），其他路由禁止
+    if request.path.startswith('/reports/'):
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    else:
+        response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     # Session Cookie
@@ -1674,7 +1678,10 @@ def api_reports():
 def serve_report(filename):
     """直接提供 reports/ 目录下的 HTML 报告文件（防路径遍历）"""
     from flask import send_from_directory
-    return send_from_directory(REPORTS_DIR, filename, mimetype='text/html')
+    resp = send_from_directory(REPORTS_DIR, filename, mimetype='text/html')
+    # 允许同源 iframe 嵌入（报告浮窗需要 iframe 加载）
+    resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    return resp
 
 
 @app.route('/api/major_schools')
