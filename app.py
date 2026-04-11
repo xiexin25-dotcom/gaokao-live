@@ -1429,6 +1429,15 @@ def _ai_review_worker(sid, prompt_text, ai_model='claude'):
 
         if changed:
             vols_out, stats, mc, profile, mode, count = _serialize_plan(sid)
+            # 同步修正后的方案回 batch_plans（确保切换批次后数据一致）
+            with _SESSION_LOCK:
+                sess = _get_session(sid)
+                ab = sess.get('active_batch', '本科批')
+                sess.setdefault('batch_plans', {})
+                if ab in sess['batch_plans']:
+                    from copy import deepcopy as _dc
+                    sess['batch_plans'][ab]['plan'] = _dc(sess['plan'])
+                    sess['batch_plans'][ab]['mc']   = _dc(sess.get('mc'))
         else:
             vols_out, stats, mc, profile, mode, count = None, None, None, None, None, None
 
@@ -1487,15 +1496,30 @@ def api_ai_review():
             return jsonify({'ok': True, 'message': '审核进行中…'})
 
     from copy import deepcopy
+    body = request.get_json(silent=True) or {}
+    req_batch = body.get('batch', '').strip() or '本科批'
+
     with _SESSION_LOCK:
-        plan_data = deepcopy(SESSION['plan'])
-        profile   = deepcopy(SESSION.get('profile', {}))
-        mc_data   = deepcopy(SESSION.get('mc'))
+        # 优先从 batch_plans 读取指定批次的方案，而非 SESSION['plan']（可能指向其他批次）
+        batch_plans = SESSION.get('batch_plans', {})
+        if req_batch in batch_plans:
+            bp = batch_plans[req_batch]
+            plan_data = deepcopy(bp['plan'])
+            profile   = deepcopy(bp.get('profile', SESSION.get('profile', {})))
+            mc_data   = deepcopy(bp.get('mc', SESSION.get('mc')))
+        else:
+            plan_data = deepcopy(SESSION['plan'])
+            profile   = deepcopy(SESSION.get('profile', {}))
+            mc_data   = deepcopy(SESSION.get('mc'))
+        # 同步 SESSION['plan'] 到当前请求的批次，确保后续 worker 操作正确的数据
+        SESSION['plan']    = deepcopy(plan_data)
+        SESSION['profile'] = deepcopy(profile)
+        SESSION['mc']      = deepcopy(mc_data) if mc_data else None
+        SESSION['active_batch'] = req_batch
 
     score = profile.get('score', 0)
     plan_json, mc_summary = _build_plan_summary(plan_data, profile, mc_data)
 
-    body = request.get_json(silent=True) or {}
     user_prompt = body.get('user_prompt', '').strip()
     review_mode = body.get('mode', 'standard')  # standard | zhangxuefeng
 

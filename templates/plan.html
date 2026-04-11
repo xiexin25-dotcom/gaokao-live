@@ -4184,7 +4184,7 @@ async function submitAiReview(){
   try {
     const res = await fetch(API_BASE + '/api/ai_review', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({user_prompt: userPrompt, mode: mode, ai_model: aiModel})
+      body: JSON.stringify({user_prompt: userPrompt, mode: mode, ai_model: aiModel, batch: activeBatch || '本科批'})
     });
     const d = await res.json();
     if(d.error){
