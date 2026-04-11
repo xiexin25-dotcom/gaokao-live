@@ -1295,8 +1295,8 @@ def _call_qwen_api(prompt_text, timeout=90):
     return result['choices'][0]['message']['content'].strip()
 
 
-def _call_claude_cli(prompt_text, timeout=120):
-    """调用 Claude Code CLI，返回原始文本"""
+def _call_claude_cli(prompt_text, timeout=300):
+    """调用 Claude Code CLI，返回原始文本（默认5分钟超时）"""
     import subprocess
     proc = subprocess.run(
         ['claude', '-p', '--output-format', 'text',
